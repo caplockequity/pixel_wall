@@ -485,8 +485,49 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .projection-slider { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; margin: 12px 0 9px; }
 .projection-slider + .projection-slider { margin-top: 0; }
 .projection-slider > span, .projection-slider > strong { font-size: 7px; letter-spacing: .12em; }
-.projection-slider input { grid-column: 1 / -1; width: 100%; margin: 2px 0; accent-color: var(--coral); cursor: ew-resize; }
+.projection-slider > input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 2px 0; accent-color: var(--coral); cursor: ew-resize; }
 .projection-slider.disabled { opacity: .34; }
+.scale-stepper {
+  grid-column: 1 / -1;
+  min-height: 33px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
+  align-items: stretch;
+  border: 1px solid #a39c90;
+  background: #ece5d8;
+}
+.scale-stepper button {
+  min-width: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.scale-stepper button:first-child { border-right: 1px solid #b7afa3; }
+.scale-stepper button:last-child { border-left: 1px solid #b7afa3; }
+.scale-value-input {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px;
+  padding: 0 8px;
+  background: var(--cream);
+  font: 800 9px/1 var(--font-geist-mono), monospace;
+}
+.scale-value-input input {
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  outline-offset: 2px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: right;
+}
 .source-info {
   display: grid;
   gap: 3px;
@@ -840,6 +881,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   .projection-title { grid-column: 1 / -1; }
   .project-action, .clear-action { grid-column: 1 / -1; margin: 0; min-height: 40px; }
   .projection-slider { grid-column: 1 / -1; margin: 0; }
+  .scale-stepper { min-height: 40px; }
+  .scale-stepper button { min-width: 40px; }
   .project-toggle { min-height: 40px; margin: 0; }
   .source-info, .pixel-match-action, .trace-frame-action, .sprite-stepper, .move-toggle, .position-readout, .canvas-zoom-block, .reference-actions { grid-column: 1 / -1; }
   .zoom-control { height: 40px; margin-top: 5px; }

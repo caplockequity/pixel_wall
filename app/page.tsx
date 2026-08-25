@@ -1056,13 +1056,11 @@ export default function Home() {
       moved = true;
     }
     if (["+", "=", "]"].includes(event.key)) {
-      setReferencePixelFit(false);
-      setReferenceTransform((current) => ({ ...current, scale: clamp(current.scale + 5, REFERENCE_SCALE_MIN, referenceScaleMax) }));
+      changeReferenceScale(referenceTransform.scale + 1);
       moved = true;
     }
     if (["-", "_", "["].includes(event.key)) {
-      setReferencePixelFit(false);
-      setReferenceTransform((current) => ({ ...current, scale: clamp(current.scale - 5, REFERENCE_SCALE_MIN, referenceScaleMax) }));
+      changeReferenceScale(referenceTransform.scale - 1);
       moved = true;
     }
     if (event.key === "0") {
@@ -1275,7 +1273,7 @@ export default function Home() {
           </div>
           <p className="canvas-hint">
             {adjustingReference
-              ? referencePixelFit ? "PIXEL LOCK ON · DRAG OR ARROWS MOVE ONE CELL · ESC DONE" : "DRAG IMAGE TO POSITION · ARROWS NUDGE · ESC DONE"
+              ? referencePixelFit ? "PIXEL LOCK ON · DRAG OR ARROWS MOVE ONE CELL · ESC DONE" : "DRAG IMAGE · ARROWS NUDGE · + / − SCALE 1% · ESC DONE"
               : referencePixelFit ? "1 IMAGE PIXEL = 1 CANVAS CELL · READY TO TRACE" : "DRAG TO PAINT · ARROW KEYS + SPACE WORK TOO"}
           </p>
         </div>
@@ -1333,10 +1331,11 @@ export default function Home() {
               <span>OPACITY</span><strong>{referenceOpacity}%</strong>
               <input type="range" min="0" max="100" value={referenceOpacity} onChange={(event) => setReferenceOpacity(Number(event.target.value))} disabled={!reference} />
             </label>
-            <label className={`projection-slider ${reference ? "" : "disabled"}`}>
+            <div className={`projection-slider ${reference ? "" : "disabled"}`}>
               <span>IMAGE SCALE</span><strong>{Math.round(referenceTransform.scale * 100) / 100}%</strong>
               <input
                 type="range"
+                aria-label="Image scale slider"
                 min={REFERENCE_SCALE_MIN}
                 max={referenceScaleMax}
                 step="1"
@@ -1344,7 +1343,45 @@ export default function Home() {
                 onChange={(event) => changeReferenceScale(Number(event.target.value))}
                 disabled={!reference}
               />
-            </label>
+              <div className="scale-stepper">
+                <button
+                  type="button"
+                  onClick={() => changeReferenceScale(referenceTransform.scale - 1)}
+                  disabled={!reference || referenceTransform.scale <= REFERENCE_SCALE_MIN}
+                  aria-label="Decrease image scale by 1 percent"
+                  title="Decrease image scale by 1%"
+                >
+                  <Minus size={14} />
+                </button>
+                <label className="scale-value-input">
+                  <span className="visually-hidden">Image scale percent</span>
+                  <input
+                    type="number"
+                    min={REFERENCE_SCALE_MIN}
+                    max={referenceScaleMax}
+                    step="any"
+                    value={Math.round(referenceTransform.scale * 100) / 100}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => {
+                      const nextScale = event.currentTarget.valueAsNumber;
+                      if (Number.isFinite(nextScale)) changeReferenceScale(nextScale);
+                    }}
+                    disabled={!reference}
+                    aria-label="Image scale percent"
+                  />
+                  <span aria-hidden="true">%</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => changeReferenceScale(referenceTransform.scale + 1)}
+                  disabled={!reference || referenceTransform.scale >= referenceScaleMax}
+                  aria-label="Increase image scale by 1 percent"
+                  title="Increase image scale by 1%"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            </div>
             <button
               className={`project-toggle move-toggle ${adjustingReference ? "active" : ""}`}
               onClick={() => {

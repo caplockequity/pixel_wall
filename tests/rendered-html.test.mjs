@@ -37,6 +37,9 @@ test("server-renders the PixelWall studio", async () => {
   assert.match(html, /aria-label="Pixel art canvas mounted in a projector beam"/i);
   assert.match(html, />256<!-- --> × <!-- -->256</i);
   assert.match(html, /IMAGE SCALE/i);
+  assert.match(html, /aria-label="Decrease image scale by 1 percent"/i);
+  assert.match(html, /aria-label="Image scale percent"/i);
+  assert.match(html, /aria-label="Increase image scale by 1 percent"/i);
   assert.match(html, /MOVE IMAGE/i);
   assert.match(html, /aria-label="Pick a color from the canvas"/i);
   assert.match(html, /aria-label="Choose a custom color"/i);
