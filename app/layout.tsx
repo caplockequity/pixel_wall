@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,16 +13,39 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  applicationName: "PixelWall",
-  title: "PixelWall — Pixel Art Maker",
-  description:
-    "Draw crisp pixel art frame by frame on a projector-lit wall, then export your creation.",
-  icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "pixelwall-maker.ben-zavadil.chatgpt.site";
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
+  const origin = `${protocol}://${host}`;
+  const title = "PixelWall — Pixel Art Maker";
+  const description = "Draw crisp pixel art up to 256×256, trace a movable projector image, animate frame by frame, and export your creation.";
+  const socialImage = `${origin}/og.png`;
+
+  return {
+    metadataBase: new URL(origin),
+    applicationName: "PixelWall",
+    title,
+    description,
+    icons: {
+      icon: "/favicon.svg",
+      shortcut: "/favicon.svg",
+    },
+    openGraph: {
+      type: "website",
+      url: origin,
+      title,
+      description,
+      images: [{ url: socialImage, width: 1731, height: 909, alt: "PixelWall pixel art maker" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [socialImage],
+    },
+  };
+}
 
 export default function RootLayout({
   children,

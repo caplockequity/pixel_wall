@@ -35,6 +35,10 @@ test("server-renders the PixelWall studio", async () => {
   assert.match(html, />PIXELWALL</i);
   assert.match(html, /aria-label="Drawing tools"/i);
   assert.match(html, /aria-label="Pixel art canvas mounted in a projector beam"/i);
+  assert.match(html, />256<!-- --> × <!-- -->256</i);
+  assert.match(html, /IMAGE SCALE/i);
+  assert.match(html, /MOVE IMAGE/i);
+  assert.match(html, /class="projection-dock"/i);
   assert.match(html, /EXPORT PNG/i);
   assert.doesNotMatch(
     html,

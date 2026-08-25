@@ -6,11 +6,11 @@ onto a wall, mount a crisp pixel frame over it, and draw frame by frame.
 ## Features
 
 - Pencil, eraser, contiguous fill, and color picker
-- 8×8 through 32×32 canvases with centered resize
-- Projected image references with adjustable opacity
+- 8×8 through 256×256 bitmap canvases with centered resize
+- Projected image references with adjustable opacity, scale, and position
 - Animation frames, playback speed, duplication, deletion, and onion skin
 - Stroke-level undo and redo
-- Local autosave and transparent PNG export
+- Compact local autosave and transparent PNG export up to 4096px
 - Mouse, touch, and keyboard drawing
 
 ## Run locally

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ChangeEvent,
   CSSProperties,
@@ -16,7 +16,9 @@ import {
   EyeOff,
   Grid2X2,
   ImagePlus,
+  LocateFixed,
   Minus,
+  Move,
   PaintBucket,
   Pause,
   Pencil,
@@ -33,7 +35,33 @@ import {
 type Pixel = string | null;
 type Tool = "pencil" | "eraser" | "fill" | "picker";
 type ArtFrame = { id: number; pixels: Pixel[] };
-type Snapshot = { frames: ArtFrame[]; size: number; activeFrame: number };
+type ProjectSnapshot = { frames: ArtFrame[]; size: number; activeFrame: number };
+type FrameHistoryEntry = { kind: "frame"; frameId: number; size: number; pixels: Pixel[] };
+type ProjectHistoryEntry = { kind: "project"; snapshot: ProjectSnapshot };
+type HistoryEntry = FrameHistoryEntry | ProjectHistoryEntry;
+type ReferenceTransform = { x: number; y: number; scale: number };
+
+type LoadedProject = {
+  size: number;
+  frames: ArtFrame[];
+  activeFrame: number;
+  palette: string[];
+  selectedColor: string;
+  referenceOpacity?: number;
+  referenceTransform?: ReferenceTransform;
+};
+
+type StoredFrameV2 = { id: number; bytesPerIndex: 1 | 2; data: string };
+type StoredProjectV2 = {
+  version: 2;
+  size: number;
+  frames: StoredFrameV2[];
+  activeFrame: number;
+  palette: string[];
+  selectedColor: string;
+  colors: string[];
+  projector: { opacity: number; transform: ReferenceTransform };
+};
 
 const STARTER_PALETTE = [
   "#16152b",
@@ -46,9 +74,14 @@ const STARTER_PALETTE = [
   "#218c89",
   "#f8f0df",
 ];
-const GRID_SIZES = [8, 16, 24, 32];
+const GRID_SIZES = [8, 16, 24, 32, 48, 64, 96, 128, 256];
+const CANVAS_ZOOMS = [100, 200, 400, 800];
 const MAX_HISTORY = 40;
+const HISTORY_CELL_BUDGET = 4_000_000;
 const MAX_FRAMES = 12;
+const STORAGE_KEY = "pixelwall-project-v2";
+const LEGACY_STORAGE_KEY = "pixelwall-project-v1";
+const DEFAULT_REFERENCE_TRANSFORM: ReferenceTransform = { x: 0, y: 0, scale: 100 };
 
 function makeDemoPixels(size: number, shift = 0): Pixel[] {
   return Array.from({ length: size * size }, (_, index) => {
@@ -97,11 +130,11 @@ function floodFill(pixels: Pixel[], size: number, start: number, color: Pixel) {
   if (target === color) return pixels;
   const next = [...pixels];
   const stack = [start];
-  const visited = new Set<number>();
+  const visited = new Uint8Array(pixels.length);
   while (stack.length) {
     const index = stack.pop()!;
-    if (visited.has(index) || (next[index] ?? null) !== target) continue;
-    visited.add(index);
+    if (visited[index] || (next[index] ?? null) !== target) continue;
+    visited[index] = 1;
     next[index] = color;
     const x = index % size;
     const y = Math.floor(index / size);
@@ -140,18 +173,202 @@ function cellsBetween(from: number, to: number, size: number) {
   return result;
 }
 
-function FrameThumbnail({ pixels, size }: { pixels: Pixel[]; size: number }) {
-  return (
-    <div
-      className="pixel-thumb"
-      style={{ "--grid-size": size } as CSSProperties}
-      aria-hidden="true"
-    >
-      {pixels.map((color, index) => (
-        <span key={index} style={{ background: color ?? "transparent" }} />
-      ))}
-    </div>
-  );
+function hexToRgb(color: string) {
+  const hex = color.replace("#", "");
+  const normalized = hex.length === 3
+    ? hex.split("").map((character) => character + character).join("")
+    : hex.padEnd(6, "0").slice(0, 6);
+  const value = Number.parseInt(normalized, 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255] as const;
+}
+
+function renderPixelBitmap(canvas: HTMLCanvasElement | null, pixels: Pixel[], size: number) {
+  if (!canvas) return;
+  if (canvas.width !== size) canvas.width = size;
+  if (canvas.height !== size) canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  const image = context.createImageData(size, size);
+  for (let index = 0; index < pixels.length; index += 1) {
+    const color = pixels[index];
+    if (!color) continue;
+    const [red, green, blue] = hexToRgb(color);
+    const offset = index * 4;
+    image.data[offset] = red;
+    image.data[offset + 1] = green;
+    image.data[offset + 2] = blue;
+    image.data[offset + 3] = 255;
+  }
+  context.putImageData(image, 0, 0);
+}
+
+const PixelBitmap = memo(function PixelBitmap({
+  pixels,
+  size,
+  className,
+}: {
+  pixels: Pixel[];
+  size: number;
+  className: string;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => renderPixelBitmap(ref.current, pixels, size), [pixels, size]);
+  return <canvas ref={ref} className={className} width={size} height={size} aria-hidden="true" />;
+});
+
+const FrameThumbnail = memo(function FrameThumbnail({ pixels, size }: { pixels: Pixel[]; size: number }) {
+  return <PixelBitmap pixels={pixels} size={size} className="pixel-thumb" />;
+});
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return window.btoa(binary);
+}
+
+function base64ToBytes(value: string) {
+  const binary = window.atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+function encodeStoredProject(project: LoadedProject): StoredProjectV2 {
+  const colors: string[] = [];
+  const colorIndex = new Map<string, number>();
+  project.frames.forEach((frame) => {
+    frame.pixels.forEach((color) => {
+      if (color && !colorIndex.has(color)) {
+        colors.push(color);
+        colorIndex.set(color, colors.length);
+      }
+    });
+  });
+  const bytesPerIndex: 1 | 2 = colors.length <= 255 ? 1 : 2;
+  const storedFrames = project.frames.map((frame) => {
+    const bytes = new Uint8Array(frame.pixels.length * bytesPerIndex);
+    frame.pixels.forEach((color, index) => {
+      const value = color ? colorIndex.get(color) ?? 0 : 0;
+      if (bytesPerIndex === 1) bytes[index] = value;
+      else {
+        bytes[index * 2] = value & 255;
+        bytes[index * 2 + 1] = value >> 8;
+      }
+    });
+    return { id: frame.id, bytesPerIndex, data: bytesToBase64(bytes) };
+  });
+  return {
+    version: 2,
+    size: project.size,
+    frames: storedFrames,
+    activeFrame: project.activeFrame,
+    palette: project.palette,
+    selectedColor: project.selectedColor,
+    colors,
+    projector: {
+      opacity: project.referenceOpacity ?? 38,
+      transform: project.referenceTransform ?? DEFAULT_REFERENCE_TRANSFORM,
+    },
+  };
+}
+
+function decodeStoredProject(parsed: unknown): LoadedProject | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const project = parsed as Partial<StoredProjectV2>;
+  if (
+    project.version !== 2 ||
+    !project.size ||
+    !GRID_SIZES.includes(project.size) ||
+    !Array.isArray(project.frames) ||
+    project.frames.length < 1 ||
+    project.frames.length > MAX_FRAMES ||
+    !Array.isArray(project.colors) ||
+    !project.colors.every((color) => typeof color === "string")
+  ) return null;
+  const total = project.size * project.size;
+  try {
+    const frames = project.frames.map((frame, frameIndex) => {
+      if (!frame || (frame.bytesPerIndex !== 1 && frame.bytesPerIndex !== 2) || typeof frame.data !== "string") {
+        throw new Error("Invalid frame");
+      }
+      const bytes = base64ToBytes(frame.data);
+      if (bytes.length !== total * frame.bytesPerIndex) throw new Error("Invalid frame size");
+      const pixels = Array<Pixel>(total).fill(null);
+      for (let index = 0; index < total; index += 1) {
+        const value = frame.bytesPerIndex === 1
+          ? bytes[index]
+          : bytes[index * 2] | (bytes[index * 2 + 1] << 8);
+        if (value > 0) pixels[index] = project.colors?.[value - 1] ?? null;
+      }
+      return { id: Number.isFinite(frame.id) ? frame.id : frameIndex + 1, pixels };
+    });
+    const projector = project.projector;
+    const transform = projector?.transform;
+    return {
+      size: project.size,
+      frames,
+      activeFrame: Math.max(0, Math.min(project.activeFrame ?? 0, frames.length - 1)),
+      palette: Array.isArray(project.palette) && project.palette.length ? project.palette : STARTER_PALETTE,
+      selectedColor: typeof project.selectedColor === "string" ? project.selectedColor : "#ff6b57",
+      referenceOpacity: typeof projector?.opacity === "number" ? clamp(projector.opacity, 0, 100) : 38,
+      referenceTransform: {
+        x: typeof transform?.x === "number" ? clamp(transform.x, -200, 200) : 0,
+        y: typeof transform?.y === "number" ? clamp(transform.y, -200, 200) : 0,
+        scale: typeof transform?.scale === "number" ? clamp(transform.scale, 25, 400) : 100,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function decodeLegacyProject(parsed: unknown): LoadedProject | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const project = parsed as Partial<LoadedProject>;
+  if (
+    !project.size ||
+    !GRID_SIZES.includes(project.size) ||
+    !Array.isArray(project.frames) ||
+    project.frames.length < 1 ||
+    project.frames.length > MAX_FRAMES ||
+    !project.frames.every((frame) =>
+      Array.isArray(frame.pixels) &&
+      frame.pixels.length === project.size! * project.size! &&
+      frame.pixels.every((color) => color === null || typeof color === "string"),
+    )
+  ) return null;
+  return {
+    size: project.size,
+    frames: cloneFrames(project.frames),
+    activeFrame: Math.max(0, Math.min(project.activeFrame ?? 0, project.frames.length - 1)),
+    palette: Array.isArray(project.palette) && project.palette.length ? project.palette : STARTER_PALETTE,
+    selectedColor: project.selectedColor ?? "#ff6b57",
+  };
+}
+
+function historyCost(entry: HistoryEntry) {
+  return entry.kind === "frame"
+    ? entry.pixels.length
+    : entry.snapshot.frames.reduce((total, frame) => total + frame.pixels.length, 0);
+}
+
+function trimHistory(entries: HistoryEntry[]) {
+  const kept: HistoryEntry[] = [];
+  let cells = 0;
+  for (let index = entries.length - 1; index >= 0 && kept.length < MAX_HISTORY; index -= 1) {
+    const cost = historyCost(entries[index]);
+    if (kept.length > 0 && cells + cost > HISTORY_CELL_BUDGET) break;
+    kept.push(entries[index]);
+    cells += cost;
+  }
+  return kept.reverse();
+}
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.min(maximum, Math.max(minimum, value));
 }
 
 export default function Home() {
@@ -169,54 +386,66 @@ export default function Home() {
   const [showOnion, setShowOnion] = useState(false);
   const [reference, setReference] = useState<string | null>(null);
   const [referenceOpacity, setReferenceOpacity] = useState(38);
+  const [referenceTransform, setReferenceTransform] = useState<ReferenceTransform>(DEFAULT_REFERENCE_TRANSFORM);
+  const [adjustingReference, setAdjustingReference] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [playing, setPlaying] = useState(false);
   const [fps, setFps] = useState(8);
   const [cursorIndex, setCursorIndex] = useState(0);
-  const [undoStack, setUndoStack] = useState<Snapshot[]>([]);
-  const [redoStack, setRedoStack] = useState<Snapshot[]>([]);
+  const [undoStack, setUndoStack] = useState<HistoryEntry[]>([]);
+  const [redoStack, setRedoStack] = useState<HistoryEntry[]>([]);
   const [saved, setSaved] = useState(true);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [notice, setNotice] = useState("");
   const [storageReady, setStorageReady] = useState(false);
 
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const referenceLayerRef = useRef<HTMLButtonElement>(null);
   const activePointer = useRef<number | null>(null);
   const lastPainted = useRef<number | null>(null);
   const strokeRecorded = useRef(false);
+  const activeFrameRef = useRef(activeFrame);
+  const saveWarningShown = useRef(false);
+  const referenceDrag = useRef<null | {
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  }>(null);
 
-  const currentPixels = frames[activeFrame]?.pixels ?? [];
+  const currentPixels = useMemo(() => frames[activeFrame]?.pixels ?? [], [activeFrame, frames]);
   const previousPixels = useMemo(() => {
     if (frames.length < 2) return [];
     const previous = (activeFrame - 1 + frames.length) % frames.length;
     return frames[previous]?.pixels ?? [];
   }, [activeFrame, frames]);
 
+  useEffect(() => renderPixelBitmap(canvasRef.current, currentPixels, size), [currentPixels, size]);
+
+  useEffect(() => {
+    activeFrameRef.current = activeFrame;
+  }, [activeFrame]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
-        const savedProject = window.localStorage.getItem("pixelwall-project-v1");
-        if (savedProject) {
-          const parsed = JSON.parse(savedProject) as Partial<{
-            size: number;
-            frames: ArtFrame[];
-            activeFrame: number;
-            palette: string[];
-            selectedColor: string;
-          }>;
-          if (
-            parsed.size &&
-            GRID_SIZES.includes(parsed.size) &&
-            Array.isArray(parsed.frames) &&
-            parsed.frames.length > 0 &&
-            parsed.frames.every((frame) => frame.pixels?.length === parsed.size! * parsed.size!)
-          ) {
-            setSize(parsed.size);
-            setFrames(cloneFrames(parsed.frames));
-            setActiveFrame(Math.min(parsed.activeFrame ?? 0, parsed.frames.length - 1));
-            if (Array.isArray(parsed.palette) && parsed.palette.length) setPalette(parsed.palette);
-            if (parsed.selectedColor) setSelectedColor(parsed.selectedColor);
-          }
+        const currentDraft = window.localStorage.getItem(STORAGE_KEY);
+        const legacyDraft = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+        const loaded = currentDraft
+          ? decodeStoredProject(JSON.parse(currentDraft))
+          : legacyDraft
+            ? decodeLegacyProject(JSON.parse(legacyDraft))
+            : null;
+        if (loaded) {
+          setSize(loaded.size);
+          setFrames(cloneFrames(loaded.frames));
+          setActiveFrame(loaded.activeFrame);
+          setPalette(loaded.palette);
+          setSelectedColor(loaded.selectedColor);
+          if (loaded.referenceOpacity !== undefined) setReferenceOpacity(loaded.referenceOpacity);
+          if (loaded.referenceTransform) setReferenceTransform(loaded.referenceTransform);
         }
       } catch {
         // A malformed local draft should never block the editor.
@@ -229,19 +458,39 @@ export default function Home() {
 
   useEffect(() => {
     if (!storageReady) return;
-    const savingTimer = window.setTimeout(() => setSaved(false), 0);
+    const savingTimer = window.setTimeout(() => {
+      setSaved(false);
+      setSaveFailed(false);
+    }, 0);
     const timer = window.setTimeout(() => {
-      window.localStorage.setItem(
-        "pixelwall-project-v1",
-        JSON.stringify({ size, frames, activeFrame, palette, selectedColor }),
-      );
-      setSaved(true);
-    }, 450);
+      try {
+        const stored = encodeStoredProject({
+          size,
+          frames,
+          activeFrame: activeFrameRef.current,
+          palette,
+          selectedColor,
+          referenceOpacity,
+          referenceTransform,
+        });
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+        setSaved(true);
+        setSaveFailed(false);
+        saveWarningShown.current = false;
+      } catch {
+        setSaved(false);
+        setSaveFailed(true);
+        if (!saveWarningShown.current) {
+          saveWarningShown.current = true;
+          setNotice("This project is too large for local autosave — export important frames");
+        }
+      }
+    }, 500);
     return () => {
       window.clearTimeout(savingTimer);
       window.clearTimeout(timer);
     };
-  }, [activeFrame, frames, palette, selectedColor, size, storageReady]);
+  }, [frames, palette, referenceOpacity, referenceTransform, selectedColor, size, storageReady]);
 
   useEffect(() => {
     if (!playing || frames.length < 2) return;
@@ -253,50 +502,82 @@ export default function Home() {
 
   useEffect(() => {
     if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(""), 2200);
+    const timer = window.setTimeout(() => setNotice(""), 2400);
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  function snapshot(): Snapshot {
+  useEffect(() => {
+    if (!adjustingReference) return;
+    const timer = window.setTimeout(() => referenceLayerRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
+  }, [adjustingReference]);
+
+  function projectSnapshot(): ProjectSnapshot {
     return { frames: cloneFrames(frames), size, activeFrame };
   }
 
-  function pushHistory() {
-    const nextSnapshot = snapshot();
-    setUndoStack((current) => [...current.slice(-(MAX_HISTORY - 1)), nextSnapshot]);
+  function pushHistory(entry: HistoryEntry) {
+    setUndoStack((current) => trimHistory([...current, entry]));
     setRedoStack([]);
   }
 
-  function restoreSnapshot(next: Snapshot) {
-    setFrames(cloneFrames(next.frames));
-    setSize(next.size);
-    setActiveFrame(Math.min(next.activeFrame, next.frames.length - 1));
-    setCursorIndex((current) => Math.min(current, next.size * next.size - 1));
+  function recordFrameHistory() {
+    const frame = frames[activeFrame];
+    if (!frame) return;
+    pushHistory({ kind: "frame", frameId: frame.id, size, pixels: [...frame.pixels] });
+  }
+
+  function recordProjectHistory() {
+    pushHistory({ kind: "project", snapshot: projectSnapshot() });
+  }
+
+  function inverseFor(entry: HistoryEntry): HistoryEntry | null {
+    if (entry.kind === "project") return { kind: "project", snapshot: projectSnapshot() };
+    const frame = frames.find((candidate) => candidate.id === entry.frameId);
+    if (!frame) return null;
+    return { kind: "frame", frameId: frame.id, size, pixels: [...frame.pixels] };
+  }
+
+  function applyHistory(entry: HistoryEntry) {
     setPlaying(false);
+    if (entry.kind === "project") {
+      setFrames(cloneFrames(entry.snapshot.frames));
+      setSize(entry.snapshot.size);
+      setActiveFrame(Math.min(entry.snapshot.activeFrame, entry.snapshot.frames.length - 1));
+      setCursorIndex((current) => Math.min(current, entry.snapshot.size * entry.snapshot.size - 1));
+      return;
+    }
+    setFrames((current) => current.map((frame) =>
+      frame.id === entry.frameId ? { ...frame, pixels: [...entry.pixels] } : frame,
+    ));
+    const frameIndex = frames.findIndex((frame) => frame.id === entry.frameId);
+    if (frameIndex >= 0) setActiveFrame(frameIndex);
   }
 
   function undo() {
     const previous = undoStack.at(-1);
     if (!previous) return;
-    setRedoStack((current) => [...current.slice(-(MAX_HISTORY - 1)), snapshot()]);
+    const inverse = inverseFor(previous);
+    if (!inverse) return;
+    setRedoStack((current) => trimHistory([...current, inverse]));
     setUndoStack((current) => current.slice(0, -1));
-    restoreSnapshot(previous);
+    applyHistory(previous);
   }
 
   function redo() {
     const next = redoStack.at(-1);
     if (!next) return;
-    setUndoStack((current) => [...current.slice(-(MAX_HISTORY - 1)), snapshot()]);
+    const inverse = inverseFor(next);
+    if (!inverse) return;
+    setUndoStack((current) => trimHistory([...current, inverse]));
     setRedoStack((current) => current.slice(0, -1));
-    restoreSnapshot(next);
+    applyHistory(next);
   }
 
   function updateActivePixels(update: (pixels: Pixel[]) => Pixel[]) {
-    setFrames((current) =>
-      current.map((frame, index) =>
-        index === activeFrame ? { ...frame, pixels: update(frame.pixels) } : frame,
-      ),
-    );
+    setFrames((current) => current.map((frame, index) =>
+      index === activeFrame ? { ...frame, pixels: update(frame.pixels) } : frame,
+    ));
   }
 
   function applyTool(index: number, indices = [index]) {
@@ -339,8 +620,8 @@ export default function Home() {
     return y * size + x;
   }
 
-  function beginStroke(event: ReactPointerEvent<HTMLDivElement>) {
-    if (playing || event.button !== 0 || !event.isPrimary || activePointer.current !== null) return;
+  function beginStroke(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (playing || adjustingReference || event.button !== 0 || !event.isPrimary || activePointer.current !== null) return;
     const index = indexFromPointer(event.clientX, event.clientY);
     if (index === null) return;
     setCursorIndex(index);
@@ -350,7 +631,7 @@ export default function Home() {
       return;
     }
     if (toolWouldChange(index)) {
-      pushHistory();
+      recordFrameHistory();
       strokeRecorded.current = true;
       applyTool(index);
     }
@@ -361,14 +642,14 @@ export default function Home() {
     }
   }
 
-  function continueStroke(event: ReactPointerEvent<HTMLDivElement>) {
+  function continueStroke(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (activePointer.current !== event.pointerId || lastPainted.current === null) return;
     const index = indexFromPointer(event.clientX, event.clientY);
     if (index === null || index === lastPainted.current) return;
     const path = cellsBetween(lastPainted.current, index, size);
     if (toolWouldChange(index, path)) {
       if (!strokeRecorded.current) {
-        pushHistory();
+        recordFrameHistory();
         strokeRecorded.current = true;
       }
       applyTool(index, path);
@@ -377,7 +658,7 @@ export default function Home() {
     lastPainted.current = index;
   }
 
-  function endStroke(event: ReactPointerEvent<HTMLDivElement>) {
+  function endStroke(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (activePointer.current !== event.pointerId) return;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -387,7 +668,7 @@ export default function Home() {
     strokeRecorded.current = false;
   }
 
-  function handleCanvasKey(event: ReactKeyboardEvent<HTMLDivElement>) {
+  function handleCanvasKey(event: ReactKeyboardEvent<HTMLCanvasElement>) {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
       event.preventDefault();
       if (event.shiftKey) redo();
@@ -427,23 +708,26 @@ export default function Home() {
       if (event.repeat || playing) return;
       if (tool === "picker") applyTool(cursorIndex);
       else if (toolWouldChange(cursorIndex)) {
-        pushHistory();
+        recordFrameHistory();
         applyTool(cursorIndex);
       }
     }
   }
 
   function changeSize(nextSize: number) {
-    if (nextSize === size) return;
-    pushHistory();
-    setFrames((current) =>
-      current.map((frame) => ({
-        ...frame,
-        pixels: resizePixels(frame.pixels, size, nextSize),
-      })),
-    );
+    if (nextSize === size || !GRID_SIZES.includes(nextSize)) return;
+    recordProjectHistory();
+    setPlaying(false);
+    activePointer.current = null;
+    lastPainted.current = null;
+    strokeRecorded.current = false;
+    setFrames((current) => current.map((frame) => ({
+      ...frame,
+      pixels: resizePixels(frame.pixels, size, nextSize),
+    })));
     setSize(nextSize);
     setCursorIndex(0);
+    if (nextSize >= 128 && zoom < 200) setZoom(200);
     setNotice(`Canvas resized to ${nextSize} × ${nextSize}`);
   }
 
@@ -452,7 +736,7 @@ export default function Home() {
       setNotice(`Frame limit is ${MAX_FRAMES}`);
       return;
     }
-    pushHistory();
+    recordProjectHistory();
     const nextId = Math.max(...frames.map((frame) => frame.id), 0) + 1;
     setFrames((current) => [...current, { id: nextId, pixels: Array(size * size).fill(null) }]);
     setActiveFrame(frames.length);
@@ -463,7 +747,7 @@ export default function Home() {
       setNotice(`Frame limit is ${MAX_FRAMES}`);
       return;
     }
-    pushHistory();
+    recordProjectHistory();
     const nextId = Math.max(...frames.map((frame) => frame.id), 0) + 1;
     const duplicate = { id: nextId, pixels: [...currentPixels] };
     setFrames((current) => [
@@ -479,7 +763,7 @@ export default function Home() {
       setNotice("Keep at least one frame");
       return;
     }
-    pushHistory();
+    recordProjectHistory();
     if (frames.length === 2) setPlaying(false);
     setFrames((current) => current.filter((_, index) => index !== activeFrame));
     setActiveFrame((current) => Math.max(0, Math.min(current, frames.length - 2)));
@@ -490,9 +774,14 @@ export default function Home() {
       setNotice("Frame is already clear");
       return;
     }
-    pushHistory();
+    recordFrameHistory();
     updateActivePixels(() => Array(size * size).fill(null));
     setNotice("Frame cleared");
+  }
+
+  function resetReferenceTransform() {
+    setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
+    setNotice("Projector image centered");
   }
 
   function handleReference(event: ChangeEvent<HTMLInputElement>) {
@@ -501,10 +790,100 @@ export default function Home() {
     const reader = new FileReader();
     reader.onload = () => {
       setReference(String(reader.result));
-      setNotice("Reference projected onto the wall");
+      setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
+      setAdjustingReference(true);
+      setNotice("Reference loaded — drag it into position");
     };
     reader.readAsDataURL(file);
     event.target.value = "";
+  }
+
+  function stopReferenceAdjustment() {
+    const drag = referenceDrag.current;
+    const layer = referenceLayerRef.current;
+    if (drag && layer?.hasPointerCapture(drag.pointerId)) {
+      layer.releasePointerCapture(drag.pointerId);
+    }
+    referenceDrag.current = null;
+    setAdjustingReference(false);
+  }
+
+  function removeReference() {
+    setReference(null);
+    stopReferenceAdjustment();
+    setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
+  }
+
+  function beginReferenceDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (!event.isPrimary || event.button !== 0 || referenceDrag.current) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    referenceDrag.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: referenceTransform.x,
+      originY: referenceTransform.y,
+    };
+  }
+
+  function continueReferenceDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = referenceDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const deltaX = ((event.clientX - drag.startX) / bounds.width) * 100;
+    const deltaY = ((event.clientY - drag.startY) / bounds.height) * 100;
+    setReferenceTransform((current) => ({
+      ...current,
+      x: clamp(drag.originX + deltaX, -200, 200),
+      y: clamp(drag.originY + deltaY, -200, 200),
+    }));
+  }
+
+  function endReferenceDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (referenceDrag.current?.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    referenceDrag.current = null;
+  }
+
+  function handleReferenceKey(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    const step = event.shiftKey ? 5 : 1;
+    let moved = false;
+    if (event.key === "ArrowLeft") {
+      setReferenceTransform((current) => ({ ...current, x: clamp(current.x - step, -200, 200) }));
+      moved = true;
+    }
+    if (event.key === "ArrowRight") {
+      setReferenceTransform((current) => ({ ...current, x: clamp(current.x + step, -200, 200) }));
+      moved = true;
+    }
+    if (event.key === "ArrowUp") {
+      setReferenceTransform((current) => ({ ...current, y: clamp(current.y - step, -200, 200) }));
+      moved = true;
+    }
+    if (event.key === "ArrowDown") {
+      setReferenceTransform((current) => ({ ...current, y: clamp(current.y + step, -200, 200) }));
+      moved = true;
+    }
+    if (["+", "=", "]"].includes(event.key)) {
+      setReferenceTransform((current) => ({ ...current, scale: clamp(current.scale + 5, 25, 400) }));
+      moved = true;
+    }
+    if (["-", "_", "["].includes(event.key)) {
+      setReferenceTransform((current) => ({ ...current, scale: clamp(current.scale - 5, 25, 400) }));
+      moved = true;
+    }
+    if (event.key === "0") {
+      resetReferenceTransform();
+      moved = true;
+    }
+    if (event.key === "Escape") {
+      stopReferenceAdjustment();
+      canvasRef.current?.focus();
+      moved = true;
+    }
+    if (moved) event.preventDefault();
   }
 
   function addCustomColor(event: ChangeEvent<HTMLInputElement>) {
@@ -513,27 +892,52 @@ export default function Home() {
     setPalette((current) => current.includes(color) ? current : [...current, color]);
   }
 
+  function changeCanvasZoom(direction: -1 | 1) {
+    const currentIndex = CANVAS_ZOOMS.indexOf(zoom);
+    const nextIndex = clamp(currentIndex + direction, 0, CANVAS_ZOOMS.length - 1);
+    setZoom(CANVAS_ZOOMS[nextIndex]);
+  }
+
   function exportPng() {
-    const scale = 16;
+    const scale = Math.max(1, Math.min(16, Math.floor(4096 / size)));
+    const source = document.createElement("canvas");
+    renderPixelBitmap(source, currentPixels, size);
     const canvas = document.createElement("canvas");
     canvas.width = size * scale;
     canvas.height = size * scale;
     const context = canvas.getContext("2d");
     if (!context) return;
     context.imageSmoothingEnabled = false;
-    currentPixels.forEach((color, index) => {
-      if (!color) return;
-      context.fillStyle = color;
-      context.fillRect((index % size) * scale, Math.floor(index / size) * scale, scale, scale);
-    });
-    const link = document.createElement("a");
-    link.download = `pixelwall-frame-${String(activeFrame + 1).padStart(2, "0")}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-    setNotice(`Frame ${activeFrame + 1} exported at ${canvas.width} × ${canvas.height}px`);
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setNotice("PNG export failed — try a smaller canvas");
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.download = `pixelwall-frame-${String(activeFrame + 1).padStart(2, "0")}.png`;
+      link.href = url;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      setNotice(`Frame ${activeFrame + 1} exported at ${canvas.width} × ${canvas.height}px`);
+    }, "image/png");
   }
 
-  const surfaceStyle = { "--grid-size": size } as CSSProperties;
+  const surfaceStyle = {
+    "--grid-size": size,
+    "--grid-opacity": size >= 128 ? 0.12 : size >= 64 ? 0.22 : 0.42,
+  } as CSSProperties;
+  const referenceStyle = {
+    opacity: referenceOpacity / 100,
+    transform: `translate3d(${referenceTransform.x}%, ${referenceTransform.y}%, 0) scale(${referenceTransform.scale / 100})`,
+  };
+  const keyboardCursorStyle = {
+    left: `${((cursorIndex % size) / size) * 100}%`,
+    top: `${(Math.floor(cursorIndex / size) / size) * 100}%`,
+    width: `${100 / size}%`,
+    height: `${100 / size}%`,
+  };
 
   return (
     <main className="studio-shell">
@@ -544,9 +948,9 @@ export default function Home() {
         </Link>
 
         <div className="project-title" aria-live="polite">
-          <span className={`status-dot ${saved ? "" : "saving"}`} />
+          <span className={`status-dot ${saved ? "" : saveFailed ? "save-failed" : "saving"}`} />
           <strong>DESERT SIGNAL</strong>
-          <span className="saved-label">{saved ? "SAVED LOCALLY" : "SAVING…"}</span>
+          <span className="saved-label">{saved ? "SAVED LOCALLY" : saveFailed ? "NOT SAVED" : "SAVING…"}</span>
         </div>
 
         <div className="header-actions">
@@ -564,7 +968,6 @@ export default function Home() {
 
       <section className={`wall-stage ${reference ? "reference-live" : ""}`} aria-label="Pixel art canvas mounted in a projector beam">
         <div className="projector-beam" />
-        <div className="projector-unit" aria-hidden="true"><span className="lens" /><span className="projector-slot" /></div>
 
         <aside className="tool-rail" aria-label="Drawing tools">
           {([
@@ -576,7 +979,7 @@ export default function Home() {
             <button
               key={value}
               className={`tool ${tool === value ? "active" : ""}`}
-              onClick={() => setTool(value)}
+              onClick={() => { setTool(value); stopReferenceAdjustment(); }}
               aria-label={`${label} tool`}
               aria-pressed={tool === value}
             >
@@ -589,75 +992,123 @@ export default function Home() {
         <div className="canvas-zone">
           <div className="size-chip">{size} × {size}</div>
           <div className="canvas-viewport">
-          <div className={`frame-rig zoom-${zoom}`}>
-            <span className="frame-screw screw-a" /><span className="frame-screw screw-b" />
-            <span className="frame-screw screw-c" /><span className="frame-screw screw-d" />
-            <div className="art-surface" style={surfaceStyle}>
-              <div className="transparent-grid" />
-              {reference && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  className="projection-image"
-                  src={reference}
-                  alt="Projected reference"
-                  style={{ opacity: referenceOpacity / 100 }}
+            <div className={`frame-rig zoom-${zoom}`}>
+              <span className="frame-screw screw-a" /><span className="frame-screw screw-b" />
+              <span className="frame-screw screw-c" /><span className="frame-screw screw-d" />
+              <div className="art-surface" style={surfaceStyle}>
+                <div className="transparent-grid" />
+                {reference && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="projection-image" src={reference} alt="Projected reference" style={referenceStyle} />
+                )}
+                {showOnion && frames.length > 1 && (
+                  <PixelBitmap pixels={previousPixels} size={size} className="onion-layer" />
+                )}
+                <canvas
+                  ref={canvasRef}
+                  className="pixel-canvas"
+                  width={size}
+                  height={size}
+                  role="grid"
+                  aria-label={`${size} by ${size} editable pixel canvas. Use arrow keys to move and Space to paint.`}
+                  tabIndex={0}
+                  onPointerDown={beginStroke}
+                  onPointerMove={continueStroke}
+                  onPointerUp={endStroke}
+                  onPointerCancel={endStroke}
+                  onLostPointerCapture={() => { activePointer.current = null; lastPainted.current = null; strokeRecorded.current = false; }}
+                  onKeyDown={handleCanvasKey}
                 />
-              )}
-              {showOnion && frames.length > 1 && (
-                <div className="onion-layer" aria-hidden="true">
-                  {previousPixels.map((color, index) => <span key={index} style={{ background: color ?? "transparent" }} />)}
-                </div>
-              )}
-              <div
-                ref={canvasRef}
-                className={`pixel-canvas ${showGrid ? "show-grid" : ""}`}
-                role="grid"
-                aria-label={`${size} by ${size} editable pixel canvas. Use arrow keys to move and Space to paint.`}
-                tabIndex={0}
-                onPointerDown={beginStroke}
-                onPointerMove={continueStroke}
-                onPointerUp={endStroke}
-                onPointerCancel={endStroke}
-                onLostPointerCapture={() => { activePointer.current = null; lastPainted.current = null; strokeRecorded.current = false; }}
-                onKeyDown={handleCanvasKey}
-              >
-                {currentPixels.map((color, index) => (
-                  <span
-                    key={index}
-                    className={index === cursorIndex ? "keyboard-cell" : ""}
-                    style={{ background: color ?? "transparent" }}
-                    aria-hidden="true"
-                  />
-                ))}
+                {showGrid && <div className="grid-overlay" aria-hidden="true" />}
+                <div className="keyboard-cursor" style={keyboardCursorStyle} aria-hidden="true" />
+                {reference && adjustingReference && (
+                  <button
+                    type="button"
+                    ref={referenceLayerRef}
+                    className="projection-adjust-layer"
+                    aria-label={`Move projected image. Scale ${referenceTransform.scale} percent, X ${Math.round(referenceTransform.x)}, Y ${Math.round(referenceTransform.y)}.`}
+                    onPointerDown={beginReferenceDrag}
+                    onPointerMove={continueReferenceDrag}
+                    onPointerUp={endReferenceDrag}
+                    onPointerCancel={endReferenceDrag}
+                    onLostPointerCapture={() => { referenceDrag.current = null; }}
+                    onKeyDown={handleReferenceKey}
+                  >
+                    <span><Move size={14} /> DRAG IMAGE</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
-          </div>
-          <p className="canvas-hint">DRAG TO PAINT · ARROW KEYS + SPACE WORK TOO</p>
+          <p className="canvas-hint">
+            {adjustingReference ? "DRAG IMAGE TO POSITION · ARROWS NUDGE · ESC DONE" : "DRAG TO PAINT · ARROW KEYS + SPACE WORK TOO"}
+          </p>
         </div>
 
-        <aside className="projection-panel" aria-label="Projection controls">
-          <div className="projection-title"><span className="panel-kicker">PROJECTOR</span><span className={reference ? "live-light" : ""} /></div>
-          <input ref={fileInputRef} className="visually-hidden" type="file" accept="image/*" onChange={handleReference} />
-          <button className="project-action" onClick={() => fileInputRef.current?.click()}><Upload size={15} /> {reference ? "CHANGE IMAGE" : "LOAD IMAGE"}</button>
-          <label className={`opacity-control ${reference ? "" : "disabled"}`}>
-            <span>LIGHT</span><strong>{referenceOpacity}%</strong>
-            <input type="range" min="0" max="100" value={referenceOpacity} onChange={(event) => setReferenceOpacity(Number(event.target.value))} disabled={!reference} />
-          </label>
-          <button className={`project-toggle ${showGrid ? "active" : ""}`} onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid}>
-            <Grid2X2 size={15} /> GRID <span>{showGrid ? "ON" : "OFF"}</span>
-          </button>
-          <button className={`project-toggle ${showOnion ? "active" : ""}`} onClick={() => setShowOnion((value) => !value)} aria-pressed={showOnion}>
-            {showOnion ? <Eye size={15} /> : <EyeOff size={15} />} ONION <span>{showOnion ? "ON" : "OFF"}</span>
-          </button>
-          <div className="zoom-control" aria-label="Canvas zoom">
-            <button onClick={() => setZoom((value) => Math.max(100, value - 50))} disabled={zoom === 100} aria-label="Zoom out"><Minus size={14} /></button>
-            <strong>{zoom}%</strong>
-            <button onClick={() => setZoom((value) => Math.min(200, value + 50))} disabled={zoom === 200} aria-label="Zoom in"><Plus size={14} /></button>
-          </div>
-          {reference && <button className="remove-reference" onClick={() => setReference(null)}>REMOVE IMAGE</button>}
-          <button className="clear-action" onClick={clearFrame}><RotateCcw size={14} /> CLEAR FRAME</button>
-        </aside>
+        <div className="projection-dock">
+          <div className="projector-unit" aria-hidden="true"><span className="lens" /><span className="projector-slot" /></div>
+          <aside className="projection-panel" aria-label="Projection controls">
+            <div className="projection-title"><span className="panel-kicker">PROJECTOR</span><span className={reference ? "live-light" : ""} /></div>
+            <input ref={fileInputRef} className="visually-hidden" type="file" accept="image/*" onChange={handleReference} />
+            <button className="project-action" onClick={() => fileInputRef.current?.click()}><Upload size={15} /> {reference ? "CHANGE IMAGE" : "LOAD IMAGE"}</button>
+
+            <label className={`projection-slider ${reference ? "" : "disabled"}`}>
+              <span>OPACITY</span><strong>{referenceOpacity}%</strong>
+              <input type="range" min="0" max="100" value={referenceOpacity} onChange={(event) => setReferenceOpacity(Number(event.target.value))} disabled={!reference} />
+            </label>
+            <label className={`projection-slider ${reference ? "" : "disabled"}`}>
+              <span>IMAGE SCALE</span><strong>{referenceTransform.scale}%</strong>
+              <input
+                type="range"
+                min="25"
+                max="400"
+                step="5"
+                value={referenceTransform.scale}
+                onChange={(event) => setReferenceTransform((current) => ({ ...current, scale: Number(event.target.value) }))}
+                disabled={!reference}
+              />
+            </label>
+            <button
+              className={`project-toggle move-toggle ${adjustingReference ? "active" : ""}`}
+              onClick={() => {
+                if (!reference) return;
+                if (adjustingReference) stopReferenceAdjustment();
+                else setAdjustingReference(true);
+              }}
+              disabled={!reference}
+              aria-pressed={adjustingReference}
+            >
+              <Move size={15} /> MOVE IMAGE <span>{adjustingReference ? "DONE" : "ADJUST"}</span>
+            </button>
+            {reference && (
+              <div className="position-readout" aria-live="polite">
+                X {Math.round(referenceTransform.x)} · Y {Math.round(referenceTransform.y)}
+              </div>
+            )}
+            <button className={`project-toggle ${showGrid ? "active" : ""}`} onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid}>
+              <Grid2X2 size={15} /> GRID <span>{showGrid ? "ON" : "OFF"}</span>
+            </button>
+            <button className={`project-toggle ${showOnion ? "active" : ""}`} onClick={() => setShowOnion((value) => !value)} aria-pressed={showOnion}>
+              {showOnion ? <Eye size={15} /> : <EyeOff size={15} />} ONION <span>{showOnion ? "ON" : "OFF"}</span>
+            </button>
+
+            <div className="canvas-zoom-block">
+              <span>CANVAS ZOOM</span>
+              <div className="zoom-control" aria-label="Canvas zoom">
+                <button onClick={() => changeCanvasZoom(-1)} disabled={zoom === CANVAS_ZOOMS[0]} aria-label="Zoom canvas out"><Minus size={14} /></button>
+                <strong>{zoom}%</strong>
+                <button onClick={() => changeCanvasZoom(1)} disabled={zoom === CANVAS_ZOOMS.at(-1)} aria-label="Zoom canvas in"><Plus size={14} /></button>
+              </div>
+            </div>
+            {reference && (
+              <div className="reference-actions">
+                <button onClick={resetReferenceTransform}><LocateFixed size={13} /> CENTER</button>
+                <button onClick={removeReference}>REMOVE</button>
+              </div>
+            )}
+            <button className="clear-action" onClick={clearFrame}><RotateCcw size={14} /> CLEAR FRAME</button>
+          </aside>
+        </div>
       </section>
 
       <section className="control-deck">
@@ -669,7 +1120,7 @@ export default function Home() {
                 key={color}
                 className={`swatch ${selectedColor.toLowerCase() === color.toLowerCase() ? "selected" : ""}`}
                 style={{ "--swatch": color } as CSSProperties}
-                onClick={() => { setSelectedColor(color); setTool("pencil"); }}
+                onClick={() => { setSelectedColor(color); setTool("pencil"); stopReferenceAdjustment(); }}
                 aria-label={`Select color ${color}`}
                 aria-pressed={selectedColor.toLowerCase() === color.toLowerCase()}
               />
