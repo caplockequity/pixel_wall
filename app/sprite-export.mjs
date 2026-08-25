@@ -1,3 +1,5 @@
+import { createSpriteExportPlan } from "./sprite-export-core.mjs";
+
 export const SPRITE_SHEET_FILENAME = "pixelwall-sprites.png";
 export const SPRITE_DATA_FILENAME = "pixelwall-sprites.json";
 
@@ -7,33 +9,27 @@ export function spriteFrameFilename(index, frameCount) {
   return `frame-${String(index + 1).padStart(digits, "0")}.png`;
 }
 
-/** @param {number} size @param {number} frameCount @param {number} fps */
+/** Backward-compatible fixed-row manifest wrapper around the current export core. */
 export function buildSpriteSheetMetadata(size, frameCount, fps) {
-  const duration = Math.max(1, Math.round(1000 / Math.max(1, fps)));
-  const frameIds = Array.from({ length: frameCount }, (_, index) => String(index));
-  const frames = Object.fromEntries(frameIds.map((frameId, index) => [
-    frameId,
-    {
-      frame: { x: index * size, y: 0, w: size, h: size },
-      rotated: false,
-      trimmed: false,
-      spriteSourceSize: { x: 0, y: 0, w: size, h: size },
-      sourceSize: { w: size, h: size },
-      duration,
-    },
-  ]));
-
-  return {
+  const durationMs = Math.max(1, Math.round(1000 / Math.max(1, fps)));
+  const frames = Array.from({ length: frameCount }, (_, index) => ({
+    id: index,
+    durationMs,
+    exportFilename: String(index),
+  }));
+  const metadata = createSpriteExportPlan({
     frames,
-    animations: { default: frameIds },
-    meta: {
-      app: "https://pixelwall-maker.ben-zavadil.chatgpt.site/",
-      version: "1",
-      image: SPRITE_SHEET_FILENAME,
-      format: "RGBA8888",
-      size: { w: size * frameCount, h: size },
-      scale: "1",
-      frameTags: [{ name: "default", from: 0, to: frameCount - 1, direction: "forward" }],
-    },
-  };
+    size,
+    clips: [{ name: "default", frameIds: frames.map((frame) => frame.id), direction: "forward", loop: true }],
+    files: { sheet: SPRITE_SHEET_FILENAME, data: SPRITE_DATA_FILENAME },
+    includeIndividualFrames: false,
+    app: "PixelWall",
+  }).metadata;
+  metadata.meta.version = "1";
+  metadata.meta.frameTags = metadata.meta.frameTags.map((tag) => {
+    const compatible = { ...tag };
+    delete compatible.repeat;
+    return compatible;
+  });
+  return metadata;
 }

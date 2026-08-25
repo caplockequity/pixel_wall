@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
-  buildSpriteSheetMetadata,
-  SPRITE_DATA_FILENAME,
-  SPRITE_SHEET_FILENAME,
   spriteFrameFilename,
 } from "./sprite-export.mjs";
+import { createSpriteExportPlan, exportFileStem } from "./sprite-export-core.mjs";
+import { parseProject, stringifyProject } from "./project-format.mjs";
 import type {
   ChangeEvent,
   CSSProperties,
@@ -16,17 +15,27 @@ import type {
 } from "react";
 import {
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CopyPlus,
+  Copy,
+  Crosshair,
   Download,
   Eraser,
   Eye,
   EyeOff,
   FileImage,
+  FlipHorizontal,
+  FlipVertical,
+  FolderOpen,
   Grid2X2,
   ImagePlus,
+  Layers,
+  Lock,
   LocateFixed,
   Minus,
   Move,
+  MousePointer2,
   PaintBucket,
   PackageOpen,
   Pause,
@@ -35,19 +44,68 @@ import {
   Play,
   Plus,
   Redo2,
+  Repeat2,
   RotateCcw,
+  Save,
   Trash2,
   Undo2,
+  Unlock,
   Upload,
 } from "lucide-react";
 
 type Pixel = string | null;
-type Tool = "pencil" | "eraser" | "fill" | "picker";
-type ArtFrame = { id: number; pixels: Pixel[] };
-type ProjectSnapshot = { frames: ArtFrame[]; size: number; activeFrame: number };
-type FrameHistoryEntry = { kind: "frame"; frameId: number; size: number; pixels: Pixel[] };
+type Tool = "pencil" | "eraser" | "fill" | "picker" | "select" | "pivot";
+type ArtLayer = {
+  id: number;
+  name: string;
+  visible: boolean;
+  locked: boolean;
+  opacity: number;
+};
+type ArtFrame = {
+  id: number;
+  durationMs: number;
+  cels: Record<string, Pixel[]>;
+  pivot?: Pivot;
+};
+type AnimationDirection = "forward" | "reverse" | "pingpong" | "pingpong_reverse";
+type AnimationClip = {
+  id: number;
+  name: string;
+  frameIds: number[];
+  direction: AnimationDirection;
+  loop: boolean;
+};
+type Pivot = { x: number; y: number };
+type TileSettings = { preview: boolean; linkEdges: boolean };
+type TilemapDocument = { width: number; height: number; cells: Array<number | null> };
+type ProjectSnapshot = {
+  projectName: string;
+  frames: ArtFrame[];
+  layers: ArtLayer[];
+  clips: AnimationClip[];
+  slices: NamedSlice[];
+  palette: string[];
+  selectedColor: string;
+  size: number;
+  activeFrame: number;
+  activeLayerId: number;
+  activeClipId: number;
+  pivot: Pivot;
+  tile: TileSettings;
+  tilemap: TilemapDocument;
+  reference: string | null;
+  referenceName: string;
+  referenceMime: string;
+  referenceDimensions: ReferenceDimensions | null;
+  referenceTile: number;
+  referencePixelFit: boolean;
+  referenceOpacity: number;
+  referenceTransform: ReferenceTransform;
+};
+type CelHistoryEntry = { kind: "cel"; frameId: number; layerId: number; size: number; pixels: Pixel[] };
 type ProjectHistoryEntry = { kind: "project"; snapshot: ProjectSnapshot };
-type HistoryEntry = FrameHistoryEntry | ProjectHistoryEntry;
+type HistoryEntry = CelHistoryEntry | ProjectHistoryEntry;
 type ReferenceTransform = { x: number; y: number; scale: number };
 type ReferenceDimensions = { width: number; height: number };
 type SpriteSheetInfo = {
@@ -57,27 +115,48 @@ type SpriteSheetInfo = {
 };
 type EyeDropperApi = { open: () => Promise<{ sRGBHex: string }> };
 type EyeDropperWindow = Window & { EyeDropper?: new () => EyeDropperApi };
-
-type LoadedProject = {
-  size: number;
-  frames: ArtFrame[];
-  activeFrame: number;
-  palette: string[];
-  selectedColor: string;
-  referenceOpacity?: number;
-  referenceTransform?: ReferenceTransform;
+type SelectionRect = { x: number; y: number; width: number; height: number };
+type SelectionClipboard = { width: number; height: number; pixels: Pixel[] };
+type SheetLayout = "horizontal" | "vertical" | "grid";
+type NamedSlice = { id: number; name: string; bounds: SelectionRect; pivot?: Pivot };
+type PortablePivot = { x: number; y: number; unit: "pixels" | "normalized" };
+type PortableSlice = { id: number; name: string; bounds: SelectionRect; pivot?: PortablePivot };
+type PortableFrame = {
+  id: number;
+  durationMs: number;
+  cels: Array<{ layerId: number; pixels: Pixel[] }>;
+  pivot?: PortablePivot;
 };
-
-type StoredFrameV2 = { id: number; bytesPerIndex: 1 | 2; data: string };
-type StoredProjectV2 = {
-  version: 2;
+type PortableProject = {
+  name: string;
   size: number;
-  frames: StoredFrameV2[];
-  activeFrame: number;
+  layers: ArtLayer[];
+  frames: PortableFrame[];
+  clips: AnimationClip[];
   palette: string[];
+  slices: PortableSlice[];
+  pivot: PortablePivot;
+  tile: { enabled: boolean; seamlessPreview: boolean; wrapDrawing: boolean };
+  tilemap: TilemapDocument;
+  projector: {
+    opacity: number;
+    transform: ReferenceTransform;
+    reference?: {
+      name: string;
+      mime: string;
+      width: number;
+      height: number;
+      tileIndex: number;
+      pixelFit: boolean;
+      dataUrl?: string;
+    };
+  };
+};
+type PortableEditor = {
+  activeFrameId: number;
+  activeLayerId: number;
+  activeClipId: number;
   selectedColor: string;
-  colors: string[];
-  projector: { opacity: number; transform: ReferenceTransform };
 };
 
 const STARTER_PALETTE = [
@@ -98,10 +177,22 @@ const REFERENCE_SCALE_MAX = 10_000;
 const REFERENCE_POSITION_MAX = 5_000;
 const MAX_HISTORY = 40;
 const HISTORY_CELL_BUDGET = 4_000_000;
-const MAX_FRAMES = 12;
-const STORAGE_KEY = "pixelwall-project-v2";
+const MAX_FRAMES = 64;
+const MAX_LAYERS = 4;
+const MAX_CLIPS = 256;
+const MAX_SLICES = 256;
+const STORAGE_KEY = "pixelwall-project-v3";
+const V2_STORAGE_KEY = "pixelwall-project-v2";
 const LEGACY_STORAGE_KEY = "pixelwall-project-v1";
 const DEFAULT_REFERENCE_TRANSFORM: ReferenceTransform = { x: 0, y: 0, scale: 100 };
+const DEFAULT_LAYER: ArtLayer = { id: 1, name: "PIXELS", visible: true, locked: false, opacity: 100 };
+
+function pivotInPixels(value: PortablePivot | undefined, size: number, fallback: Pivot): Pivot {
+  if (!value) return { ...fallback };
+  return value.unit === "normalized"
+    ? { x: value.x * size, y: value.y * size }
+    : { x: value.x, y: value.y };
+}
 
 function makeDemoPixels(size: number, shift = 0): Pixel[] {
   return Array.from({ length: size * size }, (_, index) => {
@@ -126,8 +217,41 @@ function makeDemoPixels(size: number, shift = 0): Pixel[] {
   });
 }
 
+function makeFrame(id: number, pixels: Pixel[], layerId = 1, durationMs = 125): ArtFrame {
+  return { id, durationMs, cels: { [String(layerId)]: [...pixels] } };
+}
+
+function blankFrame(id: number, durationMs = 125): ArtFrame {
+  return { id, durationMs, cels: {} };
+}
+
 function cloneFrames(frames: ArtFrame[]) {
-  return frames.map((frame) => ({ ...frame, pixels: [...frame.pixels] }));
+  return frames.map((frame) => ({
+    ...frame,
+    ...(frame.pivot ? { pivot: { ...frame.pivot } } : {}),
+    cels: Object.fromEntries(Object.entries(frame.cels).map(([layerId, pixels]) => [layerId, [...pixels]])),
+  }));
+}
+
+function cloneLayers(layers: ArtLayer[]) {
+  return layers.map((layer) => ({ ...layer }));
+}
+
+function cloneClips(clips: AnimationClip[]) {
+  return clips.map((clip) => ({ ...clip, frameIds: [...clip.frameIds] }));
+}
+
+function celPixels(frame: ArtFrame | undefined, layerId: number, size: number) {
+  return frame?.cels[String(layerId)] ?? Array<Pixel>(size * size).fill(null);
+}
+
+function setCelPixels(frame: ArtFrame, layerId: number, pixels: Pixel[]) {
+  const key = String(layerId);
+  const empty = pixels.every((pixel) => pixel === null);
+  const nextCels = { ...frame.cels };
+  if (empty) delete nextCels[key];
+  else nextCels[key] = pixels;
+  return { ...frame, cels: nextCels };
 }
 
 function resizePixels(pixels: Pixel[], oldSize: number, newSize: number) {
@@ -145,7 +269,7 @@ function resizePixels(pixels: Pixel[], oldSize: number, newSize: number) {
   return next;
 }
 
-function floodFill(pixels: Pixel[], size: number, start: number, color: Pixel) {
+function floodFill(pixels: Pixel[], size: number, start: number, color: Pixel, wrap = false) {
   const target = pixels[start] ?? null;
   if (target === color) return pixels;
   const next = [...pixels];
@@ -158,12 +282,24 @@ function floodFill(pixels: Pixel[], size: number, start: number, color: Pixel) {
     next[index] = color;
     const x = index % size;
     const y = Math.floor(index / size);
-    if (x > 0) stack.push(index - 1);
-    if (x < size - 1) stack.push(index + 1);
-    if (y > 0) stack.push(index - size);
-    if (y < size - 1) stack.push(index + size);
+    if (wrap || x > 0) stack.push(y * size + ((x - 1 + size) % size));
+    if (wrap || x < size - 1) stack.push(y * size + ((x + 1) % size));
+    if (wrap || y > 0) stack.push(((y - 1 + size) % size) * size + x);
+    if (wrap || y < size - 1) stack.push(((y + 1) % size) * size + x);
   }
   return next;
+}
+
+function linkedEdgeCells(indices: number[], size: number) {
+  const result = new Set(indices);
+  indices.forEach((index) => {
+    const x = index % size;
+    const y = Math.floor(index / size);
+    const xs = x === 0 ? [0, size - 1] : x === size - 1 ? [size - 1, 0] : [x];
+    const ys = y === 0 ? [0, size - 1] : y === size - 1 ? [size - 1, 0] : [y];
+    xs.forEach((nextX) => ys.forEach((nextY) => result.add(nextY * size + nextX)));
+  });
+  return [...result];
 }
 
 function cellsBetween(from: number, to: number, size: number) {
@@ -193,6 +329,68 @@ function cellsBetween(from: number, to: number, size: number) {
   return result;
 }
 
+function selectionFromPoints(startX: number, startY: number, endX: number, endY: number): SelectionRect {
+  return {
+    x: Math.min(startX, endX),
+    y: Math.min(startY, endY),
+    width: Math.abs(endX - startX) + 1,
+    height: Math.abs(endY - startY) + 1,
+  };
+}
+
+function pointInSelection(x: number, y: number, selection: SelectionRect) {
+  return x >= selection.x && x < selection.x + selection.width && y >= selection.y && y < selection.y + selection.height;
+}
+
+function extractSelection(pixels: Pixel[], size: number, selection: SelectionRect): SelectionClipboard {
+  const result: Pixel[] = [];
+  for (let y = 0; y < selection.height; y += 1) {
+    for (let x = 0; x < selection.width; x += 1) {
+      result.push(pixels[(selection.y + y) * size + selection.x + x] ?? null);
+    }
+  }
+  return { width: selection.width, height: selection.height, pixels: result };
+}
+
+function stampSelection(
+  pixels: Pixel[],
+  size: number,
+  selection: SelectionRect,
+  buffer: SelectionClipboard,
+  clearSource: SelectionRect | null,
+) {
+  const next = [...pixels];
+  if (clearSource) {
+    for (let y = 0; y < clearSource.height; y += 1) {
+      for (let x = 0; x < clearSource.width; x += 1) {
+        next[(clearSource.y + y) * size + clearSource.x + x] = null;
+      }
+    }
+  }
+  for (let y = 0; y < buffer.height; y += 1) {
+    for (let x = 0; x < buffer.width; x += 1) {
+      const targetX = selection.x + x;
+      const targetY = selection.y + y;
+      if (targetX >= 0 && targetX < size && targetY >= 0 && targetY < size) {
+        next[targetY * size + targetX] = buffer.pixels[y * buffer.width + x] ?? null;
+      }
+    }
+  }
+  return next;
+}
+
+function flippedSelection(buffer: SelectionClipboard, horizontal: boolean) {
+  const pixels = Array<Pixel>(buffer.pixels.length).fill(null);
+  for (let y = 0; y < buffer.height; y += 1) {
+    for (let x = 0; x < buffer.width; x += 1) {
+      const sourceX = horizontal ? buffer.width - 1 - x : x;
+      const sourceY = horizontal ? y : buffer.height - 1 - y;
+      pixels[y * buffer.width + x] = buffer.pixels[sourceY * buffer.width + sourceX] ?? null;
+    }
+  }
+  return { ...buffer, pixels };
+}
+
 function hexToRgb(color: string) {
   const hex = color.replace("#", "");
   const normalized = hex.length === 3
@@ -202,30 +400,78 @@ function hexToRgb(color: string) {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255] as const;
 }
 
-function renderPixelBitmap(canvas: HTMLCanvasElement | null, pixels: Pixel[], size: number) {
+function renderFrameBitmap(
+  canvas: HTMLCanvasElement | null,
+  frame: ArtFrame | undefined,
+  layers: ArtLayer[],
+  size: number,
+) {
   if (!canvas) return;
   if (canvas.width !== size) canvas.width = size;
   if (canvas.height !== size) canvas.height = size;
   const context = canvas.getContext("2d");
   if (!context) return;
   const image = context.createImageData(size, size);
-  for (let index = 0; index < pixels.length; index += 1) {
-    const color = pixels[index];
-    if (!color) continue;
-    const [red, green, blue] = hexToRgb(color);
-    const offset = index * 4;
-    image.data[offset] = red;
-    image.data[offset + 1] = green;
-    image.data[offset + 2] = blue;
-    image.data[offset + 3] = 255;
+  if (frame) {
+    layers.forEach((layer) => {
+      if (!layer.visible || layer.opacity <= 0) return;
+      const pixels = frame.cels[String(layer.id)];
+      if (!pixels) return;
+      const sourceAlpha = layer.opacity / 100;
+      pixels.forEach((color, index) => {
+        if (!color) return;
+        const [red, green, blue] = hexToRgb(color);
+        const offset = index * 4;
+        const destinationAlpha = image.data[offset + 3] / 255;
+        const outputAlpha = sourceAlpha + destinationAlpha * (1 - sourceAlpha);
+        image.data[offset] = Math.round((red * sourceAlpha + image.data[offset] * destinationAlpha * (1 - sourceAlpha)) / outputAlpha);
+        image.data[offset + 1] = Math.round((green * sourceAlpha + image.data[offset + 1] * destinationAlpha * (1 - sourceAlpha)) / outputAlpha);
+        image.data[offset + 2] = Math.round((blue * sourceAlpha + image.data[offset + 2] * destinationAlpha * (1 - sourceAlpha)) / outputAlpha);
+        image.data[offset + 3] = Math.round(outputAlpha * 255);
+      });
+    });
   }
   context.putImageData(image, 0, 0);
 }
 
-function createPixelCanvas(pixels: Pixel[], size: number) {
+function createFrameCanvas(frame: ArtFrame | undefined, layers: ArtLayer[], size: number) {
   const canvas = document.createElement("canvas");
-  renderPixelBitmap(canvas, pixels, size);
+  renderFrameBitmap(canvas, frame, layers, size);
   return canvas;
+}
+
+function opaqueBounds(canvas: HTMLCanvasElement, size: number) {
+  const data = canvas.getContext("2d", { willReadFrequently: true })?.getImageData(0, 0, size, size).data;
+  if (!data) return { x: 0, y: 0, w: size, h: size };
+  let left = size;
+  let top = size;
+  let right = -1;
+  let bottom = -1;
+  for (let index = 0; index < size * size; index += 1) {
+    if (data[index * 4 + 3] === 0) continue;
+    const x = index % size;
+    const y = Math.floor(index / size);
+    left = Math.min(left, x);
+    top = Math.min(top, y);
+    right = Math.max(right, x);
+    bottom = Math.max(bottom, y);
+  }
+  if (right < left || bottom < top) return { x: 0, y: 0, w: 1, h: 1 };
+  return { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
+}
+
+function imageDataToPixels(imageData: ImageData) {
+  const pixels: Pixel[] = Array(imageData.width * imageData.height).fill(null);
+  let flattenedAlpha = false;
+  for (let index = 0; index < pixels.length; index += 1) {
+    const offset = index * 4;
+    const alpha = imageData.data[offset + 3];
+    if (alpha === 0) continue;
+    if (alpha < 255) flattenedAlpha = true;
+    pixels[index] = `#${[imageData.data[offset], imageData.data[offset + 1], imageData.data[offset + 2]]
+      .map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+  }
+  return { pixels, flattenedAlpha };
 }
 
 function canvasToPngBlob(canvas: HTMLCanvasElement) {
@@ -248,157 +494,198 @@ function downloadBlob(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const PixelBitmap = memo(function PixelBitmap({
-  pixels,
+const FrameBitmap = memo(function FrameBitmap({
+  frame,
+  layers,
   size,
   className,
 }: {
-  pixels: Pixel[];
+  frame: ArtFrame | undefined;
+  layers: ArtLayer[];
   size: number;
   className: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => renderPixelBitmap(ref.current, pixels, size), [pixels, size]);
+  useEffect(() => renderFrameBitmap(ref.current, frame, layers, size), [frame, layers, size]);
   return <canvas ref={ref} className={className} width={size} height={size} aria-hidden="true" />;
 });
 
-const FrameThumbnail = memo(function FrameThumbnail({ pixels, size }: { pixels: Pixel[]; size: number }) {
-  return <PixelBitmap pixels={pixels} size={size} className="pixel-thumb" />;
+const FrameThumbnail = memo(function FrameThumbnail({
+  frame,
+  layers,
+  size,
+}: {
+  frame: ArtFrame;
+  layers: ArtLayer[];
+  size: number;
+}) {
+  return <FrameBitmap frame={frame} layers={layers} size={size} className="pixel-thumb" />;
 });
 
-function bytesToBase64(bytes: Uint8Array) {
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+const SeamPreviewBitmap = memo(function SeamPreviewBitmap({
+  frame,
+  layers,
+  size,
+}: {
+  frame: ArtFrame | undefined;
+  layers: ArtLayer[];
+  size: number;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const target = ref.current;
+    const context = target?.getContext("2d");
+    if (!target || !context) return;
+    const source = createFrameCanvas(frame, layers, size);
+    context.clearRect(0, 0, target.width, target.height);
+    context.imageSmoothingEnabled = false;
+    for (let y = 0; y < 3; y += 1) {
+      for (let x = 0; x < 3; x += 1) context.drawImage(source, x * size, y * size);
+    }
+  }, [frame, layers, size]);
+  return <canvas ref={ref} className="seam-tiles" width={size * 3} height={size * 3} aria-hidden="true" />;
+});
+
+const TilemapBitmap = memo(function TilemapBitmap({
+  tilemap,
+  frames,
+  layers,
+  size,
+  activeFrameId,
+  erase,
+  onStrokeStart,
+  onPaint,
+}: {
+  tilemap: TilemapDocument;
+  frames: ArtFrame[];
+  layers: ArtLayer[];
+  size: number;
+  activeFrameId: number;
+  erase: boolean;
+  onStrokeStart: () => void;
+  onPaint: (index: number, eraseCell: boolean) => void;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const lastCell = useRef(-1);
+  const bitmapCache = useRef<{
+    frames: ArtFrame[];
+    layers: ArtLayer[];
+    size: number;
+    bitmaps: Map<number, HTMLCanvasElement>;
+  } | null>(null);
+  const [cursor, setCursor] = useState(0);
+  const safeCursor = Math.min(cursor, tilemap.cells.length - 1);
+  const cursorRow = Math.floor(safeCursor / tilemap.width) + 1;
+  const cursorColumn = (safeCursor % tilemap.width) + 1;
+  const cursorFrame = tilemap.cells[safeCursor];
+  const modeLabel = erase ? "Erase" : `Paint frame ${activeFrameId}`;
+  const renderSize = Math.min(32, Math.max(16, size));
+  useEffect(() => {
+    const canvas = ref.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+    canvas.width = tilemap.width * renderSize;
+    canvas.height = tilemap.height * renderSize;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.imageSmoothingEnabled = false;
+    if (bitmapCache.current?.frames !== frames || bitmapCache.current.layers !== layers || bitmapCache.current.size !== size) {
+      const bitmaps = new Map<number, HTMLCanvasElement>();
+      frames.forEach((frame) => bitmaps.set(frame.id, createFrameCanvas(frame, layers, size)));
+      bitmapCache.current = { frames, layers, size, bitmaps };
+    }
+    const bitmaps = bitmapCache.current.bitmaps;
+    tilemap.cells.forEach((frameId, index) => {
+      if (!frameId) return;
+      const bitmap = bitmaps.get(frameId);
+      if (!bitmap) return;
+      const x = (index % tilemap.width) * renderSize;
+      const y = Math.floor(index / tilemap.width) * renderSize;
+      context.drawImage(bitmap, x, y, renderSize, renderSize);
+    });
+    context.strokeStyle = "rgba(22,21,43,.24)";
+    context.lineWidth = 1;
+    for (let x = 1; x < tilemap.width; x += 1) {
+      context.beginPath();
+      context.moveTo(x * renderSize + 0.5, 0);
+      context.lineTo(x * renderSize + 0.5, canvas.height);
+      context.stroke();
+    }
+    for (let y = 1; y < tilemap.height; y += 1) {
+      context.beginPath();
+      context.moveTo(0, y * renderSize + 0.5);
+      context.lineTo(canvas.width, y * renderSize + 0.5);
+      context.stroke();
+    }
+    const cursorX = (safeCursor % tilemap.width) * renderSize;
+    const cursorY = Math.floor(safeCursor / tilemap.width) * renderSize;
+    context.strokeStyle = "#ff6b57";
+    context.lineWidth = Math.max(1, Math.min(3, renderSize / 5));
+    context.strokeRect(cursorX + 1, cursorY + 1, Math.max(1, renderSize - 2), Math.max(1, renderSize - 2));
+  }, [frames, layers, renderSize, safeCursor, size, tilemap]);
+
+  function cellFromPointer(clientX: number, clientY: number) {
+    const bounds = ref.current?.getBoundingClientRect();
+    if (!bounds) return -1;
+    const x = Math.floor(((clientX - bounds.left) / bounds.width) * tilemap.width);
+    const y = Math.floor(((clientY - bounds.top) / bounds.height) * tilemap.height);
+    if (x < 0 || y < 0 || x >= tilemap.width || y >= tilemap.height) return -1;
+    return y * tilemap.width + x;
   }
-  return window.btoa(binary);
-}
 
-function base64ToBytes(value: string) {
-  const binary = window.atob(value);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-  return bytes;
-}
-
-function encodeStoredProject(project: LoadedProject): StoredProjectV2 {
-  const colors: string[] = [];
-  const colorIndex = new Map<string, number>();
-  project.frames.forEach((frame) => {
-    frame.pixels.forEach((color) => {
-      if (color && !colorIndex.has(color)) {
-        colors.push(color);
-        colorIndex.set(color, colors.length);
-      }
-    });
-  });
-  const bytesPerIndex: 1 | 2 = colors.length <= 255 ? 1 : 2;
-  const storedFrames = project.frames.map((frame) => {
-    const bytes = new Uint8Array(frame.pixels.length * bytesPerIndex);
-    frame.pixels.forEach((color, index) => {
-      const value = color ? colorIndex.get(color) ?? 0 : 0;
-      if (bytesPerIndex === 1) bytes[index] = value;
-      else {
-        bytes[index * 2] = value & 255;
-        bytes[index * 2 + 1] = value >> 8;
-      }
-    });
-    return { id: frame.id, bytesPerIndex, data: bytesToBase64(bytes) };
-  });
-  return {
-    version: 2,
-    size: project.size,
-    frames: storedFrames,
-    activeFrame: project.activeFrame,
-    palette: project.palette,
-    selectedColor: project.selectedColor,
-    colors,
-    projector: {
-      opacity: project.referenceOpacity ?? 38,
-      transform: project.referenceTransform ?? DEFAULT_REFERENCE_TRANSFORM,
-    },
-  };
-}
-
-function decodeStoredProject(parsed: unknown): LoadedProject | null {
-  if (!parsed || typeof parsed !== "object") return null;
-  const project = parsed as Partial<StoredProjectV2>;
-  if (
-    project.version !== 2 ||
-    !project.size ||
-    !GRID_SIZES.includes(project.size) ||
-    !Array.isArray(project.frames) ||
-    project.frames.length < 1 ||
-    project.frames.length > MAX_FRAMES ||
-    !Array.isArray(project.colors) ||
-    !project.colors.every((color) => typeof color === "string")
-  ) return null;
-  const total = project.size * project.size;
-  try {
-    const frames = project.frames.map((frame, frameIndex) => {
-      if (!frame || (frame.bytesPerIndex !== 1 && frame.bytesPerIndex !== 2) || typeof frame.data !== "string") {
-        throw new Error("Invalid frame");
-      }
-      const bytes = base64ToBytes(frame.data);
-      if (bytes.length !== total * frame.bytesPerIndex) throw new Error("Invalid frame size");
-      const pixels = Array<Pixel>(total).fill(null);
-      for (let index = 0; index < total; index += 1) {
-        const value = frame.bytesPerIndex === 1
-          ? bytes[index]
-          : bytes[index * 2] | (bytes[index * 2 + 1] << 8);
-        if (value > 0) pixels[index] = project.colors?.[value - 1] ?? null;
-      }
-      return { id: Number.isFinite(frame.id) ? frame.id : frameIndex + 1, pixels };
-    });
-    const projector = project.projector;
-    const transform = projector?.transform;
-    return {
-      size: project.size,
-      frames,
-      activeFrame: Math.max(0, Math.min(project.activeFrame ?? 0, frames.length - 1)),
-      palette: Array.isArray(project.palette) && project.palette.length ? project.palette : STARTER_PALETTE,
-      selectedColor: typeof project.selectedColor === "string" ? project.selectedColor : "#ff6b57",
-      referenceOpacity: typeof projector?.opacity === "number" ? clamp(projector.opacity, 0, 100) : 38,
-      referenceTransform: {
-        x: typeof transform?.x === "number" ? clamp(transform.x, -REFERENCE_POSITION_MAX, REFERENCE_POSITION_MAX) : 0,
-        y: typeof transform?.y === "number" ? clamp(transform.y, -REFERENCE_POSITION_MAX, REFERENCE_POSITION_MAX) : 0,
-        scale: typeof transform?.scale === "number" ? clamp(transform.scale, REFERENCE_SCALE_MIN, REFERENCE_SCALE_MAX) : 100,
-      },
-    };
-  } catch {
-    return null;
+  function paintPointer(event: ReactPointerEvent<HTMLCanvasElement>, begin = false) {
+    const index = cellFromPointer(event.clientX, event.clientY);
+    if (index < 0 || (!begin && index === lastCell.current)) return;
+    if (begin) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      onStrokeStart();
+    }
+    lastCell.current = index;
+    setCursor(index);
+    onPaint(index, erase || event.button === 2 || (event.buttons & 2) === 2);
   }
-}
 
-function decodeLegacyProject(parsed: unknown): LoadedProject | null {
-  if (!parsed || typeof parsed !== "object") return null;
-  const project = parsed as Partial<LoadedProject>;
-  if (
-    !project.size ||
-    !GRID_SIZES.includes(project.size) ||
-    !Array.isArray(project.frames) ||
-    project.frames.length < 1 ||
-    project.frames.length > MAX_FRAMES ||
-    !project.frames.every((frame) =>
-      Array.isArray(frame.pixels) &&
-      frame.pixels.length === project.size! * project.size! &&
-      frame.pixels.every((color) => color === null || typeof color === "string"),
-    )
-  ) return null;
-  return {
-    size: project.size,
-    frames: cloneFrames(project.frames),
-    activeFrame: Math.max(0, Math.min(project.activeFrame ?? 0, project.frames.length - 1)),
-    palette: Array.isArray(project.palette) && project.palette.length ? project.palette : STARTER_PALETTE,
-    selectedColor: project.selectedColor ?? "#ff6b57",
-  };
-}
+  const status = `${modeLabel}. Row ${cursorRow}, column ${cursorColumn}. ${cursorFrame ? `Frame ${cursorFrame}` : "Empty cell"}.`;
+  return (
+    <>
+      <canvas
+        ref={ref}
+        className="tilemap-canvas"
+        tabIndex={0}
+        aria-label={`${tilemap.width} by ${tilemap.height} tilemap. ${status} Arrow keys move; Space ${erase ? "erases" : "paints"}; Delete erases.`}
+        onContextMenu={(event) => event.preventDefault()}
+        onPointerDown={(event) => { if (event.button === 0 || event.button === 2) paintPointer(event, true); }}
+        onPointerMove={(event) => { if (event.buttons) paintPointer(event); }}
+        onPointerUp={(event) => { lastCell.current = -1; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
+        onPointerCancel={() => { lastCell.current = -1; }}
+        onKeyDown={(event) => {
+          let next = safeCursor;
+          if (event.key === "ArrowLeft") next = Math.max(0, safeCursor - 1);
+          if (event.key === "ArrowRight") next = Math.min(tilemap.cells.length - 1, safeCursor + 1);
+          if (event.key === "ArrowUp") next = Math.max(0, safeCursor - tilemap.width);
+          if (event.key === "ArrowDown") next = Math.min(tilemap.cells.length - 1, safeCursor + tilemap.width);
+          if (next !== safeCursor) {
+            event.preventDefault();
+            setCursor(next);
+          } else if (event.key === " " || event.key === "Enter" || event.key === "Delete" || event.key === "Backspace") {
+            if (event.repeat) return;
+            event.preventDefault();
+            onStrokeStart();
+            onPaint(safeCursor, erase || event.key === "Delete" || event.key === "Backspace");
+          }
+        }}
+      />
+      <span className="visually-hidden" aria-live="polite">{status}</span>
+    </>
+  );
+});
 
 function historyCost(entry: HistoryEntry) {
-  return entry.kind === "frame"
+  return entry.kind === "cel"
     ? entry.pixels.length
-    : entry.snapshot.frames.reduce((total, frame) => total + frame.pixels.length, 0);
+    : entry.snapshot.frames.reduce(
+      (total, frame) => total + Object.values(frame.cels).reduce((frameTotal, pixels) => frameTotal + pixels.length, 0),
+      0,
+    );
 }
 
 function trimHistory(entries: HistoryEntry[]) {
@@ -422,11 +709,11 @@ function detectSpriteSheet(dimensions: ReferenceDimensions | null): SpriteSheetI
   const { width, height } = dimensions;
   if (width > height && width % height === 0) {
     const frameCount = width / height;
-    if (frameCount >= 2 && frameCount <= 32) return { direction: "horizontal", frameCount, frameSize: height };
+    if (frameCount >= 2 && frameCount <= MAX_FRAMES) return { direction: "horizontal", frameCount, frameSize: height };
   }
   if (height > width && height % width === 0) {
     const frameCount = height / width;
-    if (frameCount >= 2 && frameCount <= 32) return { direction: "vertical", frameCount, frameSize: width };
+    if (frameCount >= 2 && frameCount <= MAX_FRAMES) return { direction: "vertical", frameCount, frameSize: width };
   }
   return null;
 }
@@ -462,20 +749,44 @@ function pixelMatchedTransform(
   return { scale, x: clamp(x, -travel, travel), y: clamp(y, -travel, travel) };
 }
 
+function clipPlaybackFrameIds(clip: AnimationClip | undefined, frames: ArtFrame[]) {
+  const existing = new Set(frames.map((frame) => frame.id));
+  const forward = (clip?.frameIds ?? frames.map((frame) => frame.id)).filter((id) => existing.has(id));
+  if (!forward.length) return frames.map((frame) => frame.id);
+  if (clip?.direction === "reverse") return [...forward].reverse();
+  if (clip?.direction === "pingpong" && forward.length > 1) {
+    return [...forward, ...forward.slice(1, -1).reverse()];
+  }
+  if (clip?.direction === "pingpong_reverse" && forward.length > 1) {
+    const reverse = [...forward].reverse();
+    return [...reverse, ...forward.slice(1, -1)];
+  }
+  return forward;
+}
+
 export default function Home() {
   const [size, setSize] = useState(16);
   const [frames, setFrames] = useState<ArtFrame[]>(() => [
-    { id: 1, pixels: makeDemoPixels(16, 0) },
-    { id: 2, pixels: makeDemoPixels(16, 0.45) },
-    { id: 3, pixels: makeDemoPixels(16, 0.9) },
+    makeFrame(1, makeDemoPixels(16, 0)),
+    makeFrame(2, makeDemoPixels(16, 0.45)),
+    makeFrame(3, makeDemoPixels(16, 0.9)),
+  ]);
+  const [layers, setLayers] = useState<ArtLayer[]>([DEFAULT_LAYER]);
+  const [clips, setClips] = useState<AnimationClip[]>([
+    { id: 1, name: "default", frameIds: [1, 2, 3], direction: "forward", loop: true },
   ]);
   const [activeFrame, setActiveFrame] = useState(0);
+  const [activeLayerId, setActiveLayerId] = useState(1);
+  const [activeClipId, setActiveClipId] = useState(1);
+  const [projectName, setProjectName] = useState("DESERT SIGNAL");
   const [tool, setTool] = useState<Tool>("pencil");
   const [selectedColor, setSelectedColor] = useState("#ff6b57");
   const [palette, setPalette] = useState(STARTER_PALETTE);
   const [showGrid, setShowGrid] = useState(true);
   const [showOnion, setShowOnion] = useState(false);
   const [reference, setReference] = useState<string | null>(null);
+  const [referenceName, setReferenceName] = useState("reference.png");
+  const [referenceMime, setReferenceMime] = useState("image/png");
   const [referenceDimensions, setReferenceDimensions] = useState<ReferenceDimensions | null>(null);
   const [referenceTile, setReferenceTile] = useState(0);
   const [referencePixelFit, setReferencePixelFit] = useState(false);
@@ -484,7 +795,13 @@ export default function Home() {
   const [adjustingReference, setAdjustingReference] = useState(false);
   const [cellSize, setCellSize] = useState(24);
   const [playing, setPlaying] = useState(false);
-  const [fps, setFps] = useState(8);
+  const [playbackCursor, setPlaybackCursor] = useState(0);
+  const [pivot, setPivot] = useState<Pivot>({ x: 8, y: 16 });
+  const [tileSettings, setTileSettings] = useState<TileSettings>({ preview: false, linkEdges: false });
+  const [tilemap, setTilemap] = useState<TilemapDocument>({ width: 8, height: 8, cells: Array(64).fill(null) });
+  const [tilemapErase, setTilemapErase] = useState(false);
+  const [selection, setSelection] = useState<SelectionRect | null>(null);
+  const [selectionClipboard, setSelectionClipboard] = useState<SelectionClipboard | null>(null);
   const [cursorIndex, setCursorIndex] = useState(0);
   const [undoStack, setUndoStack] = useState<HistoryEntry[]>([]);
   const [redoStack, setRedoStack] = useState<HistoryEntry[]>([]);
@@ -493,11 +810,18 @@ export default function Home() {
   const [samplingColor, setSamplingColor] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [exporting, setExporting] = useState<"frame" | "package" | null>(null);
+  const [exportLayout, setExportLayout] = useState<SheetLayout>("horizontal");
+  const [exportClipId, setExportClipId] = useState<number | "all">("all");
+  const [exportIndividualFrames, setExportIndividualFrames] = useState(true);
+  const [exportPadding, setExportPadding] = useState(0);
+  const [exportTrim, setExportTrim] = useState(false);
+  const [slices, setSlices] = useState<NamedSlice[]>([]);
   const [notice, setNotice] = useState("");
   const [storageReady, setStorageReady] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const projectInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const exportTriggerRef = useRef<HTMLButtonElement>(null);
   const exportFirstOptionRef = useRef<HTMLButtonElement>(null);
@@ -515,12 +839,39 @@ export default function Home() {
     originX: number;
     originY: number;
   }>(null);
+  const selectionDrag = useRef<null | {
+    mode: "marquee" | "move";
+    pointerId: number;
+    startX: number;
+    startY: number;
+    origin?: SelectionRect;
+    pixels?: Pixel[];
+  }>(null);
 
-  const currentPixels = useMemo(() => frames[activeFrame]?.pixels ?? [], [activeFrame, frames]);
-  const previousPixels = useMemo(() => {
-    if (frames.length < 2) return [];
+  const currentFrame = frames[activeFrame];
+  const activePivot = currentFrame?.pivot ?? pivot;
+  const activeLayer = layers.find((layer) => layer.id === activeLayerId) ?? layers[0];
+  const activeClip = clips.find((clip) => clip.id === activeClipId) ?? clips[0];
+  const activeClipFrameIndices = (activeClip?.frameIds ?? [])
+    .map((id) => frames.findIndex((frame) => frame.id === id))
+    .filter((index) => index >= 0);
+  const clipFrom = activeClipFrameIndices.length ? Math.min(...activeClipFrameIndices) : 0;
+  const clipTo = activeClipFrameIndices.length ? Math.max(...activeClipFrameIndices) : Math.max(0, frames.length - 1);
+  const activeClipFpsPreset = useMemo(() => {
+    const durations = new Set((activeClip?.frameIds ?? []).map((id) => frames.find((frame) => frame.id === id)?.durationMs).filter(Boolean));
+    if (durations.size !== 1) return "mixed";
+    const duration = [...durations][0] as number;
+    const fps = String(Math.round(1000 / duration));
+    return ["4", "6", "8", "10", "12", "24"].includes(fps) ? fps : "mixed";
+  }, [activeClip, frames]);
+  const currentPixels = useMemo(
+    () => celPixels(currentFrame, activeLayerId, size),
+    [activeLayerId, currentFrame, size],
+  );
+  const previousFrame = useMemo(() => {
+    if (frames.length < 2) return undefined;
     const previous = (activeFrame - 1 + frames.length) % frames.length;
-    return frames[previous]?.pixels ?? [];
+    return frames[previous];
   }, [activeFrame, frames]);
   const spriteSheet = useMemo(() => detectSpriteSheet(referenceDimensions), [referenceDimensions]);
   const referenceScaleMax = useMemo(() => {
@@ -529,7 +880,108 @@ export default function Home() {
     return Math.min(REFERENCE_SCALE_MAX, Math.max(1600, Math.ceil(matchScale / 100) * 100));
   }, [referenceDimensions, size]);
 
-  useEffect(() => renderPixelBitmap(canvasRef.current, currentPixels, size), [currentPixels, size]);
+  function portableProject(): PortableProject {
+    return {
+      name: projectName,
+      size,
+      layers: cloneLayers(layers),
+      frames: frames.map((frame) => ({
+        id: frame.id,
+        durationMs: frame.durationMs,
+        cels: Object.entries(frame.cels).map(([layerId, pixels]) => ({ layerId: Number(layerId), pixels: [...pixels] })),
+        ...(frame.pivot ? { pivot: { ...frame.pivot, unit: "pixels" as const } } : {}),
+      })),
+      clips: cloneClips(clips),
+      slices: slices.map((slice): PortableSlice => ({
+        id: slice.id,
+        name: slice.name,
+        bounds: { ...slice.bounds },
+        ...(slice.pivot ? { pivot: { ...slice.pivot, unit: "pixels" as const } } : {}),
+      })),
+      palette: [...palette],
+      pivot: { ...pivot, unit: "pixels" },
+      tile: {
+        enabled: tileSettings.preview || tileSettings.linkEdges,
+        seamlessPreview: tileSettings.preview,
+        wrapDrawing: tileSettings.linkEdges,
+      },
+      tilemap: { ...tilemap, cells: [...tilemap.cells] },
+      projector: {
+        opacity: referenceOpacity,
+        transform: { ...referenceTransform },
+        ...(reference && referenceDimensions ? {
+          reference: {
+            name: referenceName,
+            mime: referenceMime,
+            width: referenceDimensions.width,
+            height: referenceDimensions.height,
+            tileIndex: referenceTile,
+            pixelFit: referencePixelFit,
+            dataUrl: reference,
+          },
+        } : {}),
+      },
+    };
+  }
+
+  function portableEditor(): PortableEditor {
+    return {
+      activeFrameId: frames[activeFrame]?.id ?? frames[0].id,
+      activeLayerId,
+      activeClipId,
+      selectedColor,
+    };
+  }
+
+  function loadPortableProject(project: PortableProject, editor: PortableEditor, message: string) {
+    const nextFrames: ArtFrame[] = project.frames.map((frame) => ({
+      id: frame.id,
+      durationMs: frame.durationMs,
+      cels: Object.fromEntries(frame.cels.map((cel) => [String(cel.layerId), [...cel.pixels]])),
+      ...(frame.pivot ? { pivot: pivotInPixels(frame.pivot, project.size, { x: project.size / 2, y: project.size / 2 }) } : {}),
+    }));
+    setPlaying(false);
+    setProjectName(project.name);
+    setSize(project.size);
+    setFrames(nextFrames);
+    setLayers(cloneLayers(project.layers));
+    setClips(cloneClips(project.clips));
+    setSlices((project.slices ?? []).map((slice) => ({
+      ...slice,
+      bounds: { ...slice.bounds },
+      ...(slice.pivot ? { pivot: pivotInPixels(slice.pivot, project.size, { x: project.size / 2, y: project.size / 2 }) } : {}),
+    })));
+    setActiveFrame(Math.max(0, nextFrames.findIndex((frame) => frame.id === editor.activeFrameId)));
+    setActiveLayerId(editor.activeLayerId);
+    setActiveClipId(editor.activeClipId);
+    setExportClipId("all");
+    setPalette([...project.palette]);
+    setSelectedColor(editor.selectedColor);
+    setPivot(pivotInPixels(project.pivot, project.size, { x: project.size / 2, y: project.size }));
+    setTileSettings({ preview: project.tile.seamlessPreview, linkEdges: project.tile.wrapDrawing });
+    setTilemap(project.tilemap
+      ? { ...project.tilemap, cells: [...project.tilemap.cells] }
+      : { width: 8, height: 8, cells: Array(64).fill(null) });
+    setTilemapErase(false);
+    setReferenceOpacity(project.projector.opacity);
+    setReferenceTransform({ ...project.projector.transform });
+    const asset = project.projector.reference;
+    setReference(asset?.dataUrl ?? null);
+    setReferenceDimensions(asset?.dataUrl ? { width: asset.width, height: asset.height } : null);
+    setReferenceName(asset?.name ?? "reference.png");
+    setReferenceMime(asset?.mime ?? "image/png");
+    setReferenceTile(asset?.dataUrl ? asset.tileIndex : 0);
+    setReferencePixelFit(Boolean(asset?.dataUrl && asset.pixelFit));
+    setAdjustingReference(false);
+    setSelection(null);
+    setSelectionClipboard(null);
+    setUndoStack([]);
+    setRedoStack([]);
+    setCellSize(fitCellSize(project.size));
+    setNotice(message);
+  }
+
+  useEffect(() => renderFrameBitmap(canvasRef.current, currentFrame, layers, size), [currentFrame, layers, size]);
 
   useEffect(() => {
     activeFrameRef.current = activeFrame;
@@ -569,20 +1021,15 @@ export default function Home() {
     const timer = window.setTimeout(() => {
       try {
         const currentDraft = window.localStorage.getItem(STORAGE_KEY);
+        const v2Draft = window.localStorage.getItem(V2_STORAGE_KEY);
         const legacyDraft = window.localStorage.getItem(LEGACY_STORAGE_KEY);
-        const loaded = currentDraft
-          ? decodeStoredProject(JSON.parse(currentDraft))
-          : legacyDraft
-            ? decodeLegacyProject(JSON.parse(legacyDraft))
-            : null;
-        if (loaded) {
-          setSize(loaded.size);
-          setFrames(cloneFrames(loaded.frames));
-          setActiveFrame(loaded.activeFrame);
-          setPalette(loaded.palette);
-          setSelectedColor(loaded.selectedColor);
-          if (loaded.referenceOpacity !== undefined) setReferenceOpacity(loaded.referenceOpacity);
-          if (loaded.referenceTransform) setReferenceTransform(loaded.referenceTransform);
+        const source = currentDraft ?? v2Draft ?? legacyDraft;
+        if (source) {
+          const loaded = parseProject(source, { name: "DESERT SIGNAL" }) as {
+            project: PortableProject;
+            editor: PortableEditor;
+          };
+          loadPortableProject(loaded.project, loaded.editor, currentDraft ? "Local project restored" : "Older project upgraded");
         }
       } catch {
         // A malformed local draft should never block the editor.
@@ -591,6 +1038,8 @@ export default function Home() {
       }
     }, 0);
     return () => window.clearTimeout(timer);
+    // The one-time loader intentionally captures the initial project adapter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -601,16 +1050,10 @@ export default function Home() {
     }, 0);
     const timer = window.setTimeout(() => {
       try {
-        const stored = encodeStoredProject({
-          size,
-          frames,
-          activeFrame: activeFrameRef.current,
-          palette,
-          selectedColor,
-          referenceOpacity,
-          referenceTransform,
-        });
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+        const editor = portableEditor();
+        editor.activeFrameId = frames[activeFrameRef.current]?.id ?? frames[0].id;
+        const stored = stringifyProject(portableProject(), editor, { includeReference: false });
+        window.localStorage.setItem(STORAGE_KEY, stored);
         setSaved(true);
         setSaveFailed(false);
         saveWarningShown.current = false;
@@ -619,7 +1062,7 @@ export default function Home() {
         setSaveFailed(true);
         if (!saveWarningShown.current) {
           saveWarningShown.current = true;
-          setNotice("This project is too large for local autosave — export important frames");
+          setNotice("Local autosave failed — save a portable project file to protect your work");
         }
       }
     }, 500);
@@ -627,15 +1070,34 @@ export default function Home() {
       window.clearTimeout(savingTimer);
       window.clearTimeout(timer);
     };
-  }, [frames, palette, referenceOpacity, referenceTransform, selectedColor, size, storageReady]);
+    // The adapter functions are rebuilt from exactly the state listed below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeClipId, activeFrame, activeLayerId, clips, frames, layers, palette, pivot, projectName, referenceDimensions,
+    referenceMime, referenceName, referenceOpacity, referencePixelFit, referenceTile, referenceTransform,
+    selectedColor, size, slices, storageReady, tileSettings, tilemap]);
 
   useEffect(() => {
     if (!playing || frames.length < 2) return;
-    const timer = window.setInterval(() => {
-      setActiveFrame((current) => (current + 1) % frames.length);
-    }, 1000 / fps);
-    return () => window.clearInterval(timer);
-  }, [fps, frames.length, playing]);
+    const sequence = clipPlaybackFrameIds(activeClip, frames);
+    if (sequence.length < 2) return;
+    const sequenceIndex = clamp(playbackCursor, 0, sequence.length - 1);
+    const currentId = sequence[sequenceIndex];
+    const currentIndex = frames.findIndex((frame) => frame.id === currentId);
+    const duration = frames[currentIndex]?.durationMs ?? 125;
+    const timer = window.setTimeout(() => {
+      const atEnd = sequenceIndex === sequence.length - 1;
+      if (atEnd && activeClip && !activeClip.loop) {
+        setPlaybackCursor(0);
+        setPlaying(false);
+        return;
+      }
+      const nextCursor = (sequenceIndex + 1) % sequence.length;
+      const nextIndex = frames.findIndex((frame) => frame.id === sequence[nextCursor]);
+      setPlaybackCursor(nextCursor);
+      if (nextIndex >= 0) setActiveFrame(nextIndex);
+    }, duration);
+    return () => window.clearTimeout(timer);
+  }, [activeClip, activeFrame, frames, playbackCursor, playing]);
 
   useEffect(() => {
     if (!notice) return;
@@ -650,7 +1112,30 @@ export default function Home() {
   }, [adjustingReference]);
 
   function projectSnapshot(): ProjectSnapshot {
-    return { frames: cloneFrames(frames), size, activeFrame };
+    return {
+      projectName,
+      frames: cloneFrames(frames),
+      layers: cloneLayers(layers),
+      clips: cloneClips(clips),
+      slices: slices.map((slice) => ({ ...slice, bounds: { ...slice.bounds }, ...(slice.pivot ? { pivot: { ...slice.pivot } } : {}) })),
+      palette: [...palette],
+      selectedColor,
+      size,
+      activeFrame,
+      activeLayerId,
+      activeClipId,
+      pivot: { ...pivot },
+      tile: { ...tileSettings },
+      tilemap: { ...tilemap, cells: [...tilemap.cells] },
+      reference,
+      referenceName,
+      referenceMime,
+      referenceDimensions: referenceDimensions ? { ...referenceDimensions } : null,
+      referenceTile,
+      referencePixelFit,
+      referenceOpacity,
+      referenceTransform: { ...referenceTransform },
+    };
   }
 
   function pushHistory(entry: HistoryEntry) {
@@ -658,10 +1143,10 @@ export default function Home() {
     setRedoStack([]);
   }
 
-  function recordFrameHistory() {
+  function recordCelHistory() {
     const frame = frames[activeFrame];
     if (!frame) return;
-    pushHistory({ kind: "frame", frameId: frame.id, size, pixels: [...frame.pixels] });
+    pushHistory({ kind: "cel", frameId: frame.id, layerId: activeLayerId, size, pixels: [...currentPixels] });
   }
 
   function recordProjectHistory() {
@@ -672,23 +1157,50 @@ export default function Home() {
     if (entry.kind === "project") return { kind: "project", snapshot: projectSnapshot() };
     const frame = frames.find((candidate) => candidate.id === entry.frameId);
     if (!frame) return null;
-    return { kind: "frame", frameId: frame.id, size, pixels: [...frame.pixels] };
+    return {
+      kind: "cel",
+      frameId: frame.id,
+      layerId: entry.layerId,
+      size,
+      pixels: [...celPixels(frame, entry.layerId, size)],
+    };
   }
 
   function applyHistory(entry: HistoryEntry) {
     setPlaying(false);
     if (entry.kind === "project") {
+      setProjectName(entry.snapshot.projectName);
       setFrames(cloneFrames(entry.snapshot.frames));
+      setLayers(cloneLayers(entry.snapshot.layers));
+      setClips(cloneClips(entry.snapshot.clips));
+      setExportClipId("all");
+      setSlices(entry.snapshot.slices.map((slice) => ({ ...slice, bounds: { ...slice.bounds }, ...(slice.pivot ? { pivot: { ...slice.pivot } } : {}) })));
+      setPalette([...entry.snapshot.palette]);
+      setSelectedColor(entry.snapshot.selectedColor);
       setSize(entry.snapshot.size);
       if (referencePixelFit && referenceDimensions) {
         setReferenceTransform(pixelMatchedTransform(referenceDimensions, entry.snapshot.size, spriteSheet, referenceTile));
       }
       setActiveFrame(Math.min(entry.snapshot.activeFrame, entry.snapshot.frames.length - 1));
+      setActiveLayerId(entry.snapshot.activeLayerId);
+      setActiveClipId(entry.snapshot.activeClipId);
+      setPivot({ ...entry.snapshot.pivot });
+      setTileSettings({ ...entry.snapshot.tile });
+      setTilemap({ ...entry.snapshot.tilemap, cells: [...entry.snapshot.tilemap.cells] });
+      setReference(entry.snapshot.reference);
+      setReferenceName(entry.snapshot.referenceName);
+      setReferenceMime(entry.snapshot.referenceMime);
+      setReferenceDimensions(entry.snapshot.referenceDimensions ? { ...entry.snapshot.referenceDimensions } : null);
+      setReferenceTile(entry.snapshot.referenceTile);
+      setReferencePixelFit(entry.snapshot.referencePixelFit);
+      setReferenceOpacity(entry.snapshot.referenceOpacity);
+      setReferenceTransform({ ...entry.snapshot.referenceTransform });
       setCursorIndex((current) => Math.min(current, entry.snapshot.size * entry.snapshot.size - 1));
+      setSelection(null);
       return;
     }
     setFrames((current) => current.map((frame) =>
-      frame.id === entry.frameId ? { ...frame, pixels: [...entry.pixels] } : frame,
+      frame.id === entry.frameId ? setCelPixels(frame, entry.layerId, [...entry.pixels]) : frame,
     ));
     const frameIndex = frames.findIndex((frame) => frame.id === entry.frameId);
     if (frameIndex >= 0) setActiveFrame(frameIndex);
@@ -716,13 +1228,120 @@ export default function Home() {
 
   function updateActivePixels(update: (pixels: Pixel[]) => Pixel[]) {
     setFrames((current) => current.map((frame, index) =>
-      index === activeFrame ? { ...frame, pixels: update(frame.pixels) } : frame,
+      index === activeFrame ? setCelPixels(frame, activeLayerId, update(celPixels(frame, activeLayerId, size))) : frame,
     ));
+  }
+
+  function activeLayerIsEditable(showMessage = true) {
+    if (!activeLayer || activeLayer.locked || !activeLayer.visible) {
+      if (showMessage) setNotice(activeLayer?.locked ? "Unlock this layer to edit it" : "Show this layer to edit it");
+      return false;
+    }
+    return true;
+  }
+
+  function copySelection() {
+    if (!selection) return;
+    setSelectionClipboard(extractSelection(currentPixels, size, selection));
+    setNotice(`Copied ${selection.width} × ${selection.height} pixels`);
+  }
+
+  function pasteSelection() {
+    if (!selectionClipboard || !activeLayerIsEditable()) return;
+    const baseX = selection ? selection.x + 1 : Math.floor((size - selectionClipboard.width) / 2);
+    const baseY = selection ? selection.y + 1 : Math.floor((size - selectionClipboard.height) / 2);
+    const nextSelection = {
+      x: clamp(baseX, 0, Math.max(0, size - selectionClipboard.width)),
+      y: clamp(baseY, 0, Math.max(0, size - selectionClipboard.height)),
+      width: selectionClipboard.width,
+      height: selectionClipboard.height,
+    };
+    recordCelHistory();
+    updateActivePixels((pixels) => stampSelection(pixels, size, nextSelection, selectionClipboard, null));
+    setSelection(nextSelection);
+    setTool("select");
+    setNotice("Pasted selection");
+  }
+
+  function moveSelection(dx: number, dy: number) {
+    if (!selection || !activeLayerIsEditable()) return;
+    const nextSelection = {
+      ...selection,
+      x: clamp(selection.x + dx, 0, size - selection.width),
+      y: clamp(selection.y + dy, 0, size - selection.height),
+    };
+    if (nextSelection.x === selection.x && nextSelection.y === selection.y) return;
+    const buffer = extractSelection(currentPixels, size, selection);
+    recordCelHistory();
+    updateActivePixels((pixels) => stampSelection(pixels, size, nextSelection, buffer, selection));
+    setSelection(nextSelection);
+  }
+
+  function flipActiveSelection(horizontal: boolean) {
+    if (!selection || !activeLayerIsEditable()) return;
+    const buffer = flippedSelection(extractSelection(currentPixels, size, selection), horizontal);
+    recordCelHistory();
+    updateActivePixels((pixels) => stampSelection(pixels, size, selection, buffer, selection));
+    setNotice(horizontal ? "Selection flipped horizontally" : "Selection flipped vertically");
+  }
+
+  function clearSelectionPixels() {
+    if (!selection || !activeLayerIsEditable()) return;
+    recordCelHistory();
+    updateActivePixels((pixels) => {
+      const next = [...pixels];
+      for (let y = 0; y < selection.height; y += 1) {
+        for (let x = 0; x < selection.width; x += 1) {
+          next[(selection.y + y) * size + selection.x + x] = null;
+        }
+      }
+      return next;
+    });
+    setNotice("Selection cleared");
+  }
+
+  function saveSelectionAsSlice() {
+    if (!selection) return;
+    if (slices.length >= MAX_SLICES) {
+      setNotice(`Slice limit is ${MAX_SLICES}`);
+      return;
+    }
+    const id = Math.max(...slices.map((slice) => slice.id), 0) + 1;
+    const names = new Set(slices.map((slice) => slice.name.toLowerCase()));
+    let sequence = slices.length + 1;
+    while (names.has(`slice-${sequence}`)) sequence += 1;
+    recordProjectHistory();
+    setSlices((current) => [...current, {
+      id,
+      name: `slice-${sequence}`,
+      bounds: { ...selection },
+      pivot: { ...activePivot },
+    }]);
+    setNotice(`Saved ${selection.width} × ${selection.height} slice`);
+  }
+
+  function renameSlice(sliceId: number, value: string) {
+    const requested = value.trim().slice(0, 28);
+    if (!requested || requested.toLowerCase() === "origin" || slices.some((slice) => slice.id !== sliceId && slice.name.toLowerCase() === requested.toLowerCase())) {
+      setNotice("Slice names must be unique and cannot be blank");
+      return;
+    }
+    setSlices((current) => current.map((slice) => slice.id === sliceId ? { ...slice, name: requested } : slice));
+  }
+
+  function deleteSlice(sliceId: number) {
+    recordProjectHistory();
+    setSlices((current) => current.filter((slice) => slice.id !== sliceId));
   }
 
   function applyTool(index: number, indices = [index]) {
     if (tool === "picker") {
-      const color = currentPixels[index];
+      const x = index % size;
+      const y = Math.floor(index / size);
+      const sampled = canvasRef.current?.getContext("2d")?.getImageData(x, y, 1, 1).data;
+      const color = sampled && sampled[3] > 0
+        ? `#${[sampled[0], sampled[1], sampled[2]].map((value) => value.toString(16).padStart(2, "0")).join("")}`
+        : null;
       if (color) {
         addColorToRack(color);
       } else {
@@ -731,22 +1350,24 @@ export default function Home() {
       return;
     }
     if (tool === "fill") {
-      updateActivePixels((pixels) => floodFill(pixels, size, index, selectedColor));
+      updateActivePixels((pixels) => floodFill(pixels, size, index, selectedColor, tileSettings.linkEdges));
       return;
     }
     const color = tool === "eraser" ? null : selectedColor;
+    const targetIndices = tileSettings.linkEdges ? linkedEdgeCells(indices, size) : indices;
     updateActivePixels((pixels) => {
       const next = [...pixels];
-      indices.forEach((cell) => { next[cell] = color; });
+      targetIndices.forEach((cell) => { next[cell] = color; });
       return next;
     });
   }
 
   function toolWouldChange(index: number, indices = [index]) {
-    if (tool === "picker") return false;
+    if (tool === "picker" || tool === "select" || tool === "pivot") return false;
     if (tool === "fill") return (currentPixels[index] ?? null) !== selectedColor;
     const color = tool === "eraser" ? null : selectedColor;
-    return indices.some((cell) => (currentPixels[cell] ?? null) !== color);
+    const targetIndices = tileSettings.linkEdges ? linkedEdgeCells(indices, size) : indices;
+    return targetIndices.some((cell) => (currentPixels[cell] ?? null) !== color);
   }
 
   function indexFromPointer(clientX: number, clientY: number) {
@@ -765,13 +1386,43 @@ export default function Home() {
     const index = indexFromPointer(event.clientX, event.clientY);
     if (index === null) return;
     setCursorIndex(index);
+    const x = index % size;
+    const y = Math.floor(index / size);
+    if (tool === "pivot") {
+      recordProjectHistory();
+      setActiveFramePivot({ x: x + 0.5, y: y + 0.5 });
+      setNotice(`Pivot set to ${x + 0.5}, ${y + 0.5}`);
+      return;
+    }
+    if (tool === "select") {
+      if (!activeLayerIsEditable()) return;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      activePointer.current = event.pointerId;
+      if (selection && pointInSelection(x, y, selection)) {
+        recordCelHistory();
+        selectionDrag.current = {
+          mode: "move",
+          pointerId: event.pointerId,
+          startX: x,
+          startY: y,
+          origin: { ...selection },
+          pixels: [...currentPixels],
+        };
+      } else {
+        const nextSelection = { x, y, width: 1, height: 1 };
+        setSelection(nextSelection);
+        selectionDrag.current = { mode: "marquee", pointerId: event.pointerId, startX: x, startY: y };
+      }
+      return;
+    }
+    if (!activeLayerIsEditable()) return;
     strokeRecorded.current = false;
     if (tool === "picker") {
       applyTool(index);
       return;
     }
     if (toolWouldChange(index)) {
-      recordFrameHistory();
+      recordCelHistory();
       strokeRecorded.current = true;
       applyTool(index);
     }
@@ -783,6 +1434,27 @@ export default function Home() {
   }
 
   function continueStroke(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const drag = selectionDrag.current;
+    if (drag?.pointerId === event.pointerId) {
+      const index = indexFromPointer(event.clientX, event.clientY);
+      if (index === null) return;
+      const x = index % size;
+      const y = Math.floor(index / size);
+      if (drag.mode === "marquee") {
+        setSelection(selectionFromPoints(drag.startX, drag.startY, x, y));
+      } else if (drag.origin && drag.pixels) {
+        const nextSelection = {
+          ...drag.origin,
+          x: clamp(drag.origin.x + x - drag.startX, 0, size - drag.origin.width),
+          y: clamp(drag.origin.y + y - drag.startY, 0, size - drag.origin.height),
+        };
+        const buffer = extractSelection(drag.pixels, size, drag.origin);
+        updateActivePixels(() => stampSelection(drag.pixels!, size, nextSelection, buffer, drag.origin!));
+        setSelection(nextSelection);
+      }
+      setCursorIndex(index);
+      return;
+    }
     if (tool === "picker" && activePointer.current === null) {
       const hoveredIndex = indexFromPointer(event.clientX, event.clientY);
       if (hoveredIndex !== null) setCursorIndex(hoveredIndex);
@@ -794,7 +1466,7 @@ export default function Home() {
     const path = cellsBetween(lastPainted.current, index, size);
     if (toolWouldChange(index, path)) {
       if (!strokeRecorded.current) {
-        recordFrameHistory();
+        recordCelHistory();
         strokeRecorded.current = true;
       }
       applyTool(index, path);
@@ -809,6 +1481,7 @@ export default function Home() {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     activePointer.current = null;
+    selectionDrag.current = null;
     lastPainted.current = null;
     strokeRecorded.current = false;
   }
@@ -820,11 +1493,56 @@ export default function Home() {
       else undo();
       return;
     }
+    const commandKey = event.metaKey || event.ctrlKey;
+    const lowerKey = event.key.toLowerCase();
+    if (commandKey && lowerKey === "a") {
+      event.preventDefault();
+      setTool("select");
+      setSelection({ x: 0, y: 0, width: size, height: size });
+      return;
+    }
+    if (commandKey && lowerKey === "c" && selection) {
+      event.preventDefault();
+      copySelection();
+      return;
+    }
+    if (commandKey && lowerKey === "x" && selection) {
+      event.preventDefault();
+      copySelection();
+      clearSelectionPixels();
+      return;
+    }
+    if (commandKey && lowerKey === "v" && selectionClipboard) {
+      event.preventDefault();
+      pasteSelection();
+      return;
+    }
+    if (event.key === "Escape" && selection) {
+      event.preventDefault();
+      setSelection(null);
+      return;
+    }
+    if ((event.key === "Delete" || event.key === "Backspace") && selection) {
+      event.preventDefault();
+      clearSelectionPixels();
+      return;
+    }
+    if (tool === "select" && selection && event.key.startsWith("Arrow")) {
+      event.preventDefault();
+      const amount = event.shiftKey ? 5 : 1;
+      if (event.key === "ArrowLeft") moveSelection(-amount, 0);
+      if (event.key === "ArrowRight") moveSelection(amount, 0);
+      if (event.key === "ArrowUp") moveSelection(0, -amount);
+      if (event.key === "ArrowDown") moveSelection(0, amount);
+      return;
+    }
     const toolShortcut: Partial<Record<string, Tool>> = {
       p: "pencil",
       e: "eraser",
       f: "fill",
       i: "picker",
+      s: "select",
+      o: "pivot",
     };
     const shortcutTool = toolShortcut[event.key.toLowerCase()];
     if (shortcutTool) {
@@ -835,6 +1553,18 @@ export default function Home() {
     if (event.key.toLowerCase() === "g") {
       event.preventDefault();
       setShowGrid((value) => !value);
+      return;
+    }
+    if (lowerKey === "t") {
+      event.preventDefault();
+      recordProjectHistory();
+      setTileSettings((current) => ({ ...current, preview: !current.preview }));
+      return;
+    }
+    if (lowerKey === "w") {
+      event.preventDefault();
+      recordProjectHistory();
+      setTileSettings((current) => ({ ...current, linkEdges: !current.linkEdges }));
       return;
     }
     let next = cursorIndex;
@@ -853,7 +1583,8 @@ export default function Home() {
       if (event.repeat || playing) return;
       if (tool === "picker") applyTool(cursorIndex);
       else if (toolWouldChange(cursorIndex)) {
-        recordFrameHistory();
+        if (!activeLayerIsEditable()) return;
+        recordCelHistory();
         applyTool(cursorIndex);
       }
     }
@@ -868,13 +1599,34 @@ export default function Home() {
     strokeRecorded.current = false;
     setFrames((current) => current.map((frame) => ({
       ...frame,
-      pixels: resizePixels(frame.pixels, size, nextSize),
+      ...(frame.pivot ? {
+        pivot: { x: (frame.pivot.x / size) * nextSize, y: (frame.pivot.y / size) * nextSize },
+      } : {}),
+      cels: Object.fromEntries(Object.entries(frame.cels).map(([layerId, pixels]) => [
+        layerId,
+        resizePixels(pixels, size, nextSize),
+      ])),
     })));
+    const offset = Math.floor((nextSize - size) / 2);
+    setSlices((current) => current.flatMap((slice) => {
+      const left = clamp(slice.bounds.x + offset, 0, nextSize);
+      const top = clamp(slice.bounds.y + offset, 0, nextSize);
+      const right = clamp(slice.bounds.x + slice.bounds.width + offset, 0, nextSize);
+      const bottom = clamp(slice.bounds.y + slice.bounds.height + offset, 0, nextSize);
+      if (right <= left || bottom <= top) return [];
+      return [{
+        ...slice,
+        bounds: { x: left, y: top, width: right - left, height: bottom - top },
+        ...(slice.pivot ? { pivot: { x: (slice.pivot.x / size) * nextSize, y: (slice.pivot.y / size) * nextSize } } : {}),
+      }];
+    }));
     setSize(nextSize);
+    setPivot((current) => ({ x: (current.x / size) * nextSize, y: (current.y / size) * nextSize }));
     if (referencePixelFit && referenceDimensions) {
       setReferenceTransform(pixelMatchedTransform(referenceDimensions, nextSize, spriteSheet, referenceTile));
     }
     setCursorIndex(0);
+    setSelection(null);
     setCellSize(fitCellSize(nextSize));
     setNotice(`Canvas resized to ${nextSize} × ${nextSize}`);
   }
@@ -900,9 +1652,23 @@ export default function Home() {
       return;
     }
     recordProjectHistory();
+    setPlaying(false);
     const nextId = Math.max(...frames.map((frame) => frame.id), 0) + 1;
-    setFrames((current) => [...current, { id: nextId, pixels: Array(size * size).fill(null) }]);
-    setActiveFrame(frames.length);
+    const insertAt = activeFrame + 1;
+    setFrames((current) => [
+      ...current.slice(0, insertAt),
+      blankFrame(nextId, current[activeFrame]?.durationMs ?? 125),
+      ...current.slice(insertAt),
+    ]);
+    setClips((current) => current.map((clip) => {
+      if (clip.id !== activeClipId) return clip;
+      const frameIds = [...clip.frameIds];
+      const clipPosition = frameIds.indexOf(frames[activeFrame]?.id);
+      frameIds.splice(clipPosition >= 0 ? clipPosition + 1 : frameIds.length, 0, nextId);
+      return { ...clip, frameIds };
+    }));
+    setActiveFrame(insertAt);
+    setSelection(null);
   }
 
   function duplicateFrame() {
@@ -911,14 +1677,28 @@ export default function Home() {
       return;
     }
     recordProjectHistory();
+    setPlaying(false);
     const nextId = Math.max(...frames.map((frame) => frame.id), 0) + 1;
-    const duplicate = { id: nextId, pixels: [...currentPixels] };
+    const source = frames[activeFrame];
+    const duplicate: ArtFrame = {
+      id: nextId,
+      durationMs: source?.durationMs ?? 125,
+      cels: Object.fromEntries(Object.entries(source?.cels ?? {}).map(([layerId, pixels]) => [layerId, [...pixels]])),
+      ...(source?.pivot ? { pivot: { ...source.pivot } } : {}),
+    };
     setFrames((current) => [
       ...current.slice(0, activeFrame + 1),
       duplicate,
       ...current.slice(activeFrame + 1),
     ]);
+    setClips((current) => current.map((clip) => {
+      if (!source || !clip.frameIds.includes(source.id)) return clip;
+      const frameIds = [...clip.frameIds];
+      frameIds.splice(frameIds.indexOf(source.id) + 1, 0, nextId);
+      return { ...clip, frameIds };
+    }));
     setActiveFrame(activeFrame + 1);
+    setSelection(null);
   }
 
   function deleteFrame() {
@@ -927,19 +1707,276 @@ export default function Home() {
       return;
     }
     recordProjectHistory();
-    if (frames.length === 2) setPlaying(false);
+    setPlaying(false);
+    const deletedId = frames[activeFrame].id;
+    const fallbackId = frames[activeFrame === 0 ? 1 : activeFrame - 1].id;
     setFrames((current) => current.filter((_, index) => index !== activeFrame));
+    setClips((current) => current.map((clip) => {
+      const frameIds = clip.frameIds.filter((id) => id !== deletedId);
+      return { ...clip, frameIds: frameIds.length ? frameIds : [fallbackId] };
+    }));
+    setTilemap((current) => ({
+      ...current,
+      cells: current.cells.map((frameId) => frameId === deletedId ? null : frameId),
+    }));
     setActiveFrame((current) => Math.max(0, Math.min(current, frames.length - 2)));
+    setSelection(null);
+  }
+
+  function moveFrame(direction: -1 | 1) {
+    const destination = activeFrame + direction;
+    if (destination < 0 || destination >= frames.length) return;
+    recordProjectHistory();
+    setPlaying(false);
+    const reordered = [...frames];
+    [reordered[activeFrame], reordered[destination]] = [reordered[destination], reordered[activeFrame]];
+    const order = new Map(reordered.map((frame, index) => [frame.id, index]));
+    setFrames(reordered);
+    setClips((current) => current.map((clip) => ({
+      ...clip,
+      frameIds: [...clip.frameIds].sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0)),
+    })));
+    setActiveFrame(destination);
+    setSelection(null);
   }
 
   function clearFrame() {
     if (currentPixels.every((pixel) => pixel === null)) {
-      setNotice("Frame is already clear");
+      setNotice("Layer cel is already clear");
       return;
     }
-    recordFrameHistory();
+    if (!activeLayerIsEditable()) return;
+    recordCelHistory();
     updateActivePixels(() => Array(size * size).fill(null));
-    setNotice("Frame cleared");
+    setNotice("Active layer cleared in this frame");
+  }
+
+  function addLayer() {
+    if (layers.length >= MAX_LAYERS) {
+      setNotice(`Layer limit is ${MAX_LAYERS}`);
+      return;
+    }
+    recordProjectHistory();
+    const id = Math.max(...layers.map((layer) => layer.id), 0) + 1;
+    setLayers((current) => [...current, { id, name: `LAYER ${current.length + 1}`, visible: true, locked: false, opacity: 100 }]);
+    setActiveLayerId(id);
+    setSelection(null);
+  }
+
+  function deleteLayer(layerId = activeLayerId) {
+    if (layers.length === 1) {
+      setNotice("Keep at least one layer");
+      return;
+    }
+    recordProjectHistory();
+    const remaining = layers.filter((layer) => layer.id !== layerId);
+    setLayers(remaining);
+    setFrames((current) => current.map((frame) => {
+      const cels = { ...frame.cels };
+      delete cels[String(layerId)];
+      return { ...frame, cels };
+    }));
+    if (activeLayerId === layerId) setActiveLayerId(remaining.at(-1)!.id);
+    setSelection(null);
+  }
+
+  function moveLayer(direction: -1 | 1) {
+    const index = layers.findIndex((layer) => layer.id === activeLayerId);
+    const destination = index + direction;
+    if (index < 0 || destination < 0 || destination >= layers.length) return;
+    recordProjectHistory();
+    const reordered = [...layers];
+    [reordered[index], reordered[destination]] = [reordered[destination], reordered[index]];
+    setLayers(reordered);
+  }
+
+  function updateLayer(layerId: number, patch: Partial<Omit<ArtLayer, "id">>) {
+    setLayers((current) => current.map((layer) => layer.id === layerId ? { ...layer, ...patch } : layer));
+  }
+
+  function addClip() {
+    if (clips.length >= MAX_CLIPS) {
+      setNotice(`Animation clip limit is ${MAX_CLIPS}`);
+      return;
+    }
+    const id = Math.max(...clips.map((clip) => clip.id), 0) + 1;
+    const frameId = frames[activeFrame]?.id;
+    if (!frameId) return;
+    const existingNames = new Set(clips.map((clip) => clip.name.toLowerCase()));
+    let sequence = clips.length + 1;
+    while (existingNames.has(`animation-${sequence}`)) sequence += 1;
+    recordProjectHistory();
+    setPlaying(false);
+    setClips((current) => [...current, {
+      id,
+      name: `animation-${sequence}`,
+      frameIds: [frameId],
+      direction: "forward",
+      loop: true,
+    }]);
+    setActiveClipId(id);
+  }
+
+  function activateClip(clipId: number) {
+    const clip = clips.find((candidate) => candidate.id === clipId);
+    if (!clip) return;
+    setPlaying(false);
+    setActiveClipId(clipId);
+    setPlaybackCursor(0);
+    const firstId = clipPlaybackFrameIds(clip, frames)[0];
+    const firstIndex = frames.findIndex((frame) => frame.id === firstId);
+    if (firstIndex >= 0) setActiveFrame(firstIndex);
+    setSelection(null);
+  }
+
+  function deleteClip() {
+    if (clips.length === 1) {
+      setNotice("Keep at least one animation clip");
+      return;
+    }
+    recordProjectHistory();
+    setPlaying(false);
+    const remaining = clips.filter((clip) => clip.id !== activeClipId);
+    setClips(remaining);
+    setActiveClipId(remaining[0].id);
+    if (exportClipId === activeClipId) setExportClipId("all");
+  }
+
+  function updateClip(patch: Partial<Omit<AnimationClip, "id">>) {
+    setClips((current) => current.map((clip) => clip.id === activeClipId ? { ...clip, ...patch } : clip));
+  }
+
+  function renameActiveClip(value: string) {
+    const requested = value.slice(0, 28);
+    if (!requested.trim()) {
+      setNotice("Animation clip names cannot be blank");
+      return;
+    }
+    const collision = requested.trim() && clips.some((clip) =>
+      clip.id !== activeClipId && clip.name.trim().toLowerCase() === requested.trim().toLowerCase());
+    if (collision) {
+      setNotice("Animation clip names must be unique");
+      return;
+    }
+    updateClip({ name: requested });
+  }
+
+  function finishClipRename() {
+    if (activeClip?.name.trim()) updateClip({ name: activeClip.name.trim() });
+  }
+
+  function setClipRange(fromIndex: number, toIndex: number) {
+    if (!Number.isFinite(fromIndex) || !Number.isFinite(toIndex)) return;
+    setPlaying(false);
+    const from = clamp(Math.min(fromIndex, toIndex), 0, frames.length - 1);
+    const to = clamp(Math.max(fromIndex, toIndex), 0, frames.length - 1);
+    updateClip({ frameIds: frames.slice(from, to + 1).map((frame) => frame.id) });
+  }
+
+  function setFrameDuration(durationMs: number) {
+    if (!Number.isFinite(durationMs)) return;
+    const duration = clamp(Math.round(durationMs), 16, 10_000);
+    setFrames((current) => current.map((frame, index) => index === activeFrame ? { ...frame, durationMs: duration } : frame));
+  }
+
+  function setActiveFramePivot(nextPivot: Pivot) {
+    const safe = { x: clamp(nextPivot.x, 0, size), y: clamp(nextPivot.y, 0, size) };
+    setFrames((current) => current.map((frame, index) => index === activeFrame ? { ...frame, pivot: safe } : frame));
+  }
+
+  function resizeTilemap(width: number, height: number) {
+    if (!Number.isFinite(width) || !Number.isFinite(height)) return;
+    const nextWidth = clamp(Math.round(width), 1, 64);
+    const nextHeight = clamp(Math.round(height), 1, 64);
+    setTilemap((current) => {
+      if (current.width === nextWidth && current.height === nextHeight) return current;
+      const cells = Array<number | null>(nextWidth * nextHeight).fill(null);
+      for (let y = 0; y < Math.min(current.height, nextHeight); y += 1) {
+        for (let x = 0; x < Math.min(current.width, nextWidth); x += 1) {
+          cells[y * nextWidth + x] = current.cells[y * current.width + x] ?? null;
+        }
+      }
+      return { width: nextWidth, height: nextHeight, cells };
+    });
+  }
+
+  function paintTilemapCell(index: number, eraseCell: boolean) {
+    const frameId = frames[activeFrame]?.id;
+    if (!frameId || index < 0 || index >= tilemap.cells.length) return;
+    setTilemap((current) => {
+      const value = eraseCell ? null : frameId;
+      if (current.cells[index] === value) return current;
+      const cells = [...current.cells];
+      cells[index] = value;
+      return { ...current, cells };
+    });
+  }
+
+  function clearTilemap() {
+    if (tilemap.cells.every((cell) => cell === null)) return;
+    recordProjectHistory();
+    setTilemap((current) => ({ ...current, cells: Array(current.width * current.height).fill(null) }));
+    setNotice("Tilemap cleared");
+  }
+
+  function useProjectPivot() {
+    recordProjectHistory();
+    setFrames((current) => current.map((frame, index) => {
+      if (index !== activeFrame) return frame;
+      const withoutPivot = { ...frame };
+      delete withoutPivot.pivot;
+      return withoutPivot;
+    }));
+    setNotice("Frame now uses the project pivot");
+  }
+
+  function makeActivePivotProjectDefault() {
+    recordProjectHistory();
+    setPivot({ ...activePivot });
+    setFrames((current) => current.map((frame, index) => {
+      if (index !== activeFrame) return frame;
+      const withoutPivot = { ...frame };
+      delete withoutPivot.pivot;
+      return withoutPivot;
+    }));
+    setNotice("Project pivot updated from this frame");
+  }
+
+  function setClipFps(fps: number) {
+    if (!Number.isFinite(fps) || fps <= 0) return;
+    setPlaying(false);
+    const durationMs = Math.round(1000 / Math.max(1, fps));
+    const ids = new Set(activeClip?.frameIds ?? []);
+    setFrames((current) => current.map((frame) => ids.has(frame.id) ? { ...frame, durationMs } : frame));
+    setNotice(`${activeClip?.name ?? "Animation"} set to ${fps} FPS`);
+  }
+
+  function setClipDirection(direction: AnimationDirection) {
+    if (!activeClip) return;
+    setPlaying(false);
+    const updated = { ...activeClip, direction };
+    updateClip({ direction });
+    setPlaybackCursor(0);
+    const firstId = clipPlaybackFrameIds(updated, frames)[0];
+    const firstIndex = frames.findIndex((frame) => frame.id === firstId);
+    if (firstIndex >= 0) setActiveFrame(firstIndex);
+  }
+
+  function togglePlayback() {
+    if (playing) {
+      setPlaying(false);
+      return;
+    }
+    const sequence = clipPlaybackFrameIds(activeClip, frames);
+    if (sequence.length < 2) return;
+    const currentId = frames[activeFrame]?.id;
+    let cursor = sequence[playbackCursor] === currentId ? playbackCursor : 0;
+    if (cursor < 0 || (!activeClip?.loop && cursor === sequence.length - 1)) cursor = 0;
+    setPlaybackCursor(cursor);
+    const startIndex = frames.findIndex((frame) => frame.id === sequence[cursor]);
+    if (startIndex >= 0) setActiveFrame(startIndex);
+    setSelection(null);
+    setPlaying(true);
   }
 
   function resetReferenceTransform() {
@@ -952,6 +1989,29 @@ export default function Home() {
   function handleReference(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (file.size > 48 * 1024 * 1024) {
+      setNotice("Reference images must be 48 MB or smaller to fit in a portable project");
+      event.target.value = "";
+      return;
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const mimeByExtension: Record<string, string> = {
+      avif: "image/avif",
+      bmp: "image/bmp",
+      gif: "image/gif",
+      jpeg: "image/jpeg",
+      jpg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+    };
+    const mime = file.type.toLowerCase() || mimeByExtension[extension];
+    if (!mime || !Object.values(mimeByExtension).includes(mime)) {
+      setNotice("Use a PNG, JPEG, GIF, WebP, AVIF, or BMP reference image");
+      event.target.value = "";
+      return;
+    }
+    setReferenceName(file.name || "reference.png");
+    setReferenceMime(mime);
     const reader = new FileReader();
     reader.onload = () => {
       const source = String(reader.result);
@@ -991,7 +2051,7 @@ export default function Home() {
       };
       image.src = source;
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(file.type ? file : file.slice(0, file.size, mime));
     event.target.value = "";
   }
 
@@ -1010,6 +2070,8 @@ export default function Home() {
     setReferenceDimensions(null);
     setReferenceTile(0);
     setReferencePixelFit(false);
+    setReferenceName("reference.png");
+    setReferenceMime("image/png");
     stopReferenceAdjustment();
     setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
   }
@@ -1042,6 +2104,83 @@ export default function Home() {
     setReferencePixelFit(true);
     stopReferenceAdjustment();
     setNotice(`Sprite ${safeTile + 1} of ${spriteSheet.frameCount} aligned to the grid`);
+  }
+
+  async function importDetectedSpriteSheet() {
+    if (!reference || !spriteSheet || !GRID_SIZES.includes(spriteSheet.frameSize)) return;
+    if (spriteSheet.frameCount > MAX_FRAMES) {
+      setNotice(`This sheet has more than the ${MAX_FRAMES}-frame project limit`);
+      return;
+    }
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const candidate = new Image();
+        candidate.onload = () => resolve(candidate);
+        candidate.onerror = reject;
+        candidate.src = reference;
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = spriteSheet.frameSize;
+      canvas.height = spriteSheet.frameSize;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) throw new Error("Canvas unavailable");
+      context.imageSmoothingEnabled = false;
+      let flattenedAlpha = false;
+      const importedFrames = Array.from({ length: spriteSheet.frameCount }, (_, index) => {
+        const sourceX = spriteSheet.direction === "horizontal" ? index * spriteSheet.frameSize : 0;
+        const sourceY = spriteSheet.direction === "vertical" ? index * spriteSheet.frameSize : 0;
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(
+          image,
+          sourceX,
+          sourceY,
+          spriteSheet.frameSize,
+          spriteSheet.frameSize,
+          0,
+          0,
+          spriteSheet.frameSize,
+          spriteSheet.frameSize,
+        );
+        const converted = imageDataToPixels(context.getImageData(0, 0, canvas.width, canvas.height));
+        flattenedAlpha ||= converted.flattenedAlpha;
+        return makeFrame(index + 1, converted.pixels, 1, 125);
+      });
+      recordProjectHistory();
+      setPlaying(false);
+      setSize(spriteSheet.frameSize);
+      setFrames(importedFrames);
+      setLayers([{ ...DEFAULT_LAYER, name: "IMPORTED SPRITES" }]);
+      setClips([{
+        id: 1,
+        name: "default",
+        frameIds: importedFrames.map((frame) => frame.id),
+        direction: "forward",
+        loop: true,
+      }]);
+      setSlices([]);
+      setTilemap({ width: 8, height: 8, cells: Array(64).fill(null) });
+      setActiveFrame(0);
+      setActiveLayerId(1);
+      setActiveClipId(1);
+      setExportClipId("all");
+      setPivot({ x: spriteSheet.frameSize / 2, y: spriteSheet.frameSize });
+      setProjectName(referenceName.replace(/\.[^.]+$/, "") || "IMPORTED SPRITES");
+      const importedColors = new Set(importedFrames.flatMap((frame) => Object.values(frame.cels).flat()).filter(Boolean) as string[]);
+      setPalette((current) => [...new Set([...current, ...importedColors])].slice(0, 64));
+      setSelection(null);
+      setCellSize(Math.max(comfortableTraceCellSize(spriteSheet.frameSize), fitCellSize(spriteSheet.frameSize)));
+      setReferenceTile(0);
+      setReferenceTransform(pixelMatchedTransform(
+        { width: image.naturalWidth, height: image.naturalHeight },
+        spriteSheet.frameSize,
+        spriteSheet,
+        0,
+      ));
+      setReferencePixelFit(true);
+      setNotice(`${spriteSheet.frameCount} editable frames imported${flattenedAlpha ? " · partial alpha flattened" : ""}`);
+    } catch {
+      setNotice("Sprite sheet import failed");
+    }
   }
 
   function changeReferenceScale(nextScale: number) {
@@ -1191,6 +2330,31 @@ export default function Home() {
     }
   }
 
+  function saveProjectFile() {
+    try {
+      const source = stringifyProject(portableProject(), portableEditor(), { includeReference: true, pretty: true });
+      downloadBlob(new Blob([source], { type: "application/json" }), `${exportFileStem(projectName, "pixelwall-project")}.pixelwall`);
+      setNotice("Portable project saved · reference included");
+    } catch {
+      setNotice("Project file could not be created");
+    }
+  }
+
+  async function openProjectFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const loaded = parseProject(await file.text()) as { project: PortableProject; editor: PortableEditor };
+      if (!GRID_SIZES.includes(loaded.project.size) || loaded.project.frames.length > MAX_FRAMES || loaded.project.layers.length > MAX_LAYERS) {
+        throw new Error("Project exceeds editor limits");
+      }
+      loadPortableProject(loaded.project, loaded.editor, `${loaded.project.name} opened`);
+    } catch {
+      setNotice("That project file is damaged or unsupported");
+    }
+  }
+
   function changeCellSize(direction: -1 | 1) {
     const currentIndex = CELL_SIZES.indexOf(cellSize);
     const normalizedIndex = currentIndex >= 0 ? currentIndex : CELL_SIZES.findIndex((option) => option > cellSize) - 1;
@@ -1212,9 +2376,10 @@ export default function Home() {
     setExporting("frame");
     setNotice("Exporting current frame…");
     const frameNumber = activeFrame + 1;
-    const pixels = [...currentPixels];
+    const frame = currentFrame ? cloneFrames([currentFrame])[0] : undefined;
+    const layerSnapshot = cloneLayers(layers);
     try {
-      const blob = await canvasToPngBlob(createPixelCanvas(pixels, size));
+      const blob = await canvasToPngBlob(createFrameCanvas(frame, layerSnapshot, size));
       downloadBlob(blob, `pixelwall-${spriteFrameFilename(activeFrame, frames.length)}`);
       setNotice(`Frame ${frameNumber} exported · ${size} × ${size}px PNG`);
     } catch {
@@ -1232,38 +2397,86 @@ export default function Home() {
     setExporting("package");
     setNotice("Building sprite package…");
     const frameSnapshot = cloneFrames(frames);
-    const frameCount = frameSnapshot.length;
-    const sheetWidth = size * frameCount;
-    const sheetHeight = size;
+    const layerSnapshot = cloneLayers(layers);
+    const clipSnapshot = cloneClips(clips);
     try {
-      if (sheetWidth > 4096 || sheetHeight > 4096 || sheetWidth * sheetHeight > 16_777_216) {
-        throw new Error("Sprite sheet is too large");
-      }
+      const renderedFrames = frameSnapshot.map((frame) => createFrameCanvas(frame, layerSnapshot, size));
+      const selectedClip = exportClipId === "all" ? null : clipSnapshot.find((clip) => clip.id === exportClipId)?.name ?? null;
+      const plan = createSpriteExportPlan({
+        frames: frameSnapshot.map((frame, index) => ({
+          id: frame.id,
+          durationMs: frame.durationMs,
+          ...(exportTrim ? { trimBounds: opaqueBounds(renderedFrames[index], size) } : {}),
+          ...(frame.pivot ? { pivot: { ...frame.pivot, unit: "pixels" } } : {}),
+        })),
+        size,
+        clips: clipSnapshot.map((clip) => ({ ...clip })),
+        selectedClip,
+        layout: exportLayout === "grid"
+          ? { type: "grid", columns: Math.ceil(Math.sqrt(selectedClip
+            ? clipSnapshot.find((clip) => clip.name === selectedClip)?.frameIds.length ?? frameSnapshot.length
+            : frameSnapshot.length)) }
+          : exportLayout,
+        defaultPivot: { ...pivot, unit: "pixels" },
+        slices: slices.map((slice) => ({
+          name: slice.name,
+          bounds: { ...slice.bounds },
+          pivot: { ...(slice.pivot ?? pivot), unit: "pixels" },
+        })),
+        padding: exportPadding,
+        trim: exportTrim,
+        tilemap: selectedClip === null ? { ...tilemap, cells: [...tilemap.cells] } : undefined,
+        basename: projectName,
+        app: window.location.origin,
+        includeIndividualFrames: exportIndividualFrames,
+        maxTextureSize: 16_384,
+        maxSheetPixels: 16_777_216,
+      });
       const sheet = document.createElement("canvas");
-      sheet.width = sheetWidth;
-      sheet.height = sheetHeight;
+      sheet.width = plan.sheet.width;
+      sheet.height = plan.sheet.height;
       const context = sheet.getContext("2d");
       if (!context) throw new Error("Canvas unavailable");
       context.imageSmoothingEnabled = false;
-      frameSnapshot.forEach((frame, index) => {
-        context.drawImage(createPixelCanvas(frame.pixels, size), index * size, 0);
+      plan.frames.forEach((entry) => {
+        context.drawImage(
+          renderedFrames[entry.sourceIndex],
+          entry.sourceRect.x,
+          entry.sourceRect.y,
+          entry.sourceRect.w,
+          entry.sourceRect.h,
+          entry.rect.x,
+          entry.rect.y,
+          entry.rect.w,
+          entry.rect.h,
+        );
       });
 
-      const [sheetBlob, archiveTools] = await Promise.all([
+      const [sheetBlob, archiveTools, individualBlobs] = await Promise.all([
         canvasToPngBlob(sheet),
         import("fflate"),
+        exportIndividualFrames
+          ? Promise.all(plan.frames.map((entry) => canvasToPngBlob(
+            renderedFrames[entry.sourceIndex],
+          )))
+          : Promise.resolve([]),
       ]);
-      const metadata = buildSpriteSheetMetadata(size, frameCount, fps);
-      const archive = archiveTools.zipSync({
-        [SPRITE_SHEET_FILENAME]: new Uint8Array(await sheetBlob.arrayBuffer()),
-        [SPRITE_DATA_FILENAME]: archiveTools.strToU8(JSON.stringify(metadata, null, 2)),
-      }, { level: 6 });
+      const archiveFiles: Record<string, Uint8Array> = {
+        [plan.files.sheet]: new Uint8Array(await sheetBlob.arrayBuffer()),
+        [plan.files.data]: archiveTools.strToU8(JSON.stringify(plan.metadata, null, 2)),
+      };
+      if (exportIndividualFrames) {
+        await Promise.all(individualBlobs.map(async (blob, index) => {
+          archiveFiles[plan.frames[index].filename] = new Uint8Array(await blob.arrayBuffer());
+        }));
+      }
+      const archive = archiveTools.zipSync(archiveFiles, { level: 0 });
       const archiveBytes = archive.buffer.slice(archive.byteOffset, archive.byteOffset + archive.byteLength) as ArrayBuffer;
       downloadBlob(
         new Blob([archiveBytes], { type: "application/zip" }),
-        `pixelwall-sprites-${size}x${size}-${String(frameCount).padStart(2, "0")}f.zip`,
+        plan.files.archive,
       );
-      setNotice(`Sprite package exported · ${frameCount} frames + sheet + JSON`);
+      setNotice(`Sprite package exported · ${plan.frames.length} frames + sheet + JSON${exportIndividualFrames ? " + PNGs" : ""}`);
     } catch {
       setNotice("Sprite package export failed — try fewer or smaller frames");
     } finally {
@@ -1287,6 +2500,16 @@ export default function Home() {
     width: `${100 / size}%`,
     height: `${100 / size}%`,
   };
+  const selectionStyle = selection ? {
+    left: `${(selection.x / size) * 100}%`,
+    top: `${(selection.y / size) * 100}%`,
+    width: `${(selection.width / size) * 100}%`,
+    height: `${(selection.height / size) * 100}%`,
+  } : undefined;
+  const pivotStyle = {
+    left: `${(activePivot.x / size) * 100}%`,
+    top: `${(activePivot.y / size) * 100}%`,
+  };
 
   return (
     <main className="studio-shell">
@@ -1298,11 +2521,21 @@ export default function Home() {
 
         <div className="project-title" aria-live="polite">
           <span className={`status-dot ${saved ? "" : saveFailed ? "save-failed" : "saving"}`} />
-          <strong>DESERT SIGNAL</strong>
+          <input
+            className="project-name-input"
+            value={projectName}
+            maxLength={48}
+            onFocus={recordProjectHistory}
+            onChange={(event) => setProjectName(event.target.value)}
+            aria-label="Project name"
+          />
           <span className="saved-label">{saved ? "SAVED LOCALLY" : saveFailed ? "NOT SAVED" : "SAVING…"}</span>
         </div>
 
         <div className="header-actions">
+          <input ref={projectInputRef} className="visually-hidden" type="file" accept=".pixelwall,.json,application/json" onChange={openProjectFile} />
+          <button className="icon-button project-file-button" onClick={() => projectInputRef.current?.click()} aria-label="Open PixelWall project" title="Open project"><FolderOpen size={17} /></button>
+          <button className="icon-button project-file-button" onClick={saveProjectFile} aria-label="Save portable PixelWall project" title="Save project"><Save size={17} /></button>
           <label className="size-select-wrap">
             <span>CANVAS</span>
             <select value={size} onChange={(event) => changeSize(Number(event.target.value))}>
@@ -1331,8 +2564,38 @@ export default function Home() {
               </button>
               <button onClick={exportSpritePackage} disabled={exporting !== null}>
                 <PackageOpen size={19} />
-                <span><strong>SPRITE PACKAGE</strong><small>ZIP · {frames.length}-FRAME SHEET + JSON</small></span>
+                <span><strong>SPRITE PACKAGE</strong><small>ZIP · SHEET + JSON{exportIndividualFrames ? " + PNGS" : ""}</small></span>
               </button>
+              <div className="export-settings" aria-label="Sprite package settings">
+                <label>
+                  <span>ANIMATION</span>
+                  <select value={exportClipId} onChange={(event) => setExportClipId(event.target.value === "all" ? "all" : Number(event.target.value))}>
+                    <option value="all">ALL CLIPS</option>
+                    {clips.map((clip) => <option key={clip.id} value={clip.id}>{clip.name}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>LAYOUT</span>
+                  <select value={exportLayout} onChange={(event) => setExportLayout(event.target.value as SheetLayout)}>
+                    <option value="horizontal">HORIZONTAL</option>
+                    <option value="vertical">VERTICAL</option>
+                    <option value="grid">COMPACT GRID</option>
+                  </select>
+                </label>
+                <label className="export-number">
+                  <span>PADDING PX</span>
+                  <input type="number" min="0" max="64" step="1" value={exportPadding} onChange={(event) => { if (Number.isFinite(event.target.valueAsNumber)) setExportPadding(clamp(Math.round(event.target.valueAsNumber), 0, 64)); }} />
+                </label>
+                <label className="export-check">
+                  <input type="checkbox" checked={exportTrim} onChange={(event) => setExportTrim(event.target.checked)} />
+                  <span>TRIM TRANSPARENT EDGES</span>
+                </label>
+                <label className="export-check">
+                  <input type="checkbox" checked={exportIndividualFrames} onChange={(event) => setExportIndividualFrames(event.target.checked)} />
+                  <span>INCLUDE INDIVIDUAL PNGS</span>
+                </label>
+                <small>PIVOT {Math.round(activePivot.x * 10) / 10}, {Math.round(activePivot.y * 10) / 10} · PHASER / PIXI / ASEPRITE JSON</small>
+              </div>
             </div>
           </div>
         </div>
@@ -1347,6 +2610,8 @@ export default function Home() {
             ["eraser", Eraser, "Eraser", "E"],
             ["fill", PaintBucket, "Fill", "F"],
             ["picker", Pipette, "Pick color", "I"],
+            ["select", MousePointer2, "Select and move", "S"],
+            ["pivot", Crosshair, "Set export pivot", "O"],
           ] as const).map(([value, Icon, label, shortcut]) => (
             <button
               key={value}
@@ -1374,25 +2639,30 @@ export default function Home() {
                   <img className="projection-image" src={reference} alt="Projected reference" style={referenceStyle} />
                 )}
                 {showOnion && frames.length > 1 && (
-                  <PixelBitmap pixels={previousPixels} size={size} className="onion-layer" />
+                  <FrameBitmap frame={previousFrame} layers={layers} size={size} className="onion-layer" />
                 )}
                 <canvas
                   ref={canvasRef}
-                  className={`pixel-canvas ${tool === "picker" ? "picker-active" : ""}`}
+                  className={`pixel-canvas ${tool === "picker" ? "picker-active" : ""} ${tool === "select" ? "select-active" : ""}`}
                   width={size}
                   height={size}
-                  role="grid"
-                  aria-label={`${size} by ${size} editable pixel canvas. Use arrow keys to move and Space to paint.`}
+                  aria-label={`${size} by ${size} pixel editor`}
+                  aria-describedby="canvas-keyboard-help canvas-cursor-status"
                   tabIndex={0}
                   onPointerDown={beginStroke}
                   onPointerMove={continueStroke}
                   onPointerUp={endStroke}
                   onPointerCancel={endStroke}
-                  onLostPointerCapture={() => { activePointer.current = null; lastPainted.current = null; strokeRecorded.current = false; }}
+                  onLostPointerCapture={() => { activePointer.current = null; lastPainted.current = null; strokeRecorded.current = false; selectionDrag.current = null; }}
                   onKeyDown={handleCanvasKey}
                 />
+                <span id="canvas-cursor-status" className="visually-hidden" aria-live="polite">
+                  Row {Math.floor(cursorIndex / size) + 1}, column {(cursorIndex % size) + 1}. {tool} tool. {currentPixels[cursorIndex] ?? "transparent"}.
+                </span>
                 {showGrid && <div className="grid-overlay" aria-hidden="true" />}
                 <div className="keyboard-cursor" style={keyboardCursorStyle} aria-hidden="true" />
+                {selection && <div className="selection-outline" style={selectionStyle} aria-hidden="true" />}
+                {tool === "pivot" && <div className="pivot-marker" style={pivotStyle} aria-label={`Export pivot at ${activePivot.x}, ${activePivot.y}`}><Crosshair size={15} /></div>}
                 {reference && adjustingReference && (
                   <button
                     type="button"
@@ -1412,18 +2682,35 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <p className="canvas-hint">
+          <p id="canvas-keyboard-help" className="canvas-hint">
             {adjustingReference
               ? referencePixelFit ? "PIXEL LOCK ON · DRAG OR ARROWS MOVE ONE CELL · ESC DONE" : "DRAG IMAGE · ARROWS NUDGE · + / − SCALE 1% · ESC DONE"
               : referencePixelFit ? "1 IMAGE PIXEL = 1 CANVAS CELL · READY TO TRACE" : "DRAG TO PAINT · ARROW KEYS + SPACE WORK TOO"}
           </p>
+          {selection && (
+            <div className="selection-toolbar" aria-label="Selection actions">
+              <button onClick={copySelection}><Copy size={14} /> COPY</button>
+              <button onClick={pasteSelection} disabled={!selectionClipboard}><CopyPlus size={14} /> PASTE</button>
+              <button onClick={() => flipActiveSelection(true)}><FlipHorizontal size={14} /> FLIP H</button>
+              <button onClick={() => flipActiveSelection(false)}><FlipVertical size={14} /> FLIP V</button>
+              <button onClick={saveSelectionAsSlice} disabled={slices.length >= MAX_SLICES}><Crosshair size={14} /> SAVE SLICE</button>
+              <button onClick={clearSelectionPixels}><Trash2 size={14} /> CLEAR</button>
+              <button onClick={() => setSelection(null)}>DONE</button>
+            </div>
+          )}
+          {tileSettings.preview && (
+            <div className="seam-preview" aria-label="Three by three seamless tile preview">
+              <span>SEAM CHECK · 3 × 3</span>
+              <SeamPreviewBitmap frame={currentFrame} layers={layers} size={size} />
+            </div>
+          )}
         </div>
 
         <div className="projection-dock">
           <div className="projector-unit" aria-hidden="true"><span className="lens" /><span className="projector-slot" /></div>
           <aside className="projection-panel" aria-label="Projection controls">
             <div className="projection-title"><span className="panel-kicker">PROJECTOR</span><span className={reference ? "live-light" : ""} /></div>
-            <input ref={fileInputRef} className="visually-hidden" type="file" accept="image/*" onChange={handleReference} />
+            <input ref={fileInputRef} className="visually-hidden" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.avif,.bmp,image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp" onChange={handleReference} />
             <button className="project-action" onClick={() => fileInputRef.current?.click()}><Upload size={15} /> {reference ? "CHANGE IMAGE" : "LOAD IMAGE"}</button>
 
             {referenceDimensions && (
@@ -1446,6 +2733,12 @@ export default function Home() {
                     ? `USE ${spriteSheet.frameSize} × ${spriteSheet.frameSize} GRID`
                     : "MATCH 1:1 PIXELS"}
                 </span>
+              </button>
+            )}
+
+            {spriteSheet && GRID_SIZES.includes(spriteSheet.frameSize) && (
+              <button className="import-sheet-action" onClick={importDetectedSpriteSheet}>
+                <Layers size={14} /> <span className="projection-action-label">IMPORT {spriteSheet.frameCount} EDITABLE FRAMES</span>
               </button>
             )}
 
@@ -1569,7 +2862,7 @@ export default function Home() {
                 <button onClick={removeReference}>REMOVE</button>
               </div>
             )}
-            <button className="clear-action" onClick={clearFrame}><RotateCcw size={14} /> CLEAR FRAME</button>
+            <button className="clear-action" onClick={clearFrame}><RotateCcw size={14} /> CLEAR ACTIVE LAYER</button>
           </aside>
         </div>
       </section>
@@ -1602,32 +2895,184 @@ export default function Home() {
           </div>
         </div>
 
+        <div className="layers-panel">
+          <div className="layers-heading">
+            <span className="panel-kicker">LAYERS <b>{String(layers.length).padStart(2, "0")}</b></span>
+            <div className="layer-actions">
+              <button onClick={() => moveLayer(1)} disabled={layers.at(-1)?.id === activeLayerId} aria-label="Move layer up">↑</button>
+              <button onClick={() => moveLayer(-1)} disabled={layers[0]?.id === activeLayerId} aria-label="Move layer down">↓</button>
+              <button onClick={addLayer} disabled={layers.length >= MAX_LAYERS} aria-label="Add layer"><Plus size={14} /></button>
+              <button onClick={() => deleteLayer()} disabled={layers.length === 1} aria-label="Delete active layer"><Trash2 size={14} /></button>
+            </div>
+          </div>
+          <div className="layer-list" aria-label="Artwork layers">
+            {[...layers].reverse().map((layer) => (
+              <div
+                key={layer.id}
+                className={`layer-row ${layer.id === activeLayerId ? "active" : ""}`}
+                onPointerDown={() => { setActiveLayerId(layer.id); setSelection(null); }}
+                onFocusCapture={() => { setActiveLayerId(layer.id); setSelection(null); }}
+              >
+                <button
+                  onClick={(event) => { event.stopPropagation(); recordProjectHistory(); updateLayer(layer.id, { visible: !layer.visible }); }}
+                  aria-label={`${layer.visible ? "Hide" : "Show"} ${layer.name}`}
+                >
+                  {layer.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                </button>
+                <input
+                  value={layer.name}
+                  maxLength={24}
+                  onClick={(event) => event.stopPropagation()}
+                  onFocus={recordProjectHistory}
+                  onChange={(event) => updateLayer(layer.id, { name: event.target.value })}
+                  aria-label={`Layer name ${layer.name}`}
+                />
+                <button
+                  onClick={(event) => { event.stopPropagation(); recordProjectHistory(); updateLayer(layer.id, { locked: !layer.locked }); }}
+                  aria-label={`${layer.locked ? "Unlock" : "Lock"} ${layer.name}`}
+                >
+                  {layer.locked ? <Lock size={13} /> : <Unlock size={13} />}
+                </button>
+              </div>
+            ))}
+          </div>
+          <label className="layer-opacity">
+            <span>ACTIVE OPACITY</span><strong>{Math.round(activeLayer?.opacity ?? 100)}%</strong>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={activeLayer?.opacity ?? 100}
+              onFocus={recordProjectHistory}
+              onChange={(event) => updateLayer(activeLayerId, { opacity: Number(event.target.value) })}
+            />
+          </label>
+          <div className="production-tools">
+            <button
+              className={tileSettings.preview ? "active" : ""}
+              onClick={() => { recordProjectHistory(); setTileSettings((current) => ({ ...current, preview: !current.preview })); }}
+              aria-pressed={tileSettings.preview}
+            ><Grid2X2 size={14} /> SEAM CHECK</button>
+            <button
+              className={tileSettings.linkEdges ? "active" : ""}
+              onClick={() => { recordProjectHistory(); setTileSettings((current) => ({ ...current, linkEdges: !current.linkEdges })); }}
+              aria-pressed={tileSettings.linkEdges}
+            ><Repeat2 size={14} /> LINK EDGES</button>
+          </div>
+          <div className="slice-list" aria-label="Named export slices">
+            <span>NAMED SLICES <b>{slices.length}</b></span>
+            {slices.length === 0 ? <small>SELECT AN AREA, THEN SAVE SLICE</small> : slices.map((slice) => (
+              <div key={slice.id}>
+                <input value={slice.name} maxLength={28} onFocus={recordProjectHistory} onChange={(event) => renameSlice(slice.id, event.target.value)} aria-label={`Slice name ${slice.name}`} />
+                <code>{slice.bounds.width}×{slice.bounds.height}</code>
+                <button onClick={() => deleteSlice(slice.id)} aria-label={`Delete slice ${slice.name}`}><Trash2 size={12} /></button>
+              </div>
+            ))}
+          </div>
+          <div className="pivot-controls" aria-label="Export pivot coordinates">
+            <span><Crosshair size={13} /> {currentFrame?.pivot ? "FRAME PIVOT" : "PROJECT PIVOT"}</span>
+            <label>X <input type="number" min="0" max={size} step="0.5" value={activePivot.x} onFocus={recordProjectHistory} onChange={(event) => { if (Number.isFinite(event.target.valueAsNumber)) setActiveFramePivot({ ...activePivot, x: event.target.valueAsNumber }); }} /></label>
+            <label>Y <input type="number" min="0" max={size} step="0.5" value={activePivot.y} onFocus={recordProjectHistory} onChange={(event) => { if (Number.isFinite(event.target.valueAsNumber)) setActiveFramePivot({ ...activePivot, y: event.target.valueAsNumber }); }} /></label>
+            <button onClick={() => { recordProjectHistory(); setActiveFramePivot({ x: size / 2, y: size }); }}>BOTTOM CENTER</button>
+            <button onClick={makeActivePivotProjectDefault}>MAKE DEFAULT</button>
+            {currentFrame?.pivot && <button onClick={useProjectPivot}>USE DEFAULT</button>}
+          </div>
+          <div className="mobile-project-actions">
+            <button onClick={() => projectInputRef.current?.click()}><FolderOpen size={15} /> OPEN PROJECT</button>
+            <button onClick={saveProjectFile}><Save size={15} /> SAVE PROJECT</button>
+          </div>
+        </div>
+
         <div className="frames-panel">
           <div className="frames-heading">
             <span className="panel-kicker">FRAMES <b>{String(frames.length).padStart(2, "0")}</b></span>
             <div className="frame-settings">
-              <label>FPS <select value={fps} onChange={(event) => setFps(Number(event.target.value))}><option>4</option><option>8</option><option>12</option></select></label>
+              <label>DURATION <input type="number" min="16" max="10000" step="1" value={currentFrame?.durationMs ?? 125} onFocus={recordProjectHistory} onChange={(event) => setFrameDuration(event.target.valueAsNumber)} /><span>MS</span></label>
+              <button onClick={() => moveFrame(-1)} disabled={activeFrame === 0} aria-label="Move frame left" title="Move frame left"><ChevronLeft size={16} /></button>
+              <button onClick={() => moveFrame(1)} disabled={activeFrame === frames.length - 1} aria-label="Move frame right" title="Move frame right"><ChevronRight size={16} /></button>
               <button onClick={duplicateFrame} aria-label="Duplicate active frame" title="Duplicate frame"><CopyPlus size={16} /></button>
               <button onClick={deleteFrame} aria-label="Delete active frame" title="Delete frame"><Trash2 size={16} /></button>
             </div>
           </div>
+          <div className="animation-bar" aria-label="Animation clip controls">
+            <label>CLIP
+              <select value={activeClipId} onChange={(event) => activateClip(Number(event.target.value))}>
+                {clips.map((clip) => <option key={clip.id} value={clip.id}>{clip.name}</option>)}
+              </select>
+            </label>
+            <label>NAME <input value={activeClip?.name ?? ""} maxLength={28} onFocus={recordProjectHistory} onChange={(event) => renameActiveClip(event.target.value)} onBlur={finishClipRename} /></label>
+            <label>FROM <input type="number" min="1" max={frames.length} value={clipFrom + 1} onFocus={recordProjectHistory} onChange={(event) => setClipRange(event.target.valueAsNumber - 1, clipTo)} /></label>
+            <label>TO <input type="number" min="1" max={frames.length} value={clipTo + 1} onFocus={recordProjectHistory} onChange={(event) => setClipRange(clipFrom, event.target.valueAsNumber - 1)} /></label>
+            <label>PLAY
+              <select value={activeClip?.direction ?? "forward"} onFocus={recordProjectHistory} onChange={(event) => setClipDirection(event.target.value as AnimationDirection)}>
+                <option value="forward">FORWARD</option>
+                <option value="reverse">REVERSE</option>
+                <option value="pingpong">PING-PONG</option>
+                <option value="pingpong_reverse">PING-PONG REV</option>
+              </select>
+            </label>
+            <label>FPS
+              <select value={activeClipFpsPreset} onFocus={recordProjectHistory} onChange={(event) => setClipFps(Number(event.target.value))}>
+                <option value="mixed" disabled>MIXED</option>
+                <option>4</option><option>6</option><option>8</option><option>10</option><option>12</option><option>24</option>
+              </select>
+            </label>
+            <button className={activeClip?.loop ? "active" : ""} onClick={() => { recordProjectHistory(); updateClip({ loop: !activeClip?.loop }); }} aria-pressed={activeClip?.loop}>LOOP</button>
+            <button onClick={addClip} disabled={clips.length >= MAX_CLIPS} aria-label="Add animation clip"><Plus size={14} /></button>
+            <button onClick={deleteClip} disabled={clips.length === 1} aria-label="Delete animation clip"><Trash2 size={14} /></button>
+          </div>
           <div className="timeline">
-            <button className={`play-button ${playing ? "playing" : ""}`} disabled={frames.length < 2} onClick={() => { if (frames.length > 1) setPlaying((value) => !value); }} aria-label={playing ? "Pause animation" : "Play animation"}>
+            <button className={`play-button ${playing ? "playing" : ""}`} disabled={!playing && (activeClip?.frameIds.length ?? 0) < 2} onClick={togglePlayback} aria-label={playing ? "Pause animation" : "Play animation"}>
               {playing ? <Pause size={19} fill="currentColor" /> : <Play size={19} fill="currentColor" />}
             </button>
             {frames.map((frame, index) => (
               <button
                 key={frame.id}
-                className={`frame-card ${index === activeFrame ? "active" : ""}`}
-                onClick={() => { setPlaying(false); setActiveFrame(index); }}
+                className={`frame-card ${index === activeFrame ? "active" : ""} ${activeClip?.frameIds.includes(frame.id) ? "in-clip" : "out-of-clip"}`}
+                onClick={() => {
+                  setPlaying(false);
+                  setActiveFrame(index);
+                  setPlaybackCursor(Math.max(0, clipPlaybackFrameIds(activeClip, frames).indexOf(frame.id)));
+                  setSelection(null);
+                }}
                 aria-label={`Select frame ${index + 1}`}
                 aria-pressed={index === activeFrame}
               >
-                <FrameThumbnail pixels={frame.pixels} size={size} />
+                <FrameThumbnail frame={frame} layers={layers} size={size} />
                 <span>{String(index + 1).padStart(2, "0")}</span>
+                <small>{frame.durationMs}ms</small>
               </button>
             ))}
             <button className="new-frame" onClick={addFrame} aria-label="Add a blank frame"><ImagePlus size={20} /><span>NEW FRAME</span></button>
+          </div>
+        </div>
+
+        <div className="tilemap-panel">
+          <div className="tilemap-heading">
+            <span className="panel-kicker">TILEMAP LAB</span>
+            <small>ACTIVE TILE · FRAME {activeFrame + 1}</small>
+          </div>
+          <div className="tilemap-controls">
+            <label>WIDTH <input type="number" min="1" max="64" value={tilemap.width} onFocus={recordProjectHistory} onChange={(event) => resizeTilemap(event.target.valueAsNumber, tilemap.height)} /></label>
+            <label>HEIGHT <input type="number" min="1" max="64" value={tilemap.height} onFocus={recordProjectHistory} onChange={(event) => resizeTilemap(tilemap.width, event.target.valueAsNumber)} /></label>
+            <button className={!tilemapErase ? "active" : ""} onClick={() => setTilemapErase(false)} aria-pressed={!tilemapErase}><Pencil size={13} /> PAINT</button>
+            <button className={tilemapErase ? "active" : ""} onClick={() => setTilemapErase(true)} aria-pressed={tilemapErase}><Eraser size={13} /> ERASE</button>
+            <button onClick={clearTilemap}><Trash2 size={13} /> CLEAR MAP</button>
+          </div>
+          <div className="tilemap-workspace">
+            <div className="tilemap-scroll">
+              <TilemapBitmap
+                tilemap={tilemap}
+                frames={frames}
+                layers={layers}
+                size={size}
+                activeFrameId={frames[activeFrame]?.id ?? frames[0].id}
+                erase={tilemapErase}
+                onStrokeStart={recordProjectHistory}
+                onPaint={paintTilemapCell}
+              />
+            </div>
+            <p>CHOOSE A FRAME ABOVE, THEN PAINT A LEVEL. RIGHT-CLICK ERASES.</p>
           </div>
         </div>
       </section>

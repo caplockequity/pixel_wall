@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
   const title = "PixelWall — Pixel Art Maker";
-  const description = "Draw crisp pixel art up to 256×256, trace a movable projector image, animate frame by frame, and export your creation.";
+  const description = "Trace and draw layered pixel art, build named game animations, preview seamless tiles, and export engine-ready sprite packages or portable projects.";
   const socialImage = `${origin}/og.png`;
 
   return {
