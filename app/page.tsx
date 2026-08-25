@@ -40,6 +40,12 @@ type FrameHistoryEntry = { kind: "frame"; frameId: number; size: number; pixels:
 type ProjectHistoryEntry = { kind: "project"; snapshot: ProjectSnapshot };
 type HistoryEntry = FrameHistoryEntry | ProjectHistoryEntry;
 type ReferenceTransform = { x: number; y: number; scale: number };
+type ReferenceDimensions = { width: number; height: number };
+type SpriteSheetInfo = {
+  direction: "horizontal" | "vertical";
+  frameCount: number;
+  frameSize: number;
+};
 type EyeDropperApi = { open: () => Promise<{ sRGBHex: string }> };
 type EyeDropperWindow = Window & { EyeDropper?: new () => EyeDropperApi };
 
@@ -77,7 +83,10 @@ const STARTER_PALETTE = [
   "#f8f0df",
 ];
 const GRID_SIZES = [8, 16, 24, 32, 48, 64, 96, 128, 256];
-const CANVAS_ZOOMS = [100, 200, 400, 800];
+const CELL_SIZES = [1, 2, 4, 8, 12, 16, 24, 32, 48, 64];
+const REFERENCE_SCALE_MIN = 1;
+const REFERENCE_SCALE_MAX = 10_000;
+const REFERENCE_POSITION_MAX = 5_000;
 const MAX_HISTORY = 40;
 const HISTORY_CELL_BUDGET = 4_000_000;
 const MAX_FRAMES = 12;
@@ -317,9 +326,9 @@ function decodeStoredProject(parsed: unknown): LoadedProject | null {
       selectedColor: typeof project.selectedColor === "string" ? project.selectedColor : "#ff6b57",
       referenceOpacity: typeof projector?.opacity === "number" ? clamp(projector.opacity, 0, 100) : 38,
       referenceTransform: {
-        x: typeof transform?.x === "number" ? clamp(transform.x, -200, 200) : 0,
-        y: typeof transform?.y === "number" ? clamp(transform.y, -200, 200) : 0,
-        scale: typeof transform?.scale === "number" ? clamp(transform.scale, 25, 400) : 100,
+        x: typeof transform?.x === "number" ? clamp(transform.x, -REFERENCE_POSITION_MAX, REFERENCE_POSITION_MAX) : 0,
+        y: typeof transform?.y === "number" ? clamp(transform.y, -REFERENCE_POSITION_MAX, REFERENCE_POSITION_MAX) : 0,
+        scale: typeof transform?.scale === "number" ? clamp(transform.scale, REFERENCE_SCALE_MIN, REFERENCE_SCALE_MAX) : 100,
       },
     };
   } catch {
@@ -373,6 +382,51 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+function detectSpriteSheet(dimensions: ReferenceDimensions | null): SpriteSheetInfo | null {
+  if (!dimensions) return null;
+  const { width, height } = dimensions;
+  if (width > height && width % height === 0) {
+    const frameCount = width / height;
+    if (frameCount >= 2 && frameCount <= 32) return { direction: "horizontal", frameCount, frameSize: height };
+  }
+  if (height > width && height % width === 0) {
+    const frameCount = height / width;
+    if (frameCount >= 2 && frameCount <= 32) return { direction: "vertical", frameCount, frameSize: width };
+  }
+  return null;
+}
+
+function referenceTravelLimit(scale: number) {
+  return Math.min(REFERENCE_POSITION_MAX, Math.max(200, (scale - 100) / 2));
+}
+
+function comfortableTraceCellSize(gridSize: number) {
+  if (gridSize <= 16) return 32;
+  if (gridSize <= 32) return 16;
+  if (gridSize <= 64) return 8;
+  if (gridSize <= 128) return 4;
+  return 2;
+}
+
+function pixelMatchedTransform(
+  dimensions: ReferenceDimensions,
+  canvasSize: number,
+  sheet: SpriteSheetInfo | null,
+  tileIndex: number,
+): ReferenceTransform {
+  const scale = clamp(
+    (Math.max(dimensions.width, dimensions.height) / canvasSize) * 100,
+    REFERENCE_SCALE_MIN,
+    REFERENCE_SCALE_MAX,
+  );
+  const tileLeft = sheet?.direction === "horizontal" ? sheet.frameSize * tileIndex : 0;
+  const tileTop = sheet?.direction === "vertical" ? sheet.frameSize * tileIndex : 0;
+  const x = ((dimensions.width / 2 - tileLeft - canvasSize / 2) / canvasSize) * 100;
+  const y = ((dimensions.height / 2 - tileTop - canvasSize / 2) / canvasSize) * 100;
+  const travel = referenceTravelLimit(scale);
+  return { scale, x: clamp(x, -travel, travel), y: clamp(y, -travel, travel) };
+}
+
 export default function Home() {
   const [size, setSize] = useState(16);
   const [frames, setFrames] = useState<ArtFrame[]>(() => [
@@ -387,10 +441,13 @@ export default function Home() {
   const [showGrid, setShowGrid] = useState(true);
   const [showOnion, setShowOnion] = useState(false);
   const [reference, setReference] = useState<string | null>(null);
+  const [referenceDimensions, setReferenceDimensions] = useState<ReferenceDimensions | null>(null);
+  const [referenceTile, setReferenceTile] = useState(0);
+  const [referencePixelFit, setReferencePixelFit] = useState(false);
   const [referenceOpacity, setReferenceOpacity] = useState(38);
   const [referenceTransform, setReferenceTransform] = useState<ReferenceTransform>(DEFAULT_REFERENCE_TRANSFORM);
   const [adjustingReference, setAdjustingReference] = useState(false);
-  const [zoom, setZoom] = useState(100);
+  const [cellSize, setCellSize] = useState(24);
   const [playing, setPlaying] = useState(false);
   const [fps, setFps] = useState(8);
   const [cursorIndex, setCursorIndex] = useState(0);
@@ -424,6 +481,12 @@ export default function Home() {
     const previous = (activeFrame - 1 + frames.length) % frames.length;
     return frames[previous]?.pixels ?? [];
   }, [activeFrame, frames]);
+  const spriteSheet = useMemo(() => detectSpriteSheet(referenceDimensions), [referenceDimensions]);
+  const referenceScaleMax = useMemo(() => {
+    if (!referenceDimensions) return 1600;
+    const matchScale = (Math.max(referenceDimensions.width, referenceDimensions.height) / size) * 100;
+    return Math.min(REFERENCE_SCALE_MAX, Math.max(1600, Math.ceil(matchScale / 100) * 100));
+  }, [referenceDimensions, size]);
 
   useEffect(() => renderPixelBitmap(canvasRef.current, currentPixels, size), [currentPixels, size]);
 
@@ -546,6 +609,9 @@ export default function Home() {
     if (entry.kind === "project") {
       setFrames(cloneFrames(entry.snapshot.frames));
       setSize(entry.snapshot.size);
+      if (referencePixelFit && referenceDimensions) {
+        setReferenceTransform(pixelMatchedTransform(referenceDimensions, entry.snapshot.size, spriteSheet, referenceTile));
+      }
       setActiveFrame(Math.min(entry.snapshot.activeFrame, entry.snapshot.frames.length - 1));
       setCursorIndex((current) => Math.min(current, entry.snapshot.size * entry.snapshot.size - 1));
       return;
@@ -734,9 +800,27 @@ export default function Home() {
       pixels: resizePixels(frame.pixels, size, nextSize),
     })));
     setSize(nextSize);
+    if (referencePixelFit && referenceDimensions) {
+      setReferenceTransform(pixelMatchedTransform(referenceDimensions, nextSize, spriteSheet, referenceTile));
+    }
     setCursorIndex(0);
-    if (nextSize >= 128 && zoom < 200) setZoom(200);
+    setCellSize(fitCellSize(nextSize));
     setNotice(`Canvas resized to ${nextSize} × ${nextSize}`);
+  }
+
+  function fitCellSize(targetSize = size) {
+    const viewportWidth = window.innerWidth;
+    const availableWidth = viewportWidth <= 560
+      ? viewportWidth - 115
+      : viewportWidth <= 800
+        ? viewportWidth - 270
+        : viewportWidth <= 1050
+          ? viewportWidth - 325
+          : viewportWidth - 370;
+    const availableHeight = viewportWidth <= 560 ? 350 : viewportWidth <= 800 ? 470 : 520;
+    const drawableSpace = Math.max(120, Math.min(availableWidth, availableHeight));
+    const ideal = Math.max(1, Math.floor(drawableSpace / targetSize));
+    return CELL_SIZES.filter((option) => option <= ideal).at(-1) ?? CELL_SIZES[0];
   }
 
   function addFrame() {
@@ -789,6 +873,8 @@ export default function Home() {
 
   function resetReferenceTransform() {
     setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
+    setReferencePixelFit(false);
+    setReferenceTile(0);
     setNotice("Projector image centered");
   }
 
@@ -797,10 +883,42 @@ export default function Home() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setReference(String(reader.result));
-      setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
-      setAdjustingReference(true);
-      setNotice("Reference loaded — drag it into position");
+      const source = String(reader.result);
+      const image = new Image();
+      image.onload = () => {
+        const dimensions = { width: image.naturalWidth, height: image.naturalHeight };
+        const sheet = detectSpriteSheet(dimensions);
+        setReference(source);
+        setReferenceDimensions(dimensions);
+        setReferenceTile(0);
+        if (sheet && sheet.frameSize === size) {
+          const needsBlankFrame = currentPixels.every((pixel) => pixel !== null) && frames.length < MAX_FRAMES;
+          if (needsBlankFrame) addFrame();
+          setReferenceTransform(pixelMatchedTransform(dimensions, size, sheet, 0));
+          setReferencePixelFit(true);
+          setAdjustingReference(false);
+          setCellSize((current) => Math.max(current, comfortableTraceCellSize(size)));
+          setNotice(needsBlankFrame
+            ? `${sheet.frameCount}-frame sheet aligned · blank trace frame ready`
+            : `${sheet.frameCount}-frame ${sheet.frameSize} × ${sheet.frameSize} sheet aligned · sprite 1 ready`);
+        } else {
+          setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
+          setReferencePixelFit(false);
+          setAdjustingReference(true);
+          setNotice(sheet
+            ? `${sheet.frameCount}-frame ${sheet.frameSize} × ${sheet.frameSize} sheet detected · use its matching grid`
+            : `${dimensions.width} × ${dimensions.height} reference loaded`);
+        }
+      };
+      image.onerror = () => {
+        setReference(source);
+        setReferenceDimensions(null);
+        setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
+        setReferencePixelFit(false);
+        setAdjustingReference(true);
+        setNotice("Reference loaded — drag it into position");
+      };
+      image.src = source;
     };
     reader.readAsDataURL(file);
     event.target.value = "";
@@ -818,8 +936,53 @@ export default function Home() {
 
   function removeReference() {
     setReference(null);
+    setReferenceDimensions(null);
+    setReferenceTile(0);
+    setReferencePixelFit(false);
     stopReferenceAdjustment();
     setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
+  }
+
+  function matchReferencePixels(targetSize = size, tileIndex = referenceTile) {
+    if (!referenceDimensions) return;
+    const sheet = detectSpriteSheet(referenceDimensions);
+    const safeTile = sheet ? clamp(tileIndex, 0, sheet.frameCount - 1) : 0;
+    setReferenceTile(safeTile);
+    setReferenceTransform(pixelMatchedTransform(referenceDimensions, targetSize, sheet, safeTile));
+    setReferencePixelFit(true);
+    stopReferenceAdjustment();
+    setNotice(sheet
+      ? `Sprite ${safeTile + 1} of ${sheet.frameCount} · 1 image pixel = 1 canvas cell`
+      : "1 image pixel = 1 canvas cell");
+  }
+
+  function useDetectedSpriteGrid() {
+    if (!spriteSheet || !GRID_SIZES.includes(spriteSheet.frameSize)) return;
+    if (size !== spriteSheet.frameSize) changeSize(spriteSheet.frameSize);
+    setCellSize(Math.max(comfortableTraceCellSize(spriteSheet.frameSize), fitCellSize(spriteSheet.frameSize)));
+    matchReferencePixels(spriteSheet.frameSize, 0);
+  }
+
+  function showReferenceTile(nextTile: number) {
+    if (!spriteSheet || !referenceDimensions) return;
+    const safeTile = clamp(nextTile, 0, spriteSheet.frameCount - 1);
+    setReferenceTile(safeTile);
+    setReferenceTransform(pixelMatchedTransform(referenceDimensions, size, spriteSheet, safeTile));
+    setReferencePixelFit(true);
+    stopReferenceAdjustment();
+    setNotice(`Sprite ${safeTile + 1} of ${spriteSheet.frameCount} aligned to the grid`);
+  }
+
+  function changeReferenceScale(nextScale: number) {
+    const scale = clamp(nextScale, REFERENCE_SCALE_MIN, referenceScaleMax);
+    const travel = referenceTravelLimit(scale);
+    setReferencePixelFit(false);
+    setReferenceTransform((current) => ({
+      ...current,
+      scale,
+      x: clamp(current.x, -travel, travel),
+      y: clamp(current.y, -travel, travel),
+    }));
   }
 
   function beginReferenceDrag(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -840,11 +1003,17 @@ export default function Home() {
     const bounds = event.currentTarget.getBoundingClientRect();
     const deltaX = ((event.clientX - drag.startX) / bounds.width) * 100;
     const deltaY = ((event.clientY - drag.startY) / bounds.height) * 100;
-    setReferenceTransform((current) => ({
-      ...current,
-      x: clamp(drag.originX + deltaX, -200, 200),
-      y: clamp(drag.originY + deltaY, -200, 200),
-    }));
+    setReferenceTransform((current) => {
+      const travel = referenceTravelLimit(current.scale);
+      const snapStep = 100 / size;
+      const x = clamp(drag.originX + deltaX, -travel, travel);
+      const y = clamp(drag.originY + deltaY, -travel, travel);
+      return {
+        ...current,
+        x: referencePixelFit ? Math.round(x / snapStep) * snapStep : x,
+        y: referencePixelFit ? Math.round(y / snapStep) * snapStep : y,
+      };
+    });
   }
 
   function endReferenceDrag(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -856,30 +1025,44 @@ export default function Home() {
   }
 
   function handleReferenceKey(event: ReactKeyboardEvent<HTMLButtonElement>) {
-    const step = event.shiftKey ? 5 : 1;
+    const step = referencePixelFit ? (100 / size) * (event.shiftKey ? 5 : 1) : event.shiftKey ? 5 : 1;
     let moved = false;
     if (event.key === "ArrowLeft") {
-      setReferenceTransform((current) => ({ ...current, x: clamp(current.x - step, -200, 200) }));
+      setReferenceTransform((current) => {
+        const travel = referenceTravelLimit(current.scale);
+        return { ...current, x: clamp(current.x - step, -travel, travel) };
+      });
       moved = true;
     }
     if (event.key === "ArrowRight") {
-      setReferenceTransform((current) => ({ ...current, x: clamp(current.x + step, -200, 200) }));
+      setReferenceTransform((current) => {
+        const travel = referenceTravelLimit(current.scale);
+        return { ...current, x: clamp(current.x + step, -travel, travel) };
+      });
       moved = true;
     }
     if (event.key === "ArrowUp") {
-      setReferenceTransform((current) => ({ ...current, y: clamp(current.y - step, -200, 200) }));
+      setReferenceTransform((current) => {
+        const travel = referenceTravelLimit(current.scale);
+        return { ...current, y: clamp(current.y - step, -travel, travel) };
+      });
       moved = true;
     }
     if (event.key === "ArrowDown") {
-      setReferenceTransform((current) => ({ ...current, y: clamp(current.y + step, -200, 200) }));
+      setReferenceTransform((current) => {
+        const travel = referenceTravelLimit(current.scale);
+        return { ...current, y: clamp(current.y + step, -travel, travel) };
+      });
       moved = true;
     }
     if (["+", "=", "]"].includes(event.key)) {
-      setReferenceTransform((current) => ({ ...current, scale: clamp(current.scale + 5, 25, 400) }));
+      setReferencePixelFit(false);
+      setReferenceTransform((current) => ({ ...current, scale: clamp(current.scale + 5, REFERENCE_SCALE_MIN, referenceScaleMax) }));
       moved = true;
     }
     if (["-", "_", "["].includes(event.key)) {
-      setReferenceTransform((current) => ({ ...current, scale: clamp(current.scale - 5, 25, 400) }));
+      setReferencePixelFit(false);
+      setReferenceTransform((current) => ({ ...current, scale: clamp(current.scale - 5, REFERENCE_SCALE_MIN, referenceScaleMax) }));
       moved = true;
     }
     if (event.key === "0") {
@@ -939,10 +1122,11 @@ export default function Home() {
     }
   }
 
-  function changeCanvasZoom(direction: -1 | 1) {
-    const currentIndex = CANVAS_ZOOMS.indexOf(zoom);
-    const nextIndex = clamp(currentIndex + direction, 0, CANVAS_ZOOMS.length - 1);
-    setZoom(CANVAS_ZOOMS[nextIndex]);
+  function changeCellSize(direction: -1 | 1) {
+    const currentIndex = CELL_SIZES.indexOf(cellSize);
+    const normalizedIndex = currentIndex >= 0 ? currentIndex : CELL_SIZES.findIndex((option) => option > cellSize) - 1;
+    const nextIndex = clamp(normalizedIndex + direction, 0, CELL_SIZES.length - 1);
+    setCellSize(CELL_SIZES[nextIndex]);
   }
 
   function exportPng() {
@@ -973,7 +1157,9 @@ export default function Home() {
 
   const surfaceStyle = {
     "--grid-size": size,
-    "--grid-opacity": size >= 128 ? 0.12 : size >= 64 ? 0.22 : 0.42,
+    "--grid-opacity": cellSize <= 2 ? 0 : size >= 128 ? 0.12 : size >= 64 ? 0.22 : 0.42,
+    width: `${size * cellSize}px`,
+    height: `${size * cellSize}px`,
   } as CSSProperties;
   const referenceStyle = {
     opacity: referenceOpacity / 100,
@@ -1039,7 +1225,7 @@ export default function Home() {
         <div className="canvas-zone">
           <div className="size-chip">{size} × {size}</div>
           <div className="canvas-viewport">
-            <div className={`frame-rig zoom-${zoom}`}>
+            <div className="frame-rig">
               <span className="frame-screw screw-a" /><span className="frame-screw screw-b" />
               <span className="frame-screw screw-c" /><span className="frame-screw screw-d" />
               <div className="art-surface" style={surfaceStyle}>
@@ -1088,7 +1274,9 @@ export default function Home() {
             </div>
           </div>
           <p className="canvas-hint">
-            {adjustingReference ? "DRAG IMAGE TO POSITION · ARROWS NUDGE · ESC DONE" : "DRAG TO PAINT · ARROW KEYS + SPACE WORK TOO"}
+            {adjustingReference
+              ? referencePixelFit ? "PIXEL LOCK ON · DRAG OR ARROWS MOVE ONE CELL · ESC DONE" : "DRAG IMAGE TO POSITION · ARROWS NUDGE · ESC DONE"
+              : referencePixelFit ? "1 IMAGE PIXEL = 1 CANVAS CELL · READY TO TRACE" : "DRAG TO PAINT · ARROW KEYS + SPACE WORK TOO"}
           </p>
         </div>
 
@@ -1099,19 +1287,61 @@ export default function Home() {
             <input ref={fileInputRef} className="visually-hidden" type="file" accept="image/*" onChange={handleReference} />
             <button className="project-action" onClick={() => fileInputRef.current?.click()}><Upload size={15} /> {reference ? "CHANGE IMAGE" : "LOAD IMAGE"}</button>
 
+            {referenceDimensions && (
+              <div className="source-info" aria-live="polite">
+                <span>{referenceDimensions.width} × {referenceDimensions.height} SOURCE</span>
+                {spriteSheet && <strong>{spriteSheet.frameCount} SPRITES · {spriteSheet.frameSize} × {spriteSheet.frameSize}</strong>}
+              </div>
+            )}
+
+            {referenceDimensions && (
+              <button
+                className={`pixel-match-action ${referencePixelFit ? "active" : ""}`}
+                onClick={spriteSheet && GRID_SIZES.includes(spriteSheet.frameSize) && size !== spriteSheet.frameSize
+                  ? useDetectedSpriteGrid
+                  : () => matchReferencePixels()}
+              >
+                <Grid2X2 size={14} />
+                {spriteSheet && GRID_SIZES.includes(spriteSheet.frameSize) && size !== spriteSheet.frameSize
+                  ? `USE ${spriteSheet.frameSize} × ${spriteSheet.frameSize} GRID`
+                  : "MATCH 1:1 PIXELS"}
+              </button>
+            )}
+
+            {reference && (
+              <button
+                className="trace-frame-action"
+                onClick={() => {
+                  addFrame();
+                  setNotice("Blank trace frame added");
+                }}
+                disabled={frames.length >= MAX_FRAMES}
+              >
+                <ImagePlus size={14} /> ADD BLANK TRACE FRAME
+              </button>
+            )}
+
+            {spriteSheet && size === spriteSheet.frameSize && (
+              <div className="sprite-stepper" aria-label="Sprite sheet frame">
+                <button onClick={() => showReferenceTile(referenceTile - 1)} disabled={referenceTile === 0} aria-label="Previous sprite">‹</button>
+                <strong>SPRITE {referenceTile + 1} / {spriteSheet.frameCount}</strong>
+                <button onClick={() => showReferenceTile(referenceTile + 1)} disabled={referenceTile === spriteSheet.frameCount - 1} aria-label="Next sprite">›</button>
+              </div>
+            )}
+
             <label className={`projection-slider ${reference ? "" : "disabled"}`}>
               <span>OPACITY</span><strong>{referenceOpacity}%</strong>
               <input type="range" min="0" max="100" value={referenceOpacity} onChange={(event) => setReferenceOpacity(Number(event.target.value))} disabled={!reference} />
             </label>
             <label className={`projection-slider ${reference ? "" : "disabled"}`}>
-              <span>IMAGE SCALE</span><strong>{referenceTransform.scale}%</strong>
+              <span>IMAGE SCALE</span><strong>{Math.round(referenceTransform.scale * 100) / 100}%</strong>
               <input
                 type="range"
-                min="25"
-                max="400"
-                step="5"
+                min={REFERENCE_SCALE_MIN}
+                max={referenceScaleMax}
+                step="1"
                 value={referenceTransform.scale}
-                onChange={(event) => setReferenceTransform((current) => ({ ...current, scale: Number(event.target.value) }))}
+                onChange={(event) => changeReferenceScale(Number(event.target.value))}
                 disabled={!reference}
               />
             </label>
@@ -1129,7 +1359,7 @@ export default function Home() {
             </button>
             {reference && (
               <div className="position-readout" aria-live="polite">
-                X {Math.round(referenceTransform.x)} · Y {Math.round(referenceTransform.y)}
+                {referencePixelFit ? "PIXEL LOCK · " : ""}X {Math.round(referenceTransform.x)} · Y {Math.round(referenceTransform.y)}
               </div>
             )}
             <button className={`project-toggle ${showGrid ? "active" : ""}`} onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid}>
@@ -1140,12 +1370,13 @@ export default function Home() {
             </button>
 
             <div className="canvas-zoom-block">
-              <span>CANVAS ZOOM</span>
-              <div className="zoom-control" aria-label="Canvas zoom">
-                <button onClick={() => changeCanvasZoom(-1)} disabled={zoom === CANVAS_ZOOMS[0]} aria-label="Zoom canvas out"><Minus size={14} /></button>
-                <strong>{zoom}%</strong>
-                <button onClick={() => changeCanvasZoom(1)} disabled={zoom === CANVAS_ZOOMS.at(-1)} aria-label="Zoom canvas in"><Plus size={14} /></button>
+              <span>WORKSPACE PIXEL SIZE</span>
+              <div className="zoom-control" aria-label="Workspace pixel size">
+                <button onClick={() => changeCellSize(-1)} disabled={cellSize === CELL_SIZES[0]} aria-label="Make workspace pixels smaller"><Minus size={14} /></button>
+                <strong>{cellSize} PX / CELL</strong>
+                <button onClick={() => changeCellSize(1)} disabled={cellSize === CELL_SIZES.at(-1)} aria-label="Make workspace pixels larger"><Plus size={14} /></button>
               </div>
+              <button className="fit-view-action" onClick={() => setCellSize(fitCellSize())}>FIT WHOLE CANVAS</button>
             </div>
             {reference && (
               <div className="reference-actions">

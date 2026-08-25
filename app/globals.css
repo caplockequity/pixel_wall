@@ -322,26 +322,24 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 }
 .art-surface {
   position: relative;
-  width: min(44vw, 430px);
+  box-sizing: content-box;
   aspect-ratio: 1;
   overflow: hidden;
   border: 2px solid #0d0c17;
   background: #efe9dc;
 }
-.frame-rig.zoom-200 .art-surface { width: min(88vw, 860px); }
-.frame-rig.zoom-400 .art-surface { width: min(176vw, 1720px); }
-.frame-rig.zoom-800 .art-surface { width: min(352vw, 3440px); }
 .transparent-grid {
   position: absolute;
   inset: 0;
   background-color: #eee8da;
-  background-image:
-    linear-gradient(45deg, #d9d2c6 25%, transparent 25%),
-    linear-gradient(-45deg, #d9d2c6 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #d9d2c6 75%),
-    linear-gradient(-45deg, transparent 75%, #d9d2c6 75%);
-  background-size: 18px 18px;
-  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+  background-image: conic-gradient(
+    #d5cec1 0 25%,
+    #eee8da 0 50%,
+    #d5cec1 0 75%,
+    #eee8da 0
+  );
+  background-size: calc(200% / var(--grid-size)) calc(200% / var(--grid-size));
+  background-position: 0 0;
 }
 .projection-image {
   position: absolute;
@@ -350,7 +348,6 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   height: 100%;
   object-fit: contain;
   image-rendering: pixelated;
-  filter: sepia(.08) saturate(.88) contrast(.92);
   transform-origin: center;
   z-index: 1;
   pointer-events: none;
@@ -490,6 +487,70 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .projection-slider > span, .projection-slider > strong { font-size: 7px; letter-spacing: .12em; }
 .projection-slider input { grid-column: 1 / -1; width: 100%; margin: 2px 0; accent-color: var(--coral); cursor: ew-resize; }
 .projection-slider.disabled { opacity: .34; }
+.source-info {
+  display: grid;
+  gap: 3px;
+  margin-top: 9px;
+  padding: 7px;
+  border: 1px solid #aaa397;
+  background: #eae3d7;
+  font: 800 7px/1.2 var(--font-geist-mono), monospace;
+  letter-spacing: .06em;
+}
+.source-info strong { color: var(--violet); }
+.pixel-match-action {
+  width: 100%;
+  min-height: 32px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2px solid var(--ink);
+  background: var(--yellow);
+  box-shadow: 2px 2px 0 var(--ink);
+  cursor: pointer;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .07em;
+}
+.pixel-match-action.active { background: var(--mint); }
+.trace-frame-action {
+  width: 100%;
+  min-height: 30px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px dashed #918a7e;
+  background: #f4eddf;
+  cursor: pointer;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .07em;
+}
+.sprite-stepper {
+  height: 31px;
+  margin-top: 7px;
+  display: grid;
+  grid-template-columns: 31px 1fr 31px;
+  align-items: center;
+  border: 1px solid #a39c90;
+  background: #ece5d8;
+}
+.sprite-stepper button {
+  height: 29px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 17px;
+  font-weight: 900;
+}
+.sprite-stepper button:first-child { border-right: 1px solid #b7afa3; }
+.sprite-stepper button:last-child { border-left: 1px solid #b7afa3; }
+.sprite-stepper strong { text-align: center; font: 800 7px/1 var(--font-geist-mono), monospace; }
 .project-toggle {
   width: 100%;
   height: 31px;
@@ -540,6 +601,17 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .zoom-control button:first-child { border-right: 1px solid #b7afa3; }
 .zoom-control button:last-child { border-left: 1px solid #b7afa3; }
 .zoom-control strong { text-align: center; font: 800 8px/1 var(--font-geist-mono), monospace; }
+.fit-view-action {
+  width: 100%;
+  min-height: 27px;
+  margin-top: 4px;
+  border: 1px dashed #918a7e;
+  background: transparent;
+  cursor: pointer;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
 .reference-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -706,10 +778,6 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   .topbar { grid-template-columns: 1fr auto; }
   .project-title { display: none; }
   .wall-stage { padding-right: 205px; }
-  .art-surface { width: min(48vw, 410px); }
-  .frame-rig.zoom-200 .art-surface { width: min(96vw, 820px); }
-  .frame-rig.zoom-400 .art-surface { width: min(192vw, 1640px); }
-  .frame-rig.zoom-800 .art-surface { width: min(384vw, 3280px); }
   .canvas-viewport { max-width: calc(100vw - 305px); }
   .projection-dock { right: 14px; }
   .control-deck { grid-template-columns: minmax(310px, .72fr) minmax(480px, 1.3fr); }
@@ -725,10 +793,6 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   .wall-stage { min-height: 620px; padding: 50px 180px 42px 70px; }
   .tool-rail { left: 10px; }
   .tool { width: 38px; height: 38px; }
-  .art-surface { width: min(54vw, 370px); }
-  .frame-rig.zoom-200 .art-surface { width: min(108vw, 740px); }
-  .frame-rig.zoom-400 .art-surface { width: min(216vw, 1480px); }
-  .frame-rig.zoom-800 .art-surface { width: min(432vw, 2960px); }
   .canvas-viewport { max-width: calc(100vw - 250px); max-height: 510px; }
   .projection-dock { right: 10px; width: 150px; }
   .projection-panel { width: 150px; padding: 11px; }
@@ -755,10 +819,6 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
     justify-content: center;
     padding: 49px 18px 25px 61px;
   }
-  .art-surface { width: min(73vw, 350px); }
-  .frame-rig.zoom-200 .art-surface { width: min(146vw, 700px); }
-  .frame-rig.zoom-400 .art-surface { width: min(292vw, 1400px); }
-  .frame-rig.zoom-800 .art-surface { width: min(584vw, 2800px); }
   .canvas-zone { width: 100%; min-width: 0; }
   .canvas-viewport { width: 100%; max-width: 100%; max-height: 390px; }
   .canvas-hint { font-size: 7px; letter-spacing: .04em; }
@@ -781,7 +841,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   .project-action, .clear-action { grid-column: 1 / -1; margin: 0; min-height: 40px; }
   .projection-slider { grid-column: 1 / -1; margin: 0; }
   .project-toggle { min-height: 40px; margin: 0; }
-  .move-toggle, .position-readout, .canvas-zoom-block, .reference-actions { grid-column: 1 / -1; }
+  .source-info, .pixel-match-action, .trace-frame-action, .sprite-stepper, .move-toggle, .position-readout, .canvas-zoom-block, .reference-actions { grid-column: 1 / -1; }
   .zoom-control { height: 40px; margin-top: 5px; }
   .zoom-control button { height: 38px; }
   .reference-actions button { min-height: 40px; }

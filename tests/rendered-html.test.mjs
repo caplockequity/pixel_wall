@@ -57,3 +57,17 @@ test("contains no disposable starter preview", async () => {
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("app/_sites-preview/", projectRoot)));
 });
+
+test("keeps tracing visuals locked to logical pixels", async () => {
+  const [pageSource, cssSource] = await Promise.all([
+    readFile(new URL("app/page.tsx", projectRoot), "utf8"),
+    readFile(new URL("app/globals.css", projectRoot), "utf8"),
+  ]);
+
+  assert.match(pageSource, /MATCH 1:1 PIXELS/);
+  assert.match(pageSource, /SPRITE \{referenceTile \+ 1\}/);
+  assert.match(pageSource, /WORKSPACE PIXEL SIZE/);
+  assert.match(pageSource, /ADD BLANK TRACE FRAME/);
+  assert.match(cssSource, /background-size:\s*calc\(200% \/ var\(--grid-size\)\)/);
+  assert.doesNotMatch(cssSource, /background-size:\s*18px 18px/);
+});
