@@ -49,6 +49,8 @@ test("server-renders the PixelWall studio", async () => {
   assert.match(html, /aria-label="Save portable PixelWall project"/i);
   assert.match(html, /CURRENT FRAME/i);
   assert.match(html, /SPRITE PACKAGE/i);
+  assert.match(html, /TILEMAP PACKAGE/i);
+  assert.match(html, /TILED MAP \+ TILESET \+ PREVIEW/i);
   assert.match(html, /SHEET \+ JSON<!-- --> \+ PNGS/i);
   assert.match(html, /aria-label="Artwork layers"/i);
   assert.match(html, /SEAM CHECK/i);
@@ -91,6 +93,8 @@ test("keeps tracing visuals locked to logical pixels", async () => {
   assert.match(pageSource, /LINK EDGES/);
   assert.match(pageSource, /SAVE SLICE/);
   assert.match(pageSource, /TILEMAP LAB/);
+  assert.match(pageSource, /SPRITE PACKAGE SETTINGS/);
+  assert.match(pageSource, /createTilemapExportPlan/);
   assert.match(pageSource, /SPRITE \{referenceTile \+ 1\}\/\{spriteSheet\.frameCount\}/);
   assert.match(pageSource, /\{cellSize\} PX\/CELL/);
   assert.match(cssSource, /--font-geist-sans:\s*ui-sans-serif/);
@@ -159,6 +163,61 @@ test("exports trimmed padded atlases, named slices, and tilemaps", async () => {
   assert.equal(plan.metadata.meta.slices[1].name, "hitbox");
   assert.deepEqual(plan.metadata.phaser.tilemap.data, [1, 2, 0, 1]);
   assert.equal(plan.metadata.pixelwall.tilemap.cells[1].frameId, 2);
+});
+
+test("builds a dedicated Tiled map package from painted Tilemap Lab cells", async () => {
+  const { calculateTilemapPreview, createTilemapExportPlan } = await import(new URL("../app/tilemap-export-core.mjs", import.meta.url));
+  const plan = createTilemapExportPlan({
+    frames: [{ id: 30 }, { id: 10 }, { id: 20 }],
+    tileSize: 16,
+    tilemap: { width: 2, height: 2, cells: [20, null, 10, 20] },
+    basename: "Dungeon Test",
+  });
+
+  assert.deepEqual(plan.tiles.map((tile) => tile.sourceId), [10, 20, 30]);
+  assert.deepEqual(plan.tiles.map((tile) => tile.sourceIndex), [1, 2, 0]);
+  assert.deepEqual(plan.gids, [2, 0, 1, 2]);
+  assert.deepEqual(plan.sheet, {
+    columns: 2,
+    rows: 2,
+    width: 32,
+    height: 32,
+    tileWidth: 16,
+    tileHeight: 16,
+    margin: 0,
+    spacing: 0,
+  });
+  assert.equal(plan.tiled.type, "map");
+  assert.equal(plan.tiled.orientation, "orthogonal");
+  assert.deepEqual(plan.tiled.layers[0].data, [2, 0, 1, 2]);
+  assert.equal(plan.tiled.tilesets[0].firstgid, 1);
+  assert.equal(plan.tiled.tilesets[0].tiles[0].properties[0].value, 10);
+  assert.deepEqual(plan.preview, {
+    sourceWidth: 32,
+    sourceHeight: 32,
+    width: 32,
+    height: 32,
+    scale: 1,
+    capped: false,
+  });
+  assert.equal(plan.files.archive, "dungeon-test-tilemap.zip");
+  assert.deepEqual(calculateTilemapPreview(3, 2, 64, 100), {
+    sourceWidth: 192,
+    sourceHeight: 128,
+    width: 99,
+    height: 66,
+    scale: 33 / 64,
+    capped: true,
+  });
+
+  assert.throws(
+    () => createTilemapExportPlan({ frames: [{ id: 10 }], tileSize: 16, tilemap: { width: 1, height: 1, cells: [99] } }),
+    (error) => error?.code === "MISSING_FRAME",
+  );
+  assert.throws(
+    () => createTilemapExportPlan({ frames: [{ id: 10 }], tileSize: 16, tilemap: { width: 1, height: 1, cells: [null] } }),
+    (error) => error?.code === "EMPTY_TILEMAP",
+  );
 });
 
 test("round-trips portable layered PixelWall projects and upgrades legacy drafts", async () => {

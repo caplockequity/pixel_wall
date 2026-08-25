@@ -6,6 +6,7 @@ import {
   spriteFrameFilename,
 } from "./sprite-export.mjs";
 import { createSpriteExportPlan, exportFileStem } from "./sprite-export-core.mjs";
+import { createTilemapExportPlan } from "./tilemap-export-core.mjs";
 import { parseProject, stringifyProject } from "./project-format.mjs";
 import type {
   ChangeEvent,
@@ -33,6 +34,7 @@ import {
   Layers,
   Lock,
   LocateFixed,
+  Map as MapIcon,
   Minus,
   Move,
   MousePointer2,
@@ -494,6 +496,20 @@ function downloadBlob(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function yieldForPaint() {
+  return new Promise<void>((resolve) => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(fallback);
+      resolve();
+    };
+    const fallback = window.setTimeout(finish, 80);
+    window.requestAnimationFrame(() => window.setTimeout(finish, 0));
+  });
+}
+
 const FrameBitmap = memo(function FrameBitmap({
   frame,
   layers,
@@ -809,7 +825,7 @@ export default function Home() {
   const [saveFailed, setSaveFailed] = useState(false);
   const [samplingColor, setSamplingColor] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const [exporting, setExporting] = useState<"frame" | "package" | null>(null);
+  const [exporting, setExporting] = useState<"frame" | "package" | "tilemap" | null>(null);
   const [exportLayout, setExportLayout] = useState<SheetLayout>("horizontal");
   const [exportClipId, setExportClipId] = useState<number | "all">("all");
   const [exportIndividualFrames, setExportIndividualFrames] = useState(true);
@@ -864,6 +880,14 @@ export default function Home() {
     const fps = String(Math.round(1000 / duration));
     return ["4", "6", "8", "10", "12", "24"].includes(fps) ? fps : "mixed";
   }, [activeClip, frames]);
+  const tilemapPlacedCells = useMemo(
+    () => tilemap.cells.reduce<number>((total, cell) => total + (cell === null ? 0 : 1), 0),
+    [tilemap.cells],
+  );
+  const tilemapTileTypes = useMemo(
+    () => new Set(tilemap.cells.filter((cell): cell is number => cell !== null)).size,
+    [tilemap.cells],
+  );
   const currentPixels = useMemo(
     () => celPixels(currentFrame, activeLayerId, size),
     [activeLayerId, currentFrame, size],
@@ -1100,10 +1124,10 @@ export default function Home() {
   }, [activeClip, activeFrame, frames, playbackCursor, playing]);
 
   useEffect(() => {
-    if (!notice) return;
+    if (!notice || exporting) return;
     const timer = window.setTimeout(() => setNotice(""), 2400);
     return () => window.clearTimeout(timer);
-  }, [notice]);
+  }, [exporting, notice]);
 
   useEffect(() => {
     if (!adjustingReference) return;
@@ -2363,6 +2387,7 @@ export default function Home() {
   }
 
   function toggleExportMenu() {
+    if (exporting) return;
     const nextOpen = !exportMenuOpen;
     setExportMenuOpen(nextOpen);
     if (nextOpen) window.setTimeout(() => exportFirstOptionRef.current?.focus(), 0);
@@ -2375,9 +2400,11 @@ export default function Home() {
     setPlaying(false);
     setExporting("frame");
     setNotice("Exporting current frame…");
+    exportTriggerRef.current?.focus();
     const frameNumber = activeFrame + 1;
     const frame = currentFrame ? cloneFrames([currentFrame])[0] : undefined;
     const layerSnapshot = cloneLayers(layers);
+    await yieldForPaint();
     try {
       const blob = await canvasToPngBlob(createFrameCanvas(frame, layerSnapshot, size));
       downloadBlob(blob, `pixelwall-${spriteFrameFilename(activeFrame, frames.length)}`);
@@ -2396,9 +2423,11 @@ export default function Home() {
     setPlaying(false);
     setExporting("package");
     setNotice("Building sprite package…");
+    exportTriggerRef.current?.focus();
     const frameSnapshot = cloneFrames(frames);
     const layerSnapshot = cloneLayers(layers);
     const clipSnapshot = cloneClips(clips);
+    await yieldForPaint();
     try {
       const renderedFrames = frameSnapshot.map((frame) => createFrameCanvas(frame, layerSnapshot, size));
       const selectedClip = exportClipId === "all" ? null : clipSnapshot.find((clip) => clip.id === exportClipId)?.name ?? null;
@@ -2484,6 +2513,93 @@ export default function Home() {
     }
   }
 
+  async function exportTilemapPackage() {
+    if (exporting) return;
+    if (!tilemapPlacedCells) {
+      setNotice("Paint at least one tile in Tilemap Lab before exporting");
+      return;
+    }
+    shouldRestoreExportFocus.current = true;
+    setExportMenuOpen(false);
+    setPlaying(false);
+    setExporting("tilemap");
+    setNotice(`Building ${tilemap.width} × ${tilemap.height} tilemap package…`);
+    exportTriggerRef.current?.focus();
+    const frameSnapshot = cloneFrames(frames);
+    const layerSnapshot = cloneLayers(layers);
+    const tilemapSnapshot = { ...tilemap, cells: [...tilemap.cells] };
+    const sizeSnapshot = size;
+    const projectNameSnapshot = projectName;
+    await yieldForPaint();
+    try {
+      const plan = createTilemapExportPlan({
+        tilemap: tilemapSnapshot,
+        frames: frameSnapshot.map((frame) => ({ id: frame.id })),
+        tileSize: sizeSnapshot,
+        basename: projectNameSnapshot,
+        layerName: "Tile Layer 1",
+        previewMaxDimension: 2048,
+      });
+      const renderedTiles = new Map<number, HTMLCanvasElement>();
+      plan.tiles.forEach((entry) => {
+        renderedTiles.set(
+          Number(entry.sourceId),
+          createFrameCanvas(frameSnapshot[entry.sourceIndex], layerSnapshot, sizeSnapshot),
+        );
+      });
+
+      const tileset = document.createElement("canvas");
+      tileset.width = plan.sheet.width;
+      tileset.height = plan.sheet.height;
+      const tilesetContext = tileset.getContext("2d");
+      if (!tilesetContext) throw new Error("Canvas unavailable");
+      tilesetContext.imageSmoothingEnabled = false;
+      plan.tiles.forEach((entry) => {
+        const bitmap = renderedTiles.get(Number(entry.sourceId));
+        if (!bitmap) throw new Error(`Missing tile ${entry.sourceId}`);
+        tilesetContext.drawImage(bitmap, entry.rect.x, entry.rect.y, entry.rect.w, entry.rect.h);
+      });
+
+      const preview = document.createElement("canvas");
+      preview.width = plan.preview.width;
+      preview.height = plan.preview.height;
+      const previewContext = preview.getContext("2d");
+      if (!previewContext) throw new Error("Canvas unavailable");
+      previewContext.imageSmoothingEnabled = false;
+      tilemapSnapshot.cells.forEach((frameId, index) => {
+        if (frameId === null) return;
+        const bitmap = renderedTiles.get(frameId);
+        if (!bitmap) throw new Error(`Missing tile ${frameId}`);
+        const column = index % tilemapSnapshot.width;
+        const row = Math.floor(index / tilemapSnapshot.width);
+        const left = Math.round((column * plan.preview.width) / tilemapSnapshot.width);
+        const right = Math.round(((column + 1) * plan.preview.width) / tilemapSnapshot.width);
+        const top = Math.round((row * plan.preview.height) / tilemapSnapshot.height);
+        const bottom = Math.round(((row + 1) * plan.preview.height) / tilemapSnapshot.height);
+        previewContext.drawImage(bitmap, left, top, right - left, bottom - top);
+      });
+
+      const archiveToolsPromise = import("fflate");
+      const tilesetBlob = await canvasToPngBlob(tileset);
+      const previewBlob = await canvasToPngBlob(preview);
+      const archiveTools = await archiveToolsPromise;
+      const archiveFiles: Record<string, Uint8Array> = {
+        [plan.files.tilesetImage]: new Uint8Array(await tilesetBlob.arrayBuffer()),
+        [plan.files.previewImage]: new Uint8Array(await previewBlob.arrayBuffer()),
+        [plan.files.map]: archiveTools.strToU8(JSON.stringify(plan.tiled, null, 2)),
+        [plan.files.mapping]: archiveTools.strToU8(JSON.stringify(plan.pixelwall, null, 2)),
+      };
+      const archive = archiveTools.zipSync(archiveFiles, { level: 0 });
+      const archiveBytes = archive.buffer.slice(archive.byteOffset, archive.byteOffset + archive.byteLength) as ArrayBuffer;
+      downloadBlob(new Blob([archiveBytes], { type: "application/zip" }), plan.files.archive);
+      setNotice(`Tilemap package exported · ${tilemapSnapshot.width} × ${tilemapSnapshot.height} · ${tilemapPlacedCells} cells · ${tilemapTileTypes} used tiles`);
+    } catch {
+      setNotice("Tilemap export failed — check the map and try again");
+    } finally {
+      setExporting(null);
+    }
+  }
+
   const surfaceStyle = {
     "--grid-size": size,
     "--grid-opacity": cellSize <= 2 ? 0 : size >= 128 ? 0.12 : size >= 64 ? 0.22 : 0.42,
@@ -2544,13 +2660,13 @@ export default function Home() {
           </label>
           <button className="icon-button" onClick={undo} disabled={!undoStack.length} aria-label="Undo"><Undo2 size={18} /></button>
           <button className="icon-button" onClick={redo} disabled={!redoStack.length} aria-label="Redo"><Redo2 size={18} /></button>
-          <div ref={exportMenuRef} className={`export-menu ${exportMenuOpen ? "open" : ""}`}>
+          <div ref={exportMenuRef} className={`export-menu ${exportMenuOpen ? "open" : ""}`} aria-busy={exporting !== null}>
             <button
               ref={exportTriggerRef}
               className="export-button"
               onClick={toggleExportMenu}
-              disabled={exporting !== null}
-              aria-label="Open export options"
+              aria-disabled={exporting !== null}
+              aria-label={exporting === "tilemap" ? "Exporting tilemap package" : exporting ? "Exporting artwork" : "Open export options"}
               aria-haspopup="dialog"
               aria-expanded={exportMenuOpen}
               aria-controls="export-options"
@@ -2566,7 +2682,21 @@ export default function Home() {
                 <PackageOpen size={19} />
                 <span><strong>SPRITE PACKAGE</strong><small>ZIP · SHEET + JSON{exportIndividualFrames ? " + PNGS" : ""}</small></span>
               </button>
-              <div className="export-settings" aria-label="Sprite package settings">
+              <button
+                onClick={exportTilemapPackage}
+                disabled={exporting !== null}
+                aria-disabled={!tilemapPlacedCells || exporting !== null}
+                aria-label={`Export Tilemap Lab package, ${tilemap.width} by ${tilemap.height} map, Tiled JSON, tileset PNG, and preview PNG. ${tilemapPlacedCells ? `${tilemapPlacedCells} placed cells using ${tilemapTileTypes} tile types.` : "Paint at least one tile to enable."}`}
+              >
+                <MapIcon size={19} />
+                <span>
+                  <strong>TILEMAP PACKAGE</strong>
+                  <small>ZIP · TILED MAP + TILESET + PREVIEW</small>
+                  {!tilemapPlacedCells && <small className="export-disabled-reason">PAINT IN TILEMAP LAB TO ENABLE</small>}
+                </span>
+              </button>
+              <div className="export-settings" role="group" aria-labelledby="sprite-package-settings-title">
+                <strong id="sprite-package-settings-title" className="export-settings-title">SPRITE PACKAGE SETTINGS</strong>
                 <label>
                   <span>ANIMATION</span>
                   <select value={exportClipId} onChange={(event) => setExportClipId(event.target.value === "all" ? "all" : Number(event.target.value))}>

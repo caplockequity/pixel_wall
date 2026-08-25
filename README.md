@@ -15,7 +15,7 @@ onto a wall, mount a crisp pixel frame over it, and draw frame by frame.
 - Four-layer cel workflow with visibility, locking, opacity, naming, and reordering
 - Rectangular selection with move, copy/paste, clear, and horizontal/vertical flips
 - Per-frame export pivots, named selection slices, seamless 3×3 preview, and linked-edge drawing
-- A compact tilemap lab that paints animation frames as reusable level tiles
+- A compact tilemap lab that paints frames as reusable level tiles and exports a dedicated Tiled-compatible map package with a tileset, flattened preview, and stable frame mapping
 - Stroke-level undo and redo
 - Compact local autosave and portable `.pixelwall` project save/open files
 - Native transparent frame PNGs and configurable sprite packages with horizontal, vertical, or grid sheets, padding, transparent-edge trimming, individual PNGs, and Phaser/Pixi/Aseprite-style JSON
