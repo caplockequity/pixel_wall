@@ -589,13 +589,15 @@ const TilemapBitmap = memo(function TilemapBitmap({
     size: number;
     bitmaps: Map<number, HTMLCanvasElement>;
   } | null>(null);
-  const [cursor, setCursor] = useState(0);
-  const safeCursor = Math.min(cursor, tilemap.cells.length - 1);
-  const cursorRow = Math.floor(safeCursor / tilemap.width) + 1;
-  const cursorColumn = (safeCursor % tilemap.width) + 1;
+  const [cursor, setCursor] = useState({ x: 0, y: 0 });
+  const safeCursorX = Math.min(cursor.x, tilemap.width - 1);
+  const safeCursorY = Math.min(cursor.y, tilemap.height - 1);
+  const safeCursor = safeCursorY * tilemap.width + safeCursorX;
+  const cursorRow = safeCursorY + 1;
+  const cursorColumn = safeCursorX + 1;
   const cursorFrame = tilemap.cells[safeCursor];
   const modeLabel = erase ? "Erase" : `Paint frame ${activeFrameId}`;
-  const renderSize = Math.min(32, Math.max(16, size));
+  const renderSize = Math.min(48, Math.max(32, size));
   useEffect(() => {
     const canvas = ref.current;
     const context = canvas?.getContext("2d");
@@ -656,7 +658,7 @@ const TilemapBitmap = memo(function TilemapBitmap({
       onStrokeStart();
     }
     lastCell.current = index;
-    setCursor(index);
+    setCursor({ x: index % tilemap.width, y: Math.floor(index / tilemap.width) });
     onPaint(index, erase || event.button === 2 || (event.buttons & 2) === 2);
   }
 
@@ -674,17 +676,19 @@ const TilemapBitmap = memo(function TilemapBitmap({
         onPointerUp={(event) => { lastCell.current = -1; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
         onPointerCancel={() => { lastCell.current = -1; }}
         onKeyDown={(event) => {
-          let next = safeCursor;
-          if (event.key === "ArrowLeft") next = Math.max(0, safeCursor - 1);
-          if (event.key === "ArrowRight") next = Math.min(tilemap.cells.length - 1, safeCursor + 1);
-          if (event.key === "ArrowUp") next = Math.max(0, safeCursor - tilemap.width);
-          if (event.key === "ArrowDown") next = Math.min(tilemap.cells.length - 1, safeCursor + tilemap.width);
-          if (next !== safeCursor) {
+          const arrowKey = event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "ArrowDown";
+          if (arrowKey) {
             event.preventDefault();
-            setCursor(next);
+            const nextX = event.key === "ArrowLeft" ? Math.max(0, safeCursorX - 1)
+              : event.key === "ArrowRight" ? Math.min(tilemap.width - 1, safeCursorX + 1)
+                : safeCursorX;
+            const nextY = event.key === "ArrowUp" ? Math.max(0, safeCursorY - 1)
+              : event.key === "ArrowDown" ? Math.min(tilemap.height - 1, safeCursorY + 1)
+                : safeCursorY;
+            setCursor({ x: nextX, y: nextY });
           } else if (event.key === " " || event.key === "Enter" || event.key === "Delete" || event.key === "Backspace") {
-            if (event.repeat) return;
             event.preventDefault();
+            if (event.repeat) return;
             onStrokeStart();
             onPaint(safeCursor, erase || event.key === "Delete" || event.key === "Backspace");
           }
@@ -838,6 +842,8 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectInputRef = useRef<HTMLInputElement>(null);
+  const tilemapWidthInputRef = useRef<HTMLInputElement>(null);
+  const tilemapHeightInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const exportTriggerRef = useRef<HTMLButtonElement>(null);
   const exportFirstOptionRef = useRef<HTMLButtonElement>(null);
@@ -1924,6 +1930,66 @@ export default function Home() {
     });
   }
 
+  function setTilemapDimension(dimension: "width" | "height", requestedValue: number) {
+    const currentValue = dimension === "width" ? tilemap.width : tilemap.height;
+    if (!Number.isFinite(requestedValue)) return currentValue;
+    const nextValue = clamp(Math.round(requestedValue), 1, 64);
+    if (nextValue === currentValue) return currentValue;
+    recordProjectHistory();
+    const croppedTiles = tilemap.cells.reduce<number>((total, frameId, index) => {
+      if (frameId === null) return total;
+      const x = index % tilemap.width;
+      const y = Math.floor(index / tilemap.width);
+      return total + (dimension === "width" ? Number(x >= nextValue) : Number(y >= nextValue));
+    }, 0);
+    resizeTilemap(
+      dimension === "width" ? nextValue : tilemap.width,
+      dimension === "height" ? nextValue : tilemap.height,
+    );
+    if (croppedTiles) setNotice(`${croppedTiles} painted ${croppedTiles === 1 ? "tile" : "tiles"} cropped · Undo restores ${croppedTiles === 1 ? "it" : "them"}`);
+    return nextValue;
+  }
+
+  function tilemapDimensionDraft(dimension: "width" | "height") {
+    const input = dimension === "width" ? tilemapWidthInputRef.current : tilemapHeightInputRef.current;
+    const inputValue = input?.valueAsNumber;
+    return typeof inputValue === "number" && Number.isFinite(inputValue)
+      ? inputValue
+      : dimension === "width" ? tilemap.width : tilemap.height;
+  }
+
+  function adjustTilemapDimension(dimension: "width" | "height", direction: -1 | 1) {
+    const input = dimension === "width" ? tilemapWidthInputRef.current : tilemapHeightInputRef.current;
+    const committedValue = setTilemapDimension(dimension, tilemapDimensionDraft(dimension) + direction);
+    if (input) input.value = String(committedValue);
+  }
+
+  function commitTilemapDimensionDraft(dimension: "width" | "height") {
+    const input = dimension === "width" ? tilemapWidthInputRef.current : tilemapHeightInputRef.current;
+    if (!input) return;
+    input.value = String(setTilemapDimension(dimension, input.valueAsNumber));
+  }
+
+  function handleTilemapDimensionKey(event: ReactKeyboardEvent<HTMLButtonElement>, dimension: "width" | "height") {
+    if (event.repeat) {
+      event.preventDefault();
+      return;
+    }
+    const draftValue = tilemapDimensionDraft(dimension);
+    const requestedValue = event.key === "Home" ? 1
+      : event.key === "End" ? 64
+        : event.key === "PageDown" ? draftValue - 8
+          : event.key === "PageUp" ? draftValue + 8
+            : event.key === "ArrowLeft" || event.key === "ArrowDown" ? draftValue - 1
+              : event.key === "ArrowRight" || event.key === "ArrowUp" ? draftValue + 1
+                : null;
+    if (requestedValue === null) return;
+    event.preventDefault();
+    const input = dimension === "width" ? tilemapWidthInputRef.current : tilemapHeightInputRef.current;
+    const committedValue = setTilemapDimension(dimension, requestedValue);
+    if (input) input.value = String(committedValue);
+  }
+
   function paintTilemapCell(index: number, eraseCell: boolean) {
     const frameId = frames[activeFrame]?.id;
     if (!frameId || index < 0 || index >= tilemap.cells.length) return;
@@ -2815,7 +2881,7 @@ export default function Home() {
           <p id="canvas-keyboard-help" className="canvas-hint">
             {adjustingReference
               ? referencePixelFit ? "PIXEL LOCK ON · DRAG OR ARROWS MOVE ONE CELL · ESC DONE" : "DRAG IMAGE · ARROWS NUDGE · + / − SCALE 1% · ESC DONE"
-              : referencePixelFit ? "1 IMAGE PIXEL = 1 CANVAS CELL · READY TO TRACE" : "DRAG TO PAINT · ARROW KEYS + SPACE WORK TOO"}
+              : "Paint: Drag or use Arrow Keys + Space"}
           </p>
           {selection && (
             <div className="selection-toolbar" aria-label="Selection actions">
@@ -3183,11 +3249,59 @@ export default function Home() {
             <small>ACTIVE TILE · FRAME {activeFrame + 1}</small>
           </div>
           <div className="tilemap-controls">
-            <label>WIDTH <input type="number" min="1" max="64" value={tilemap.width} onFocus={recordProjectHistory} onChange={(event) => resizeTilemap(event.target.valueAsNumber, tilemap.height)} /></label>
-            <label>HEIGHT <input type="number" min="1" max="64" value={tilemap.height} onFocus={recordProjectHistory} onChange={(event) => resizeTilemap(tilemap.width, event.target.valueAsNumber)} /></label>
-            <button className={!tilemapErase ? "active" : ""} onClick={() => setTilemapErase(false)} aria-pressed={!tilemapErase}><Pencil size={13} /> PAINT</button>
-            <button className={tilemapErase ? "active" : ""} onClick={() => setTilemapErase(true)} aria-pressed={tilemapErase}><Eraser size={13} /> ERASE</button>
-            <button onClick={clearTilemap}><Trash2 size={13} /> CLEAR MAP</button>
+            <div className="tilemap-dimension" role="group" aria-labelledby="tilemap-width-label">
+              <span id="tilemap-width-label">WIDTH</span>
+              <div className="tilemap-stepper" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) commitTilemapDimensionDraft("width"); }}>
+                <button type="button" onClick={() => adjustTilemapDimension("width", -1)} onKeyDown={(event) => handleTilemapDimensionKey(event, "width")} aria-label="Decrease tilemap width"><Minus size={16} /></button>
+                <input
+                  ref={tilemapWidthInputRef}
+                  key={`tilemap-width-${tilemap.width}`}
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max="64"
+                  defaultValue={tilemap.width}
+                  aria-label="Tilemap width"
+                  aria-live="polite"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") event.currentTarget.blur();
+                    if (event.key === "Escape") {
+                      event.currentTarget.value = String(tilemap.width);
+                      event.currentTarget.blur();
+                    }
+                  }}
+                />
+                <button type="button" onClick={() => adjustTilemapDimension("width", 1)} onKeyDown={(event) => handleTilemapDimensionKey(event, "width")} aria-label="Increase tilemap width"><Plus size={16} /></button>
+              </div>
+            </div>
+            <div className="tilemap-dimension" role="group" aria-labelledby="tilemap-height-label">
+              <span id="tilemap-height-label">HEIGHT</span>
+              <div className="tilemap-stepper" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) commitTilemapDimensionDraft("height"); }}>
+                <button type="button" onClick={() => adjustTilemapDimension("height", -1)} onKeyDown={(event) => handleTilemapDimensionKey(event, "height")} aria-label="Decrease tilemap height"><Minus size={16} /></button>
+                <input
+                  ref={tilemapHeightInputRef}
+                  key={`tilemap-height-${tilemap.height}`}
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max="64"
+                  defaultValue={tilemap.height}
+                  aria-label="Tilemap height"
+                  aria-live="polite"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") event.currentTarget.blur();
+                    if (event.key === "Escape") {
+                      event.currentTarget.value = String(tilemap.height);
+                      event.currentTarget.blur();
+                    }
+                  }}
+                />
+                <button type="button" onClick={() => adjustTilemapDimension("height", 1)} onKeyDown={(event) => handleTilemapDimensionKey(event, "height")} aria-label="Increase tilemap height"><Plus size={16} /></button>
+              </div>
+            </div>
+            <button type="button" className={!tilemapErase ? "active" : ""} onClick={() => setTilemapErase(false)} aria-pressed={!tilemapErase}><Pencil size={16} /> PAINT</button>
+            <button type="button" className={tilemapErase ? "active" : ""} onClick={() => setTilemapErase(true)} aria-pressed={tilemapErase}><Eraser size={16} /> ERASE</button>
+            <button type="button" className="tilemap-clear" onClick={clearTilemap}><Trash2 size={16} /> CLEAR MAP</button>
           </div>
           <div className="tilemap-workspace">
             <div className="tilemap-scroll">
@@ -3202,7 +3316,7 @@ export default function Home() {
                 onPaint={paintTilemapCell}
               />
             </div>
-            <p>CHOOSE A FRAME ABOVE, THEN PAINT A LEVEL. RIGHT-CLICK ERASES.</p>
+            <p>Choose a frame above, then paint a level. Right-click erases.</p>
           </div>
         </div>
       </section>

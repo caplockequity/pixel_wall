@@ -56,6 +56,11 @@ test("server-renders the PixelWall studio", async () => {
   assert.match(html, /SEAM CHECK/i);
   assert.match(html, /LINK EDGES/i);
   assert.match(html, /TILEMAP LAB/i);
+  assert.match(html, /Paint: Drag or use Arrow Keys \+ Space/);
+  assert.match(html, /aria-label="Decrease tilemap width"/i);
+  assert.match(html, /aria-label="Increase tilemap width"/i);
+  assert.match(html, /aria-label="Decrease tilemap height"/i);
+  assert.match(html, /aria-label="Increase tilemap height"/i);
   assert.match(html, /TRIM TRANSPARENT EDGES/i);
   assert.match(html, /aria-label="Animation clip controls"/i);
   assert.match(html, /aria-label="Set export pivot tool"/i);
@@ -93,6 +98,9 @@ test("keeps tracing visuals locked to logical pixels", async () => {
   assert.match(pageSource, /LINK EDGES/);
   assert.match(pageSource, /SAVE SLICE/);
   assert.match(pageSource, /TILEMAP LAB/);
+  assert.match(pageSource, /className="tilemap-stepper"/);
+  assert.match(pageSource, /Paint: Drag or use Arrow Keys \+ Space/);
+  assert.doesNotMatch(pageSource, /WORK TOO/);
   assert.match(pageSource, /SPRITE PACKAGE SETTINGS/);
   assert.match(pageSource, /createTilemapExportPlan/);
   assert.match(pageSource, /SPRITE \{referenceTile \+ 1\}\/\{spriteSheet\.frameCount\}/);
@@ -102,6 +110,8 @@ test("keeps tracing visuals locked to logical pixels", async () => {
   assert.match(cssSource, /\.sprite-stepper strong\s*\{[^}]*white-space:\s*nowrap/s);
   assert.match(cssSource, /\.zoom-control strong\s*\{[^}]*white-space:\s*nowrap/s);
   assert.match(cssSource, /\.wall-stage\.reference-live\s*\{\s*min-height:\s*840px/);
+  assert.match(cssSource, /\.tilemap-heading \.panel-kicker\s*\{[^}]*font-size:\s*12px/s);
+  assert.match(cssSource, /\.tilemap-workspace p\s*\{[^}]*font-size:\s*11px/s);
   assert.match(cssSource, /background-size:\s*calc\(200% \/ var\(--grid-size\)\)/);
   assert.doesNotMatch(cssSource, /background-size:\s*18px 18px/);
 });
