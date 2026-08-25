@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import {
+  buildSpriteSheetMetadata,
+  SPRITE_DATA_FILENAME,
+  SPRITE_SHEET_FILENAME,
+  spriteFrameFilename,
+} from "./sprite-export.mjs";
 import type {
   ChangeEvent,
   CSSProperties,
@@ -9,17 +15,20 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from "react";
 import {
+  ChevronDown,
   CopyPlus,
   Download,
   Eraser,
   Eye,
   EyeOff,
+  FileImage,
   Grid2X2,
   ImagePlus,
   LocateFixed,
   Minus,
   Move,
   PaintBucket,
+  PackageOpen,
   Pause,
   Pencil,
   Pipette,
@@ -211,6 +220,32 @@ function renderPixelBitmap(canvas: HTMLCanvasElement | null, pixels: Pixel[], si
     image.data[offset + 3] = 255;
   }
   context.putImageData(image, 0, 0);
+}
+
+function createPixelCanvas(pixels: Pixel[], size: number) {
+  const canvas = document.createElement("canvas");
+  renderPixelBitmap(canvas, pixels, size);
+  return canvas;
+}
+
+function canvasToPngBlob(canvas: HTMLCanvasElement) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("PNG encoding failed"));
+    }, "image/png");
+  });
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.download = filename;
+  link.href = url;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 const PixelBitmap = memo(function PixelBitmap({
@@ -456,17 +491,23 @@ export default function Home() {
   const [saved, setSaved] = useState(true);
   const [saveFailed, setSaveFailed] = useState(false);
   const [samplingColor, setSamplingColor] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exporting, setExporting] = useState<"frame" | "package" | null>(null);
   const [notice, setNotice] = useState("");
   const [storageReady, setStorageReady] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const exportTriggerRef = useRef<HTMLButtonElement>(null);
+  const exportFirstOptionRef = useRef<HTMLButtonElement>(null);
   const referenceLayerRef = useRef<HTMLButtonElement>(null);
   const activePointer = useRef<number | null>(null);
   const lastPainted = useRef<number | null>(null);
   const strokeRecorded = useRef(false);
   const activeFrameRef = useRef(activeFrame);
   const saveWarningShown = useRef(false);
+  const shouldRestoreExportFocus = useRef(false);
   const referenceDrag = useRef<null | {
     pointerId: number;
     startX: number;
@@ -493,6 +534,36 @@ export default function Home() {
   useEffect(() => {
     activeFrameRef.current = activeFrame;
   }, [activeFrame]);
+
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    function closeOnOutsidePointer(event: PointerEvent) {
+      if (!exportMenuRef.current?.contains(event.target as Node)) setExportMenuOpen(false);
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setExportMenuOpen(false);
+      exportTriggerRef.current?.focus();
+    }
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [exportMenuOpen]);
+
+  useEffect(() => {
+    if (exporting !== null || !shouldRestoreExportFocus.current) return;
+    shouldRestoreExportFocus.current = false;
+    const animationFrame = window.requestAnimationFrame(() => {
+      const activeElement = document.activeElement;
+      if (!activeElement || activeElement === document.body || exportMenuRef.current?.contains(activeElement)) {
+        exportTriggerRef.current?.focus();
+      }
+    });
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [exporting]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1127,30 +1198,77 @@ export default function Home() {
     setCellSize(CELL_SIZES[nextIndex]);
   }
 
-  function exportPng() {
-    const scale = Math.max(1, Math.min(16, Math.floor(4096 / size)));
-    const source = document.createElement("canvas");
-    renderPixelBitmap(source, currentPixels, size);
-    const canvas = document.createElement("canvas");
-    canvas.width = size * scale;
-    canvas.height = size * scale;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-    context.imageSmoothingEnabled = false;
-    context.drawImage(source, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        setNotice("PNG export failed — try a smaller canvas");
-        return;
+  function toggleExportMenu() {
+    const nextOpen = !exportMenuOpen;
+    setExportMenuOpen(nextOpen);
+    if (nextOpen) window.setTimeout(() => exportFirstOptionRef.current?.focus(), 0);
+  }
+
+  async function exportCurrentFrame() {
+    if (exporting) return;
+    shouldRestoreExportFocus.current = true;
+    setExportMenuOpen(false);
+    setPlaying(false);
+    setExporting("frame");
+    setNotice("Exporting current frame…");
+    const frameNumber = activeFrame + 1;
+    const pixels = [...currentPixels];
+    try {
+      const blob = await canvasToPngBlob(createPixelCanvas(pixels, size));
+      downloadBlob(blob, `pixelwall-${spriteFrameFilename(activeFrame, frames.length)}`);
+      setNotice(`Frame ${frameNumber} exported · ${size} × ${size}px PNG`);
+    } catch {
+      setNotice("PNG export failed — try again");
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  async function exportSpritePackage() {
+    if (exporting) return;
+    shouldRestoreExportFocus.current = true;
+    setExportMenuOpen(false);
+    setPlaying(false);
+    setExporting("package");
+    setNotice("Building sprite package…");
+    const frameSnapshot = cloneFrames(frames);
+    const frameCount = frameSnapshot.length;
+    const sheetWidth = size * frameCount;
+    const sheetHeight = size;
+    try {
+      if (sheetWidth > 4096 || sheetHeight > 4096 || sheetWidth * sheetHeight > 16_777_216) {
+        throw new Error("Sprite sheet is too large");
       }
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.download = `pixelwall-frame-${String(activeFrame + 1).padStart(2, "0")}.png`;
-      link.href = url;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
-      setNotice(`Frame ${activeFrame + 1} exported at ${canvas.width} × ${canvas.height}px`);
-    }, "image/png");
+      const sheet = document.createElement("canvas");
+      sheet.width = sheetWidth;
+      sheet.height = sheetHeight;
+      const context = sheet.getContext("2d");
+      if (!context) throw new Error("Canvas unavailable");
+      context.imageSmoothingEnabled = false;
+      frameSnapshot.forEach((frame, index) => {
+        context.drawImage(createPixelCanvas(frame.pixels, size), index * size, 0);
+      });
+
+      const [sheetBlob, archiveTools] = await Promise.all([
+        canvasToPngBlob(sheet),
+        import("fflate"),
+      ]);
+      const metadata = buildSpriteSheetMetadata(size, frameCount, fps);
+      const archive = archiveTools.zipSync({
+        [SPRITE_SHEET_FILENAME]: new Uint8Array(await sheetBlob.arrayBuffer()),
+        [SPRITE_DATA_FILENAME]: archiveTools.strToU8(JSON.stringify(metadata, null, 2)),
+      }, { level: 6 });
+      const archiveBytes = archive.buffer.slice(archive.byteOffset, archive.byteOffset + archive.byteLength) as ArrayBuffer;
+      downloadBlob(
+        new Blob([archiveBytes], { type: "application/zip" }),
+        `pixelwall-sprites-${size}x${size}-${String(frameCount).padStart(2, "0")}f.zip`,
+      );
+      setNotice(`Sprite package exported · ${frameCount} frames + sheet + JSON`);
+    } catch {
+      setNotice("Sprite package export failed — try fewer or smaller frames");
+    } finally {
+      setExporting(null);
+    }
   }
 
   const surfaceStyle = {
@@ -1193,7 +1311,30 @@ export default function Home() {
           </label>
           <button className="icon-button" onClick={undo} disabled={!undoStack.length} aria-label="Undo"><Undo2 size={18} /></button>
           <button className="icon-button" onClick={redo} disabled={!redoStack.length} aria-label="Redo"><Redo2 size={18} /></button>
-          <button className="export-button" onClick={exportPng}><Download size={17} /><span>EXPORT PNG</span></button>
+          <div ref={exportMenuRef} className={`export-menu ${exportMenuOpen ? "open" : ""}`}>
+            <button
+              ref={exportTriggerRef}
+              className="export-button"
+              onClick={toggleExportMenu}
+              disabled={exporting !== null}
+              aria-label="Open export options"
+              aria-haspopup="dialog"
+              aria-expanded={exportMenuOpen}
+              aria-controls="export-options"
+            >
+              <Download size={17} /><span>{exporting ? "EXPORTING…" : "EXPORT"}</span><ChevronDown className="export-chevron" size={14} />
+            </button>
+            <div id="export-options" className="export-popover" role="dialog" aria-label="Export artwork" aria-busy={exporting !== null} hidden={!exportMenuOpen}>
+              <button ref={exportFirstOptionRef} onClick={exportCurrentFrame} disabled={exporting !== null}>
+                <FileImage size={19} />
+                <span><strong>CURRENT FRAME</strong><small>PNG · {size} × {size} PX</small></span>
+              </button>
+              <button onClick={exportSpritePackage} disabled={exporting !== null}>
+                <PackageOpen size={19} />
+                <span><strong>SPRITE PACKAGE</strong><small>ZIP · {frames.length}-FRAME SHEET + JSON</small></span>
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 

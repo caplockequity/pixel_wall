@@ -12,7 +12,7 @@ onto a wall, mount a crisp pixel frame over it, and draw frame by frame.
 - Integer workspace pixel sizing and a transparency checker locked to canvas cells
 - Animation frames, playback speed, duplication, deletion, and onion skin
 - Stroke-level undo and redo
-- Compact local autosave and transparent PNG export up to 4096px
+- Compact local autosave, native transparent frame PNGs, and sprite-sheet ZIP packages with JSON timing metadata
 - Mouse, touch, and keyboard drawing
 
 ## Run locally

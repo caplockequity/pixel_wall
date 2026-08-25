@@ -44,7 +44,10 @@ test("server-renders the PixelWall studio", async () => {
   assert.match(html, /aria-label="Pick a color from the canvas"/i);
   assert.match(html, /aria-label="Choose a custom color"/i);
   assert.match(html, /class="projection-dock"/i);
-  assert.match(html, /EXPORT PNG/i);
+  assert.match(html, /aria-label="Open export options"/i);
+  assert.match(html, /CURRENT FRAME/i);
+  assert.match(html, /SPRITE PACKAGE/i);
+  assert.match(html, /SHEET \+ JSON/i);
   assert.doesNotMatch(
     html,
     /codex-preview|Your site is taking shape|react-loading-skeleton/i,
@@ -80,4 +83,24 @@ test("keeps tracing visuals locked to logical pixels", async () => {
   assert.match(cssSource, /\.wall-stage\.reference-live\s*\{\s*min-height:\s*780px/);
   assert.match(cssSource, /background-size:\s*calc\(200% \/ var\(--grid-size\)\)/);
   assert.doesNotMatch(cssSource, /background-size:\s*18px 18px/);
+});
+
+test("builds a native horizontal sprite-sheet manifest", async () => {
+  const {
+    buildSpriteSheetMetadata,
+    SPRITE_DATA_FILENAME,
+    SPRITE_SHEET_FILENAME,
+  } = await import(new URL("../app/sprite-export.mjs", import.meta.url));
+  const metadata = buildSpriteSheetMetadata(16, 3, 8);
+
+  assert.equal(SPRITE_SHEET_FILENAME, "pixelwall-sprites.png");
+  assert.equal(SPRITE_DATA_FILENAME, "pixelwall-sprites.json");
+  assert.deepEqual(metadata.meta.size, { w: 48, h: 16 });
+  assert.equal(metadata.meta.image, SPRITE_SHEET_FILENAME);
+  assert.deepEqual(metadata.frames["0"].frame, { x: 0, y: 0, w: 16, h: 16 });
+  assert.deepEqual(metadata.frames["2"].frame, { x: 32, y: 0, w: 16, h: 16 });
+  assert.equal(metadata.frames["1"].duration, 125);
+  assert.equal(metadata.frames["1"].trimmed, false);
+  assert.deepEqual(metadata.animations.default, ["0", "1", "2"]);
+  assert.deepEqual(metadata.meta.frameTags, [{ name: "default", from: 0, to: 2, direction: "forward" }]);
 });
