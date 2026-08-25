@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">
+  <title>PixelWall</title>
+  <rect x="9" y="9" width="48" height="48" fill="#171628"/>
+  <rect x="5" y="5" width="48" height="48" fill="#FFE66D" stroke="#171628" stroke-width="4"/>
+  <rect x="12" y="12" width="15" height="15" fill="#FF6B57"/>
+  <rect x="31" y="12" width="15" height="15" fill="#171628"/>
+  <rect x="12" y="31" width="15" height="15" fill="#171628"/>
+  <rect x="31" y="31" width="15" height="15" fill="#FF6B57"/>
+</svg>

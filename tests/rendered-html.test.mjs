@@ -32,6 +32,9 @@ test("server-renders the PixelWall studio", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>PixelWall — Pixel Art Maker<\/title>/i);
+  assert.match(html, /pixelwall-mark\.svg[^>]*rel="shortcut icon"|rel="shortcut icon"[^>]*pixelwall-mark\.svg/i);
+  assert.match(html, /pixelwall\.webmanifest/i);
+  assert.doesNotMatch(html, /\[object Object\]/i);
   assert.match(html, />PIXELWALL</i);
   assert.match(html, /aria-label="Drawing tools"/i);
   assert.match(html, /aria-label="Pixel art canvas mounted in a projector beam"/i);
@@ -85,6 +88,23 @@ test("contains no disposable starter preview", async () => {
 
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("app/_sites-preview/", projectRoot)));
+});
+
+test("ships cache-busted PixelWall icon assets", async () => {
+  const manifest = JSON.parse(
+    await readFile(new URL("public/pixelwall.webmanifest", projectRoot), "utf8"),
+  );
+
+  assert.equal(manifest.short_name, "PixelWall");
+  assert.equal(manifest.icons[0].src, "/pixelwall-mark.svg");
+  await Promise.all([
+    access(new URL("public/pixelwall-mark.svg", projectRoot)),
+    access(new URL("public/pixelwall-mark-32.png", projectRoot)),
+    access(new URL("public/pixelwall-apple-touch.png", projectRoot)),
+    access(new URL("public/pixelwall-icon-192.png", projectRoot)),
+    access(new URL("public/pixelwall-icon-512.png", projectRoot)),
+    access(new URL("public/favicon.ico", projectRoot)),
+  ]);
 });
 
 test("keeps tracing visuals locked to logical pixels", async () => {

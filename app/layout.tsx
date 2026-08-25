@@ -32,17 +32,17 @@ export async function generateMetadata(): Promise<Metadata> {
     applicationName: "PixelWall",
     title,
     description,
-    manifest: "/site.webmanifest",
+    manifest: "/pixelwall.webmanifest",
     alternates: {
       canonical: origin,
     },
     icons: {
       icon: [
-        { url: "/favicon.svg", type: "image/svg+xml" },
-        { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+        { url: "/pixelwall-mark.svg", type: "image/svg+xml" },
+        { url: "/pixelwall-mark-32.png", type: "image/png", sizes: "32x32" },
       ],
-      shortcut: [{ url: "/favicon.svg", type: "image/svg+xml" }],
-      apple: [{ url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" }],
+      shortcut: "/pixelwall-mark.svg",
+      apple: [{ url: "/pixelwall-apple-touch.png", type: "image/png", sizes: "180x180" }],
     },
     openGraph: {
       type: "website",
