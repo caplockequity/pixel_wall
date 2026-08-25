@@ -70,7 +70,14 @@ test("keeps tracing visuals locked to logical pixels", async () => {
   assert.match(pageSource, /MATCH 1:1 PIXELS/);
   assert.match(pageSource, /SPRITE \{referenceTile \+ 1\}/);
   assert.match(pageSource, /WORKSPACE PIXEL SIZE/);
-  assert.match(pageSource, /ADD BLANK TRACE FRAME/);
+  assert.match(pageSource, /ADD TRACE FRAME/);
+  assert.match(pageSource, /SPRITE \{referenceTile \+ 1\}\/\{spriteSheet\.frameCount\}/);
+  assert.match(pageSource, /\{cellSize\} PX\/CELL/);
+  assert.match(cssSource, /--font-geist-sans:\s*ui-sans-serif/);
+  assert.match(cssSource, /--font-geist-mono:\s*ui-monospace/);
+  assert.match(cssSource, /\.sprite-stepper strong\s*\{[^}]*white-space:\s*nowrap/s);
+  assert.match(cssSource, /\.zoom-control strong\s*\{[^}]*white-space:\s*nowrap/s);
+  assert.match(cssSource, /\.wall-stage\.reference-live\s*\{\s*min-height:\s*780px/);
   assert.match(cssSource, /background-size:\s*calc\(200% \/ var\(--grid-size\)\)/);
   assert.doesNotMatch(cssSource, /background-size:\s*18px 18px/);
 });

@@ -9,6 +9,8 @@
   --violet: #7059c7;
   --mint: #70d6b2;
   --blue: #3558e6;
+  --font-geist-sans: ui-sans-serif;
+  --font-geist-mono: ui-monospace;
 }
 
 * { box-sizing: border-box; }
@@ -200,6 +202,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   pointer-events: none;
 }
 .wall-stage.reference-live .projector-beam { opacity: 1; }
+.wall-stage.reference-live { min-height: 780px; }
 
 .projection-dock {
   position: absolute;
@@ -518,6 +521,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   font: 800 9px/1 var(--font-geist-mono), monospace;
 }
 .scale-value-input input {
+  appearance: textfield;
   min-width: 0;
   width: 100%;
   padding: 0;
@@ -527,6 +531,11 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   color: var(--ink);
   font: inherit;
   text-align: right;
+}
+.scale-value-input input::-webkit-inner-spin-button,
+.scale-value-input input::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
 }
 .source-info {
   display: grid;
@@ -539,6 +548,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   letter-spacing: .06em;
 }
 .source-info strong { color: var(--violet); }
+.source-info > span, .source-info > strong { min-width: 0; white-space: nowrap; }
 .pixel-match-action {
   width: 100%;
   min-height: 32px;
@@ -554,7 +564,10 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   font-size: 7px;
   font-weight: 900;
   letter-spacing: .07em;
+  white-space: nowrap;
 }
+.pixel-match-action svg, .trace-frame-action svg { flex: 0 0 auto; }
+.projection-action-label { min-width: 0; white-space: nowrap; }
 .pixel-match-action.active { background: var(--mint); }
 .trace-frame-action {
   width: 100%;
@@ -569,7 +582,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   cursor: pointer;
   font-size: 7px;
   font-weight: 900;
-  letter-spacing: .07em;
+  letter-spacing: .04em;
+  white-space: nowrap;
 }
 .sprite-stepper {
   height: 31px;
@@ -591,7 +605,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 }
 .sprite-stepper button:first-child { border-right: 1px solid #b7afa3; }
 .sprite-stepper button:last-child { border-left: 1px solid #b7afa3; }
-.sprite-stepper strong { text-align: center; font: 800 7px/1 var(--font-geist-mono), monospace; }
+.sprite-stepper strong { min-width: 0; white-space: nowrap; text-align: center; font: 800 7px/1 var(--font-geist-mono), monospace; }
 .project-toggle {
   width: 100%;
   height: 31px;
@@ -615,6 +629,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .position-readout {
   margin: 5px 0 2px;
   color: #6f695f;
+  min-width: 0;
+  white-space: nowrap;
   text-align: center;
   font: 700 7px/1.2 var(--font-geist-mono), monospace;
   letter-spacing: .08em;
@@ -641,7 +657,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 }
 .zoom-control button:first-child { border-right: 1px solid #b7afa3; }
 .zoom-control button:last-child { border-left: 1px solid #b7afa3; }
-.zoom-control strong { text-align: center; font: 800 8px/1 var(--font-geist-mono), monospace; }
+.zoom-control strong { min-width: 0; white-space: nowrap; text-align: center; font: 800 8px/1 var(--font-geist-mono), monospace; }
 .fit-view-action {
   width: 100%;
   min-height: 27px;
@@ -652,6 +668,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   font-size: 7px;
   font-weight: 900;
   letter-spacing: .08em;
+  white-space: nowrap;
 }
 .reference-actions {
   display: grid;
@@ -860,6 +877,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
     justify-content: center;
     padding: 49px 18px 25px 61px;
   }
+  .wall-stage.reference-live { min-height: 880px; }
   .canvas-zone { width: 100%; min-width: 0; }
   .canvas-viewport { width: 100%; max-width: 100%; max-height: 390px; }
   .canvas-hint { font-size: 7px; letter-spacing: .04em; }

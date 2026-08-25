@@ -1300,9 +1300,11 @@ export default function Home() {
                   : () => matchReferencePixels()}
               >
                 <Grid2X2 size={14} />
-                {spriteSheet && GRID_SIZES.includes(spriteSheet.frameSize) && size !== spriteSheet.frameSize
-                  ? `USE ${spriteSheet.frameSize} × ${spriteSheet.frameSize} GRID`
-                  : "MATCH 1:1 PIXELS"}
+                <span className="projection-action-label">
+                  {spriteSheet && GRID_SIZES.includes(spriteSheet.frameSize) && size !== spriteSheet.frameSize
+                    ? `USE ${spriteSheet.frameSize} × ${spriteSheet.frameSize} GRID`
+                    : "MATCH 1:1 PIXELS"}
+                </span>
               </button>
             )}
 
@@ -1314,15 +1316,16 @@ export default function Home() {
                   setNotice("Blank trace frame added");
                 }}
                 disabled={frames.length >= MAX_FRAMES}
+                aria-label="Add blank trace frame"
               >
-                <ImagePlus size={14} /> ADD BLANK TRACE FRAME
+                <ImagePlus size={14} /> <span className="projection-action-label">ADD TRACE FRAME</span>
               </button>
             )}
 
             {spriteSheet && size === spriteSheet.frameSize && (
               <div className="sprite-stepper" aria-label="Sprite sheet frame">
                 <button onClick={() => showReferenceTile(referenceTile - 1)} disabled={referenceTile === 0} aria-label="Previous sprite">‹</button>
-                <strong>SPRITE {referenceTile + 1} / {spriteSheet.frameCount}</strong>
+                <strong>SPRITE {referenceTile + 1}/{spriteSheet.frameCount}</strong>
                 <button onClick={() => showReferenceTile(referenceTile + 1)} disabled={referenceTile === spriteSheet.frameCount - 1} aria-label="Next sprite">›</button>
               </div>
             )}
@@ -1395,8 +1398,12 @@ export default function Home() {
               <Move size={15} /> MOVE IMAGE <span>{adjustingReference ? "DONE" : "ADJUST"}</span>
             </button>
             {reference && (
-              <div className="position-readout" aria-live="polite">
-                {referencePixelFit ? "PIXEL LOCK · " : ""}X {Math.round(referenceTransform.x)} · Y {Math.round(referenceTransform.y)}
+              <div
+                className="position-readout"
+                aria-live="polite"
+                aria-label={`Reference position. ${referencePixelFit ? "Pixel lock on. " : ""}X ${Math.round(referenceTransform.x)}, Y ${Math.round(referenceTransform.y)}.`}
+              >
+                X {Math.round(referenceTransform.x)} · Y {Math.round(referenceTransform.y)}
               </div>
             )}
             <button className={`project-toggle ${showGrid ? "active" : ""}`} onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid}>
@@ -1410,7 +1417,7 @@ export default function Home() {
               <span>WORKSPACE PIXEL SIZE</span>
               <div className="zoom-control" aria-label="Workspace pixel size">
                 <button onClick={() => changeCellSize(-1)} disabled={cellSize === CELL_SIZES[0]} aria-label="Make workspace pixels smaller"><Minus size={14} /></button>
-                <strong>{cellSize} PX / CELL</strong>
+                <strong>{cellSize} PX/CELL</strong>
                 <button onClick={() => changeCellSize(1)} disabled={cellSize === CELL_SIZES.at(-1)} aria-label="Make workspace pixels larger"><Plus size={14} /></button>
               </div>
               <button className="fit-view-action" onClick={() => setCellSize(fitCellSize())}>FIT WHOLE CANVAS</button>
