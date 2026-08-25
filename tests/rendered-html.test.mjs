@@ -38,6 +38,14 @@ test("server-renders the PixelWall studio", async () => {
   assert.match(html, />PIXELWALL</i);
   assert.match(html, /aria-label="Drawing tools"/i);
   assert.match(html, /aria-label="Pixel art canvas mounted in a projector beam"/i);
+  assert.match(html, /id="quick-guide-title"[^>]*>QUICK START</i);
+  assert.doesNotMatch(html, /<dialog[^>]*\sopen(?:\s|>)/i);
+  assert.match(html, /aria-label="Layers help"/i);
+  assert.match(html, /aria-label="Frames help"/i);
+  assert.match(html, /aria-label="Tilemap Lab help"/i);
+  assert.match(html, /href="mailto:contact@caplock\.ai"/i);
+  assert.match(html, /© 2026 CapLock/i);
+  assert.match(html, />QUICK GUIDE</i);
   assert.match(html, />256<!-- --> × <!-- -->256</i);
   assert.match(html, /IMAGE SCALE/i);
   assert.match(html, /aria-label="Decrease image scale by 1 percent"/i);
@@ -114,6 +122,7 @@ test("keeps tracing visuals locked to logical pixels", async () => {
   ]);
 
   assert.match(pageSource, /MATCH 1:1 PIXELS/);
+  assert.match(pageSource, /pixelwall-onboarding-v1/);
   assert.match(pageSource, /SPRITE \{referenceTile \+ 1\}/);
   assert.match(pageSource, /aria-label="Canvas view controls"/);
   assert.match(pageSource, /ADD TRACE FRAME/);

@@ -8,6 +8,7 @@ import {
 import { createSpriteExportPlan, exportFileStem } from "./sprite-export-core.mjs";
 import { createTilemapExportPlan } from "./tilemap-export-core.mjs";
 import { parseProject, stringifyProject } from "./project-format.mjs";
+import { HelpTip, OnboardingGuide } from "./onboarding";
 import type {
   ChangeEvent,
   CSSProperties,
@@ -186,6 +187,7 @@ const MAX_SLICES = 256;
 const STORAGE_KEY = "pixelwall-project-v3";
 const V2_STORAGE_KEY = "pixelwall-project-v2";
 const LEGACY_STORAGE_KEY = "pixelwall-project-v1";
+const ONBOARDING_STORAGE_KEY = "pixelwall-onboarding-v1";
 const DEFAULT_REFERENCE_TRANSFORM: ReferenceTransform = { x: 0, y: 0, scale: 100 };
 const DEFAULT_LAYER: ArtLayer = { id: 1, name: "PIXELS", visible: true, locked: false, opacity: 100 };
 
@@ -839,6 +841,7 @@ export default function Home() {
   const [slices, setSlices] = useState<NamedSlice[]>([]);
   const [notice, setNotice] = useState("");
   const [storageReady, setStorageReady] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1019,6 +1022,17 @@ export default function Home() {
   useEffect(() => {
     activeFrameRef.current = activeFrame;
   }, [activeFrame]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY) !== "done") setGuideOpen(true);
+      } catch {
+        setGuideOpen(true);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!exportMenuOpen) return;
@@ -2689,6 +2703,15 @@ export default function Home() {
     }
   }
 
+  function dismissGuide() {
+    try {
+      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "done");
+    } catch {
+      // The guide can still close when browser storage is unavailable.
+    }
+    setGuideOpen(false);
+  }
+
   const surfaceStyle = {
     "--grid-size": size,
     "--grid-opacity": cellSize <= 2 ? 0 : size >= 128 ? 0.12 : size >= 64 ? 0.22 : 0.42,
@@ -2717,7 +2740,8 @@ export default function Home() {
   };
 
   return (
-    <main className="studio-shell">
+    <>
+      <main className="studio-shell">
       <header className="topbar">
         <Link className="brand" href="/" aria-label="PixelWall home">
           <span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>
@@ -2735,6 +2759,11 @@ export default function Home() {
             aria-label="Project name"
           />
           <span className="saved-label">{saved ? "SAVED LOCALLY" : saveFailed ? "NOT SAVED" : "SAVING…"}</span>
+          <HelpTip
+            id="local-save-tip"
+            label="How saving works"
+            text="In this browser, not the cloud. Save Project makes a full backup."
+          />
         </div>
 
         <div className="header-actions">
@@ -2877,7 +2906,10 @@ export default function Home() {
             </div>
 
             <div className="canvas-view-bar" role="group" aria-label="Canvas view controls">
-              <span className="canvas-bar-label">VIEW</span>
+              <span className="canvas-bar-label">
+                VIEW
+                <HelpTip id="canvas-help-tip" label="Canvas help" text="Pick a tool. Draw." />
+              </span>
               <button className={showGrid ? "active" : ""} onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid} aria-label="Toggle pixel grid">
                 <Grid2X2 size={15} /><span>GRID</span>
               </button>
@@ -2986,7 +3018,10 @@ export default function Home() {
           </button>
           <aside className="projection-panel" aria-label="Projection controls">
             <div className="projection-title">
-              <span className="panel-kicker">PROJECTOR</span>
+              <span className="panel-label-with-help">
+                <span className="panel-kicker">PROJECTOR</span>
+                <HelpTip id="projector-help-tip" label="Projector help" text="Load an image to trace or import." />
+              </span>
               <span className="projection-summary">
                 <span className={`projection-light ${reference ? "live-light" : ""}`} aria-hidden="true" />
                 <span>{reference ? "LIVE" : "READY"}</span>
@@ -3137,7 +3172,10 @@ export default function Home() {
       <section className="control-deck">
         <div className="layers-panel">
           <div className="layers-heading">
-            <span className="panel-kicker">LAYERS <b>{String(layers.length).padStart(2, "0")}</b></span>
+            <span className="panel-label-with-help">
+              <span className="panel-kicker">LAYERS <b>{String(layers.length).padStart(2, "0")}</b></span>
+              <HelpTip id="layers-help-tip" label="Layers help" text="Top covers bottom. Eye hides. Lock protects." />
+            </span>
             <div className="layer-actions">
               <button onClick={() => moveLayer(1)} disabled={layers.at(-1)?.id === activeLayerId} aria-label="Move layer up">↑</button>
               <button onClick={() => moveLayer(-1)} disabled={layers[0]?.id === activeLayerId} aria-label="Move layer down">↓</button>
@@ -3226,7 +3264,10 @@ export default function Home() {
 
         <div className="frames-panel">
           <div className="frames-heading">
-            <span className="panel-kicker">FRAMES <b>{String(frames.length).padStart(2, "0")}</b></span>
+            <span className="panel-label-with-help">
+              <span className="panel-kicker">FRAMES <b>{String(frames.length).padStart(2, "0")}</b></span>
+              <HelpTip id="frames-help-tip" label="Frames help" text="One picture each. Set time. Press play." />
+            </span>
             <div className="frame-settings">
               <label>DURATION <input type="number" min="16" max="10000" step="1" value={currentFrame?.durationMs ?? 125} onFocus={recordProjectHistory} onChange={(event) => setFrameDuration(event.target.valueAsNumber)} /><span>MS</span></label>
               <button onClick={() => moveFrame(-1)} disabled={activeFrame === 0} aria-label="Move frame left" title="Move frame left"><ChevronLeft size={16} /></button>
@@ -3290,7 +3331,10 @@ export default function Home() {
 
         <div className="tilemap-panel">
           <div className="tilemap-heading">
-            <span className="panel-kicker">TILEMAP LAB</span>
+            <span className="panel-label-with-help">
+              <span className="panel-kicker">TILEMAP LAB</span>
+              <HelpTip id="tilemap-help-tip" label="Tilemap Lab help" text="Pick a frame. Paint with it." />
+            </span>
             <small>ACTIVE TILE · FRAME {activeFrame + 1}</small>
           </div>
           <div className="tilemap-controls">
@@ -3366,7 +3410,14 @@ export default function Home() {
         </div>
       </section>
 
-      {notice && <div className="toast" role="status">{notice}</div>}
-    </main>
+        {notice && <div className="toast" role="status">{notice}</div>}
+      </main>
+      <footer className="studio-footer">
+        <span>© 2026 CapLock</span>
+        <a href="mailto:contact@caplock.ai">contact@caplock.ai</a>
+        <button type="button" onClick={() => setGuideOpen(true)}>QUICK GUIDE</button>
+      </footer>
+      <OnboardingGuide open={guideOpen} onDismiss={dismissGuide} />
+    </>
   );
 }
