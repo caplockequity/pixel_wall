@@ -15,6 +15,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "drizzle-orm": "0.45.2",
     "fflate": "^0.8.3",
     "lucide-react": "^0.468.0",
