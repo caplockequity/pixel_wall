@@ -38,6 +38,8 @@ test("server-renders the PixelWall studio", async () => {
   assert.match(html, />256<!-- --> × <!-- -->256</i);
   assert.match(html, /IMAGE SCALE/i);
   assert.match(html, /MOVE IMAGE/i);
+  assert.match(html, /aria-label="Pick a color from the canvas"/i);
+  assert.match(html, /aria-label="Choose a custom color"/i);
   assert.match(html, /class="projection-dock"/i);
   assert.match(html, /EXPORT PNG/i);
   assert.doesNotMatch(

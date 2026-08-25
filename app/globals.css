@@ -376,6 +376,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   touch-action: none;
   user-select: none;
 }
+.pixel-canvas.picker-active { cursor: copy; }
 .grid-overlay {
   z-index: 4;
   background-image:
@@ -573,7 +574,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .palette-panel { border-right: 2px solid var(--ink); }
 .panel-row code { font: 700 8px/1 var(--font-geist-mono), monospace; color: #777166; }
 .palette-row { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
-.swatch, .add-swatch {
+.swatch, .add-swatch, .rack-picker {
   position: relative;
   width: 30px;
   height: 30px;
@@ -587,6 +588,20 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .swatch:hover { transform: translateY(-2px); }
 .add-swatch { display: grid; place-items: center; background: transparent; border-style: dashed; overflow: hidden; }
 .add-swatch input { position: absolute; inset: -10px; width: 60px; height: 60px; opacity: 0; cursor: pointer; }
+.rack-picker {
+  width: auto;
+  min-width: 82px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #e7dfd1;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .09em;
+}
+.rack-picker.active { background: var(--mint); box-shadow: 2px 2px 0 var(--ink); }
 
 .frames-heading { color: #6d685e; font-size: 8px; letter-spacing: .12em; }
 .frames-heading .panel-kicker { color: var(--ink); }

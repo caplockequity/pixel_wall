@@ -40,6 +40,8 @@ type FrameHistoryEntry = { kind: "frame"; frameId: number; size: number; pixels:
 type ProjectHistoryEntry = { kind: "project"; snapshot: ProjectSnapshot };
 type HistoryEntry = FrameHistoryEntry | ProjectHistoryEntry;
 type ReferenceTransform = { x: number; y: number; scale: number };
+type EyeDropperApi = { open: () => Promise<{ sRGBHex: string }> };
+type EyeDropperWindow = Window & { EyeDropper?: new () => EyeDropperApi };
 
 type LoadedProject = {
   size: number;
@@ -396,6 +398,7 @@ export default function Home() {
   const [redoStack, setRedoStack] = useState<HistoryEntry[]>([]);
   const [saved, setSaved] = useState(true);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [samplingColor, setSamplingColor] = useState(false);
   const [notice, setNotice] = useState("");
   const [storageReady, setStorageReady] = useState(false);
 
@@ -584,9 +587,9 @@ export default function Home() {
     if (tool === "picker") {
       const color = currentPixels[index];
       if (color) {
-        setSelectedColor(color);
-        setTool("pencil");
-        setNotice(`Picked ${color.toUpperCase()}`);
+        addColorToRack(color);
+      } else {
+        setNotice("No painted color here — try another pixel");
       }
       return;
     }
@@ -643,6 +646,11 @@ export default function Home() {
   }
 
   function continueStroke(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (tool === "picker" && activePointer.current === null) {
+      const hoveredIndex = indexFromPointer(event.clientX, event.clientY);
+      if (hoveredIndex !== null) setCursorIndex(hoveredIndex);
+      return;
+    }
     if (activePointer.current !== event.pointerId || lastPainted.current === null) return;
     const index = indexFromPointer(event.clientX, event.clientY);
     if (index === null || index === lastPainted.current) return;
@@ -886,10 +894,49 @@ export default function Home() {
     if (moved) event.preventDefault();
   }
 
+  function addColorToRack(color: string) {
+    const normalized = color.toLowerCase();
+    const alreadyInRack = palette.some((item) => item.toLowerCase() === normalized);
+    setSelectedColor(normalized);
+    setPalette((current) => current.some((item) => item.toLowerCase() === normalized)
+      ? current
+      : [...current, normalized]);
+    setTool("pencil");
+    setNotice(alreadyInRack ? `Selected ${normalized.toUpperCase()}` : `Added ${normalized.toUpperCase()} to color rack`);
+  }
+
   function addCustomColor(event: ChangeEvent<HTMLInputElement>) {
-    const color = event.target.value;
-    setSelectedColor(color);
-    setPalette((current) => current.includes(color) ? current : [...current, color]);
+    addColorToRack(event.target.value);
+  }
+
+  function activateCanvasPicker(message = "Click a painted pixel to add its color") {
+    setPlaying(false);
+    stopReferenceAdjustment();
+    setTool("picker");
+    setNotice(message);
+    window.setTimeout(() => canvasRef.current?.focus(), 0);
+  }
+
+  async function sampleVisibleColor() {
+    if (samplingColor) return;
+    setPlaying(false);
+    stopReferenceAdjustment();
+    const EyeDropper = (window as EyeDropperWindow).EyeDropper;
+    if (!EyeDropper) {
+      activateCanvasPicker();
+      return;
+    }
+    setSamplingColor(true);
+    try {
+      const result = await new EyeDropper().open();
+      addColorToRack(result.sRGBHex);
+    } catch (error) {
+      if (!(error instanceof Error && error.name === "AbortError")) {
+        activateCanvasPicker("Screen picker unavailable — click a painted pixel instead");
+      }
+    } finally {
+      setSamplingColor(false);
+    }
   }
 
   function changeCanvasZoom(direction: -1 | 1) {
@@ -1006,7 +1053,7 @@ export default function Home() {
                 )}
                 <canvas
                   ref={canvasRef}
-                  className="pixel-canvas"
+                  className={`pixel-canvas ${tool === "picker" ? "picker-active" : ""}`}
                   width={size}
                   height={size}
                   role="grid"
@@ -1125,7 +1172,17 @@ export default function Home() {
                 aria-pressed={selectedColor.toLowerCase() === color.toLowerCase()}
               />
             ))}
-            <label className="add-swatch" aria-label="Add a custom color"><Plus size={16} /><input type="color" value={selectedColor} onChange={addCustomColor} /></label>
+            <button
+              className={`rack-picker ${samplingColor || tool === "picker" ? "active" : ""}`}
+              type="button"
+              onClick={sampleVisibleColor}
+              aria-label="Pick a color from the canvas"
+              aria-pressed={samplingColor || tool === "picker"}
+              title="Pick a color from the canvas"
+            >
+              <Pipette size={14} /><span>{samplingColor ? "PICKING" : "SAMPLE"}</span>
+            </button>
+            <label className="add-swatch" aria-label="Choose a custom color" title="Choose a custom color"><Plus size={16} /><input type="color" value={selectedColor} onChange={addCustomColor} /></label>
           </div>
         </div>
 
