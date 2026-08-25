@@ -813,6 +813,7 @@ export default function Home() {
   const [referenceOpacity, setReferenceOpacity] = useState(38);
   const [referenceTransform, setReferenceTransform] = useState<ReferenceTransform>(DEFAULT_REFERENCE_TRANSFORM);
   const [adjustingReference, setAdjustingReference] = useState(false);
+  const [projectorExpanded, setProjectorExpanded] = useState(false);
   const [cellSize, setCellSize] = useState(24);
   const [playing, setPlaying] = useState(false);
   const [playbackCursor, setPlaybackCursor] = useState(0);
@@ -847,6 +848,7 @@ export default function Home() {
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const exportTriggerRef = useRef<HTMLButtonElement>(null);
   const exportFirstOptionRef = useRef<HTMLButtonElement>(null);
+  const projectorToggleRef = useRef<HTMLButtonElement>(null);
   const referenceLayerRef = useRef<HTMLButtonElement>(null);
   const activePointer = useRef<number | null>(null);
   const lastPainted = useRef<number | null>(null);
@@ -1003,6 +1005,7 @@ export default function Home() {
     setReferenceTile(asset?.dataUrl ? asset.tileIndex : 0);
     setReferencePixelFit(Boolean(asset?.dataUrl && asset.pixelFit));
     setAdjustingReference(false);
+    setProjectorExpanded(Boolean(asset?.dataUrl));
     setSelection(null);
     setSelectionClipboard(null);
     setUndoStack([]);
@@ -1445,12 +1448,12 @@ export default function Home() {
       }
       return;
     }
-    if (!activeLayerIsEditable()) return;
-    strokeRecorded.current = false;
     if (tool === "picker") {
       applyTool(index);
       return;
     }
+    if (!activeLayerIsEditable()) return;
+    strokeRecorded.current = false;
     if (toolWouldChange(index)) {
       recordCelHistory();
       strokeRecorded.current = true;
@@ -1566,11 +1569,15 @@ export default function Home() {
       if (event.key === "ArrowDown") moveSelection(0, amount);
       return;
     }
+    if (event.key.toLowerCase() === "i") {
+      event.preventDefault();
+      void sampleVisibleColor();
+      return;
+    }
     const toolShortcut: Partial<Record<string, Tool>> = {
       p: "pencil",
       e: "eraser",
       f: "fill",
-      i: "picker",
       s: "select",
       o: "pivot",
     };
@@ -2100,6 +2107,7 @@ export default function Home() {
       event.target.value = "";
       return;
     }
+    setProjectorExpanded(true);
     setReferenceName(file.name || "reference.png");
     setReferenceMime(mime);
     const reader = new FileReader();
@@ -2125,7 +2133,7 @@ export default function Home() {
         } else {
           setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
           setReferencePixelFit(false);
-          setAdjustingReference(true);
+          startReferenceAdjustment();
           setNotice(sheet
             ? `${sheet.frameCount}-frame ${sheet.frameSize} × ${sheet.frameSize} sheet detected · use its matching grid`
             : `${dimensions.width} × ${dimensions.height} reference loaded`);
@@ -2136,7 +2144,7 @@ export default function Home() {
         setReferenceDimensions(null);
         setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
         setReferencePixelFit(false);
-        setAdjustingReference(true);
+        startReferenceAdjustment();
         setNotice("Reference loaded — drag it into position");
       };
       image.src = source;
@@ -2155,6 +2163,19 @@ export default function Home() {
     setAdjustingReference(false);
   }
 
+  function startReferenceAdjustment() {
+    setProjectorExpanded(true);
+    setAdjustingReference(true);
+  }
+
+  function toggleProjectorControls() {
+    if (projectorExpanded) {
+      stopReferenceAdjustment();
+      window.requestAnimationFrame(() => projectorToggleRef.current?.focus());
+    }
+    setProjectorExpanded((expanded) => !expanded);
+  }
+
   function removeReference() {
     setReference(null);
     setReferenceDimensions(null);
@@ -2164,6 +2185,8 @@ export default function Home() {
     setReferenceMime("image/png");
     stopReferenceAdjustment();
     setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
+    setProjectorExpanded(false);
+    window.requestAnimationFrame(() => projectorToggleRef.current?.focus());
   }
 
   function matchReferencePixels(targetSize = size, tileIndex = referenceTile) {
@@ -2715,7 +2738,7 @@ export default function Home() {
         </div>
 
         <div className="header-actions">
-          <input ref={projectInputRef} className="visually-hidden" type="file" accept=".pixelwall,.json,application/json" onChange={openProjectFile} />
+          <input ref={projectInputRef} hidden type="file" accept=".pixelwall,.json,application/json" onChange={openProjectFile} />
           <button className="icon-button project-file-button" onClick={() => projectInputRef.current?.click()} aria-label="Open PixelWall project" title="Open project"><FolderOpen size={17} /></button>
           <button className="icon-button project-file-button" onClick={saveProjectFile} aria-label="Save portable PixelWall project" title="Save project"><Save size={17} /></button>
           <label className="size-select-wrap">
@@ -2797,7 +2820,7 @@ export default function Home() {
         </div>
       </header>
 
-      <section className={`wall-stage ${reference ? "reference-live" : ""}`} aria-label="Pixel art canvas mounted in a projector beam">
+      <section className={`wall-stage ${reference ? "reference-live" : ""} ${projectorExpanded ? "projector-open" : "projector-closed"}`} aria-label="Pixel art canvas mounted in a projector beam">
         <div className="projector-beam" />
 
         <aside className="tool-rail" aria-label="Drawing tools">
@@ -2805,16 +2828,22 @@ export default function Home() {
             ["pencil", Pencil, "Pencil", "P"],
             ["eraser", Eraser, "Eraser", "E"],
             ["fill", PaintBucket, "Fill", "F"],
-            ["picker", Pipette, "Pick color", "I"],
+            ["picker", Pipette, "Sample color", "I"],
             ["select", MousePointer2, "Select and move", "S"],
             ["pivot", Crosshair, "Set export pivot", "O"],
           ] as const).map(([value, Icon, label, shortcut]) => (
             <button
               key={value}
-              className={`tool ${tool === value ? "active" : ""}`}
-              onClick={() => { setTool(value); stopReferenceAdjustment(); }}
+              className={`tool ${tool === value || value === "picker" && samplingColor ? "active" : ""}`}
+              onClick={() => {
+                if (value === "picker") void sampleVisibleColor();
+                else {
+                  setTool(value);
+                  stopReferenceAdjustment();
+                }
+              }}
               aria-label={`${label} tool`}
-              aria-pressed={tool === value}
+              aria-pressed={tool === value || value === "picker" && samplingColor}
             >
               <Icon size={19} />
               <span>{shortcut}</span>
@@ -2823,7 +2852,46 @@ export default function Home() {
         </aside>
 
         <div className="canvas-zone">
-          <div className="size-chip">{size} × {size}</div>
+          <div className="canvas-toolbar">
+            <div className="canvas-color-rack" role="group" aria-label="Color rack">
+              <div className="current-color" style={{ "--swatch": selectedColor } as CSSProperties}>
+                <span aria-hidden="true" />
+                <code>{selectedColor.toUpperCase()}</code>
+              </div>
+              <div className="canvas-swatches">
+                {palette.map((color) => (
+                  <button
+                    key={color}
+                    className={`swatch ${selectedColor.toLowerCase() === color.toLowerCase() ? "selected" : ""}`}
+                    style={{ "--swatch": color } as CSSProperties}
+                    onClick={() => { setSelectedColor(color); setTool("pencil"); stopReferenceAdjustment(); }}
+                    aria-label={`Select color ${color}`}
+                    aria-pressed={selectedColor.toLowerCase() === color.toLowerCase()}
+                  />
+                ))}
+                <label className="add-swatch" aria-label="Choose a custom color" title="Choose a custom color">
+                  <Plus size={16} />
+                  <input type="color" value={selectedColor} onChange={addCustomColor} />
+                </label>
+              </div>
+            </div>
+
+            <div className="canvas-view-bar" role="group" aria-label="Canvas view controls">
+              <span className="canvas-bar-label">VIEW</span>
+              <button className={showGrid ? "active" : ""} onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid} aria-label="Toggle pixel grid">
+                <Grid2X2 size={15} /><span>GRID</span>
+              </button>
+              <button className={showOnion ? "active" : ""} onClick={() => setShowOnion((value) => !value)} aria-pressed={showOnion} aria-label="Toggle onion skin">
+                {showOnion ? <Eye size={15} /> : <EyeOff size={15} />}<span>ONION</span>
+              </button>
+              <div className="view-zoom" aria-label="Workspace pixel size">
+                <button onClick={() => changeCellSize(-1)} disabled={cellSize === CELL_SIZES[0]} aria-label="Make workspace pixels smaller"><Minus size={14} /></button>
+                <strong>{cellSize} PX/CELL</strong>
+                <button onClick={() => changeCellSize(1)} disabled={cellSize === CELL_SIZES.at(-1)} aria-label="Make workspace pixels larger"><Plus size={14} /></button>
+              </div>
+              <button className="view-fit" onClick={() => setCellSize(fitCellSize())}><LocateFixed size={14} /><span>FIT</span></button>
+            </div>
+          </div>
           <div className="canvas-viewport">
             <div className="frame-rig">
               <span className="frame-screw screw-a" /><span className="frame-screw screw-b" />
@@ -2902,195 +2970,171 @@ export default function Home() {
           )}
         </div>
 
-        <div className="projection-dock">
-          <div className="projector-unit" aria-hidden="true"><span className="lens" /><span className="projector-slot" /></div>
+        <div className={`projection-dock ${projectorExpanded ? "expanded" : "collapsed"}`}>
+          <button
+            ref={projectorToggleRef}
+            type="button"
+            className="projector-unit projector-disclosure"
+            onClick={toggleProjectorControls}
+            aria-label={`${projectorExpanded ? "Collapse" : "Expand"} projector controls`}
+            aria-expanded={projectorExpanded}
+            aria-controls="projector-controls"
+            title={`${projectorExpanded ? "Collapse" : "Open"} projector controls`}
+          >
+            <span className="lens" aria-hidden="true" /><span className="projector-slot" aria-hidden="true" />
+            <ChevronDown className="projector-unit-chevron" size={14} aria-hidden="true" />
+          </button>
           <aside className="projection-panel" aria-label="Projection controls">
-            <div className="projection-title"><span className="panel-kicker">PROJECTOR</span><span className={reference ? "live-light" : ""} /></div>
-            <input ref={fileInputRef} className="visually-hidden" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.avif,.bmp,image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp" onChange={handleReference} />
-            <button className="project-action" onClick={() => fileInputRef.current?.click()}><Upload size={15} /> {reference ? "CHANGE IMAGE" : "LOAD IMAGE"}</button>
+            <div className="projection-title">
+              <span className="panel-kicker">PROJECTOR</span>
+              <span className="projection-summary">
+                <span className={`projection-light ${reference ? "live-light" : ""}`} aria-hidden="true" />
+                <span>{reference ? "LIVE" : "READY"}</span>
+              </span>
+            </div>
+            <input ref={fileInputRef} hidden type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.avif,.bmp,image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp" onChange={handleReference} />
+            <div id="projector-controls" className="projection-controls" hidden={!projectorExpanded}>
+              <button className="project-action" onClick={() => fileInputRef.current?.click()}><Upload size={15} /> {reference ? "CHANGE IMAGE" : "LOAD IMAGE"}</button>
 
-            {referenceDimensions && (
-              <div className="source-info" aria-live="polite">
-                <span>{referenceDimensions.width} × {referenceDimensions.height} SOURCE</span>
-                {spriteSheet && <strong>{spriteSheet.frameCount} SPRITES · {spriteSheet.frameSize} × {spriteSheet.frameSize}</strong>}
+              {referenceDimensions && (
+                <div className="source-info" aria-live="polite">
+                  <span>{referenceDimensions.width} × {referenceDimensions.height} SOURCE</span>
+                  {spriteSheet && <strong>{spriteSheet.frameCount} SPRITES · {spriteSheet.frameSize} × {spriteSheet.frameSize}</strong>}
+                </div>
+              )}
+
+              {referenceDimensions && (
+                <button
+                  className={`pixel-match-action ${referencePixelFit ? "active" : ""}`}
+                  onClick={spriteSheet && GRID_SIZES.includes(spriteSheet.frameSize) && size !== spriteSheet.frameSize
+                    ? useDetectedSpriteGrid
+                    : () => matchReferencePixels()}
+                >
+                  <Grid2X2 size={14} />
+                  <span className="projection-action-label">
+                    {spriteSheet && GRID_SIZES.includes(spriteSheet.frameSize) && size !== spriteSheet.frameSize
+                      ? `USE ${spriteSheet.frameSize} × ${spriteSheet.frameSize} GRID`
+                      : "MATCH 1:1 PIXELS"}
+                  </span>
+                </button>
+              )}
+
+              {spriteSheet && GRID_SIZES.includes(spriteSheet.frameSize) && (
+                <button className="import-sheet-action" onClick={importDetectedSpriteSheet}>
+                  <Layers size={14} /> <span className="projection-action-label">IMPORT {spriteSheet.frameCount} EDITABLE FRAMES</span>
+                </button>
+              )}
+
+              {reference && (
+                <button
+                  className="trace-frame-action"
+                  onClick={() => {
+                    addFrame();
+                    setNotice("Blank trace frame added");
+                  }}
+                  disabled={frames.length >= MAX_FRAMES}
+                  aria-label="Add blank trace frame"
+                >
+                  <ImagePlus size={14} /> <span className="projection-action-label">ADD TRACE FRAME</span>
+                </button>
+              )}
+
+              {spriteSheet && size === spriteSheet.frameSize && (
+                <div className="sprite-stepper" aria-label="Sprite sheet frame">
+                  <button onClick={() => showReferenceTile(referenceTile - 1)} disabled={referenceTile === 0} aria-label="Previous sprite">‹</button>
+                  <strong>SPRITE {referenceTile + 1}/{spriteSheet.frameCount}</strong>
+                  <button onClick={() => showReferenceTile(referenceTile + 1)} disabled={referenceTile === spriteSheet.frameCount - 1} aria-label="Next sprite">›</button>
+                </div>
+              )}
+
+              <label className={`projection-slider ${reference ? "" : "disabled"}`}>
+                <span>OPACITY</span><strong>{referenceOpacity}%</strong>
+                <input type="range" min="0" max="100" value={referenceOpacity} onChange={(event) => setReferenceOpacity(Number(event.target.value))} disabled={!reference} />
+              </label>
+              <div className={`projection-slider ${reference ? "" : "disabled"}`}>
+                <span>IMAGE SCALE</span><strong>{Math.round(referenceTransform.scale * 100) / 100}%</strong>
+                <input
+                  type="range"
+                  aria-label="Image scale slider"
+                  min={REFERENCE_SCALE_MIN}
+                  max={referenceScaleMax}
+                  step="1"
+                  value={referenceTransform.scale}
+                  onChange={(event) => changeReferenceScale(Number(event.target.value))}
+                  disabled={!reference}
+                />
+                <div className="scale-stepper">
+                  <button
+                    type="button"
+                    onClick={() => changeReferenceScale(referenceTransform.scale - 1)}
+                    disabled={!reference || referenceTransform.scale <= REFERENCE_SCALE_MIN}
+                    aria-label="Decrease image scale by 1 percent"
+                    title="Decrease image scale by 1%"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <label className="scale-value-input">
+                    <span className="visually-hidden">Image scale percent</span>
+                    <input
+                      type="number"
+                      min={REFERENCE_SCALE_MIN}
+                      max={referenceScaleMax}
+                      step="any"
+                      value={Math.round(referenceTransform.scale * 100) / 100}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onChange={(event) => {
+                        const nextScale = event.currentTarget.valueAsNumber;
+                        if (Number.isFinite(nextScale)) changeReferenceScale(nextScale);
+                      }}
+                      disabled={!reference}
+                      aria-label="Image scale percent"
+                    />
+                    <span aria-hidden="true">%</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => changeReferenceScale(referenceTransform.scale + 1)}
+                    disabled={!reference || referenceTransform.scale >= referenceScaleMax}
+                    aria-label="Increase image scale by 1 percent"
+                    title="Increase image scale by 1%"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
               </div>
-            )}
-
-            {referenceDimensions && (
               <button
-                className={`pixel-match-action ${referencePixelFit ? "active" : ""}`}
-                onClick={spriteSheet && GRID_SIZES.includes(spriteSheet.frameSize) && size !== spriteSheet.frameSize
-                  ? useDetectedSpriteGrid
-                  : () => matchReferencePixels()}
-              >
-                <Grid2X2 size={14} />
-                <span className="projection-action-label">
-                  {spriteSheet && GRID_SIZES.includes(spriteSheet.frameSize) && size !== spriteSheet.frameSize
-                    ? `USE ${spriteSheet.frameSize} × ${spriteSheet.frameSize} GRID`
-                    : "MATCH 1:1 PIXELS"}
-                </span>
-              </button>
-            )}
-
-            {spriteSheet && GRID_SIZES.includes(spriteSheet.frameSize) && (
-              <button className="import-sheet-action" onClick={importDetectedSpriteSheet}>
-                <Layers size={14} /> <span className="projection-action-label">IMPORT {spriteSheet.frameCount} EDITABLE FRAMES</span>
-              </button>
-            )}
-
-            {reference && (
-              <button
-                className="trace-frame-action"
+                className={`project-toggle move-toggle ${adjustingReference ? "active" : ""}`}
                 onClick={() => {
-                  addFrame();
-                  setNotice("Blank trace frame added");
+                  if (!reference) return;
+                  if (adjustingReference) stopReferenceAdjustment();
+                  else startReferenceAdjustment();
                 }}
-                disabled={frames.length >= MAX_FRAMES}
-                aria-label="Add blank trace frame"
-              >
-                <ImagePlus size={14} /> <span className="projection-action-label">ADD TRACE FRAME</span>
-              </button>
-            )}
-
-            {spriteSheet && size === spriteSheet.frameSize && (
-              <div className="sprite-stepper" aria-label="Sprite sheet frame">
-                <button onClick={() => showReferenceTile(referenceTile - 1)} disabled={referenceTile === 0} aria-label="Previous sprite">‹</button>
-                <strong>SPRITE {referenceTile + 1}/{spriteSheet.frameCount}</strong>
-                <button onClick={() => showReferenceTile(referenceTile + 1)} disabled={referenceTile === spriteSheet.frameCount - 1} aria-label="Next sprite">›</button>
-              </div>
-            )}
-
-            <label className={`projection-slider ${reference ? "" : "disabled"}`}>
-              <span>OPACITY</span><strong>{referenceOpacity}%</strong>
-              <input type="range" min="0" max="100" value={referenceOpacity} onChange={(event) => setReferenceOpacity(Number(event.target.value))} disabled={!reference} />
-            </label>
-            <div className={`projection-slider ${reference ? "" : "disabled"}`}>
-              <span>IMAGE SCALE</span><strong>{Math.round(referenceTransform.scale * 100) / 100}%</strong>
-              <input
-                type="range"
-                aria-label="Image scale slider"
-                min={REFERENCE_SCALE_MIN}
-                max={referenceScaleMax}
-                step="1"
-                value={referenceTransform.scale}
-                onChange={(event) => changeReferenceScale(Number(event.target.value))}
                 disabled={!reference}
-              />
-              <div className="scale-stepper">
-                <button
-                  type="button"
-                  onClick={() => changeReferenceScale(referenceTransform.scale - 1)}
-                  disabled={!reference || referenceTransform.scale <= REFERENCE_SCALE_MIN}
-                  aria-label="Decrease image scale by 1 percent"
-                  title="Decrease image scale by 1%"
-                >
-                  <Minus size={14} />
-                </button>
-                <label className="scale-value-input">
-                  <span className="visually-hidden">Image scale percent</span>
-                  <input
-                    type="number"
-                    min={REFERENCE_SCALE_MIN}
-                    max={referenceScaleMax}
-                    step="any"
-                    value={Math.round(referenceTransform.scale * 100) / 100}
-                    onFocus={(event) => event.currentTarget.select()}
-                    onChange={(event) => {
-                      const nextScale = event.currentTarget.valueAsNumber;
-                      if (Number.isFinite(nextScale)) changeReferenceScale(nextScale);
-                    }}
-                    disabled={!reference}
-                    aria-label="Image scale percent"
-                  />
-                  <span aria-hidden="true">%</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => changeReferenceScale(referenceTransform.scale + 1)}
-                  disabled={!reference || referenceTransform.scale >= referenceScaleMax}
-                  aria-label="Increase image scale by 1 percent"
-                  title="Increase image scale by 1%"
-                >
-                  <Plus size={14} />
-                </button>
-              </div>
-            </div>
-            <button
-              className={`project-toggle move-toggle ${adjustingReference ? "active" : ""}`}
-              onClick={() => {
-                if (!reference) return;
-                if (adjustingReference) stopReferenceAdjustment();
-                else setAdjustingReference(true);
-              }}
-              disabled={!reference}
-              aria-pressed={adjustingReference}
-            >
-              <Move size={15} /> MOVE IMAGE <span>{adjustingReference ? "DONE" : "ADJUST"}</span>
-            </button>
-            {reference && (
-              <div
-                className="position-readout"
-                aria-live="polite"
-                aria-label={`Reference position. ${referencePixelFit ? "Pixel lock on. " : ""}X ${Math.round(referenceTransform.x)}, Y ${Math.round(referenceTransform.y)}.`}
+                aria-pressed={adjustingReference}
               >
-                X {Math.round(referenceTransform.x)} · Y {Math.round(referenceTransform.y)}
-              </div>
-            )}
-            <button className={`project-toggle ${showGrid ? "active" : ""}`} onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid}>
-              <Grid2X2 size={15} /> GRID <span>{showGrid ? "ON" : "OFF"}</span>
-            </button>
-            <button className={`project-toggle ${showOnion ? "active" : ""}`} onClick={() => setShowOnion((value) => !value)} aria-pressed={showOnion}>
-              {showOnion ? <Eye size={15} /> : <EyeOff size={15} />} ONION <span>{showOnion ? "ON" : "OFF"}</span>
-            </button>
-
-            <div className="canvas-zoom-block">
-              <span>WORKSPACE PIXEL SIZE</span>
-              <div className="zoom-control" aria-label="Workspace pixel size">
-                <button onClick={() => changeCellSize(-1)} disabled={cellSize === CELL_SIZES[0]} aria-label="Make workspace pixels smaller"><Minus size={14} /></button>
-                <strong>{cellSize} PX/CELL</strong>
-                <button onClick={() => changeCellSize(1)} disabled={cellSize === CELL_SIZES.at(-1)} aria-label="Make workspace pixels larger"><Plus size={14} /></button>
-              </div>
-              <button className="fit-view-action" onClick={() => setCellSize(fitCellSize())}>FIT WHOLE CANVAS</button>
+                <Move size={15} /> MOVE IMAGE <span>{adjustingReference ? "DONE" : "ADJUST"}</span>
+              </button>
+              {reference && (
+                <div
+                  className="position-readout"
+                  aria-live="polite"
+                  aria-label={`Reference position. ${referencePixelFit ? "Pixel lock on. " : ""}X ${Math.round(referenceTransform.x)}, Y ${Math.round(referenceTransform.y)}.`}
+                >
+                  X {Math.round(referenceTransform.x)} · Y {Math.round(referenceTransform.y)}
+                </div>
+              )}
+              {reference && (
+                <div className="reference-actions">
+                  <button onClick={resetReferenceTransform}><LocateFixed size={13} /> CENTER</button>
+                  <button onClick={removeReference}>REMOVE</button>
+                </div>
+              )}
             </div>
-            {reference && (
-              <div className="reference-actions">
-                <button onClick={resetReferenceTransform}><LocateFixed size={13} /> CENTER</button>
-                <button onClick={removeReference}>REMOVE</button>
-              </div>
-            )}
-            <button className="clear-action" onClick={clearFrame}><RotateCcw size={14} /> CLEAR ACTIVE LAYER</button>
           </aside>
         </div>
       </section>
 
       <section className="control-deck">
-        <div className="palette-panel">
-          <div className="panel-row"><span className="panel-kicker">COLOR RACK</span><code>{selectedColor.toUpperCase()}</code></div>
-          <div className="palette-row">
-            {palette.map((color) => (
-              <button
-                key={color}
-                className={`swatch ${selectedColor.toLowerCase() === color.toLowerCase() ? "selected" : ""}`}
-                style={{ "--swatch": color } as CSSProperties}
-                onClick={() => { setSelectedColor(color); setTool("pencil"); stopReferenceAdjustment(); }}
-                aria-label={`Select color ${color}`}
-                aria-pressed={selectedColor.toLowerCase() === color.toLowerCase()}
-              />
-            ))}
-            <button
-              className={`rack-picker ${samplingColor || tool === "picker" ? "active" : ""}`}
-              type="button"
-              onClick={sampleVisibleColor}
-              aria-label="Pick a color from the canvas"
-              aria-pressed={samplingColor || tool === "picker"}
-              title="Pick a color from the canvas"
-            >
-              <Pipette size={14} /><span>{samplingColor ? "PICKING" : "SAMPLE"}</span>
-            </button>
-            <label className="add-swatch" aria-label="Choose a custom color" title="Choose a custom color"><Plus size={16} /><input type="color" value={selectedColor} onChange={addCustomColor} /></label>
-          </div>
-        </div>
-
         <div className="layers-panel">
           <div className="layers-heading">
             <span className="panel-kicker">LAYERS <b>{String(layers.length).padStart(2, "0")}</b></span>
@@ -3098,6 +3142,7 @@ export default function Home() {
               <button onClick={() => moveLayer(1)} disabled={layers.at(-1)?.id === activeLayerId} aria-label="Move layer up">↑</button>
               <button onClick={() => moveLayer(-1)} disabled={layers[0]?.id === activeLayerId} aria-label="Move layer down">↓</button>
               <button onClick={addLayer} disabled={layers.length >= MAX_LAYERS} aria-label="Add layer"><Plus size={14} /></button>
+              <button onClick={clearFrame} aria-label="Clear active layer" title="Clear active layer"><RotateCcw size={14} /></button>
               <button onClick={() => deleteLayer()} disabled={layers.length === 1} aria-label="Delete active layer"><Trash2 size={14} /></button>
             </div>
           </div>

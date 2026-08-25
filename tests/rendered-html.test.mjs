@@ -41,9 +41,15 @@ test("server-renders the PixelWall studio", async () => {
   assert.match(html, /aria-label="Image scale percent"/i);
   assert.match(html, /aria-label="Increase image scale by 1 percent"/i);
   assert.match(html, /MOVE IMAGE/i);
-  assert.match(html, /aria-label="Pick a color from the canvas"/i);
+  assert.match(html, /aria-label="Sample color tool"/i);
   assert.match(html, /aria-label="Choose a custom color"/i);
-  assert.match(html, /class="projection-dock"/i);
+  assert.match(html, /aria-label="Color rack"/i);
+  assert.match(html, /aria-label="Canvas view controls"/i);
+  assert.match(html, /aria-pressed="true"[^>]*aria-label="Toggle pixel grid"/i);
+  assert.match(html, /aria-pressed="false"[^>]*aria-label="Toggle onion skin"/i);
+  assert.match(html, /aria-label="Expand projector controls"[^>]*aria-expanded="false"[^>]*aria-controls="projector-controls"/i);
+  assert.match(html, /id="projector-controls"[^>]*hidden/i);
+  assert.equal((html.match(/aria-controls="projector-controls"/gi) ?? []).length, 1);
   assert.match(html, /aria-label="Open export options"/i);
   assert.match(html, /aria-label="Open PixelWall project"/i);
   assert.match(html, /aria-label="Save portable PixelWall project"/i);
@@ -89,7 +95,7 @@ test("keeps tracing visuals locked to logical pixels", async () => {
 
   assert.match(pageSource, /MATCH 1:1 PIXELS/);
   assert.match(pageSource, /SPRITE \{referenceTile \+ 1\}/);
-  assert.match(pageSource, /WORKSPACE PIXEL SIZE/);
+  assert.match(pageSource, /aria-label="Canvas view controls"/);
   assert.match(pageSource, /ADD TRACE FRAME/);
   assert.match(pageSource, /IMPORT \{spriteSheet\.frameCount\} EDITABLE FRAMES/);
   assert.match(pageSource, /Portable project saved/);
@@ -108,8 +114,10 @@ test("keeps tracing visuals locked to logical pixels", async () => {
   assert.match(cssSource, /--font-geist-sans:\s*ui-sans-serif/);
   assert.match(cssSource, /--font-geist-mono:\s*ui-monospace/);
   assert.match(cssSource, /\.sprite-stepper strong\s*\{[^}]*white-space:\s*nowrap/s);
-  assert.match(cssSource, /\.zoom-control strong\s*\{[^}]*white-space:\s*nowrap/s);
-  assert.match(cssSource, /\.wall-stage\.reference-live\s*\{\s*min-height:\s*840px/);
+  assert.match(cssSource, /\.view-zoom strong\s*\{[^}]*white-space:\s*nowrap/s);
+  assert.match(cssSource, /\.wall-stage\.projector-open\s*\{[^}]*grid-template-columns:/s);
+  assert.match(cssSource, /\.projection-controls\[hidden\]\s*\{[^}]*display:\s*none/s);
+  assert.doesNotMatch(pageSource, /className="palette-panel"/);
   assert.match(cssSource, /\.tilemap-heading \.panel-kicker\s*\{[^}]*font-size:\s*12px/s);
   assert.match(cssSource, /\.tilemap-workspace p\s*\{[^}]*font-size:\s*11px/s);
   assert.match(cssSource, /background-size:\s*calc\(200% \/ var\(--grid-size\)\)/);
