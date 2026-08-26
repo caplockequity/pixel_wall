@@ -9,6 +9,8 @@ import { createSpriteExportPlan, exportFileStem } from "./sprite-export-core.mjs
 import { createTilemapExportPlan } from "./tilemap-export-core.mjs";
 import { parseProject, stringifyProject } from "./project-format.mjs";
 import { HelpTip, OnboardingGuide } from "./onboarding";
+import { captureAnalyticsEvent, getAnalyticsConsentStatus, isAnalyticsConfigured } from "./analytics";
+import { AnalyticsConsent } from "./analytics-consent";
 import type {
   ChangeEvent,
   CSSProperties,
@@ -121,6 +123,7 @@ type EyeDropperWindow = Window & { EyeDropper?: new () => EyeDropperApi };
 type SelectionRect = { x: number; y: number; width: number; height: number };
 type SelectionClipboard = { width: number; height: number; pixels: Pixel[] };
 type SheetLayout = "horizontal" | "vertical" | "grid";
+type AnalyticsInputMethod = "pointer" | "keyboard" | "toolbar";
 type NamedSlice = { id: number; name: string; bounds: SelectionRect; pivot?: Pivot };
 type PortablePivot = { x: number; y: number; unit: "pixels" | "normalized" };
 type PortableSlice = { id: number; name: string; bounds: SelectionRect; pivot?: PortablePivot };
@@ -190,6 +193,20 @@ const LEGACY_STORAGE_KEY = "pixelwall-project-v1";
 const ONBOARDING_STORAGE_KEY = "pixelwall-onboarding-v1";
 const DEFAULT_REFERENCE_TRANSFORM: ReferenceTransform = { x: 0, y: 0, scale: 100 };
 const DEFAULT_LAYER: ArtLayer = { id: 1, name: "PIXELS", visible: true, locked: false, opacity: 100 };
+
+function fileSizeBucket(bytes: number) {
+  if (bytes < 256 * 1024) return "under_256kb";
+  if (bytes < 1024 * 1024) return "256kb_to_1mb";
+  if (bytes < 5 * 1024 * 1024) return "1mb_to_5mb";
+  if (bytes < 20 * 1024 * 1024) return "5mb_to_20mb";
+  return "20mb_plus";
+}
+
+function tilemapCellSummary(cells: Array<number | null>) {
+  const placedCells = cells.reduce<number>((total, cell) => total + (cell === null ? 0 : 1), 0);
+  const tileTypes = new Set(cells.filter((cell): cell is number => cell !== null)).size;
+  return { placedCells, tileTypes };
+}
 
 function pivotInPixels(value: PortablePivot | undefined, size: number, fallback: Pivot): Pivot {
   if (!value) return { ...fallback };
@@ -525,7 +542,7 @@ const FrameBitmap = memo(function FrameBitmap({
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => renderFrameBitmap(ref.current, frame, layers, size), [frame, layers, size]);
-  return <canvas ref={ref} className={className} width={size} height={size} aria-hidden="true" />;
+  return <canvas ref={ref} className={`${className} ph-no-capture`} width={size} height={size} aria-hidden="true" />;
 });
 
 const FrameThumbnail = memo(function FrameThumbnail({
@@ -561,7 +578,7 @@ const SeamPreviewBitmap = memo(function SeamPreviewBitmap({
       for (let x = 0; x < 3; x += 1) context.drawImage(source, x * size, y * size);
     }
   }, [frame, layers, size]);
-  return <canvas ref={ref} className="seam-tiles" width={size * 3} height={size * 3} aria-hidden="true" />;
+  return <canvas ref={ref} className="seam-tiles ph-no-capture" width={size * 3} height={size * 3} aria-hidden="true" />;
 });
 
 const TilemapBitmap = memo(function TilemapBitmap({
@@ -573,6 +590,7 @@ const TilemapBitmap = memo(function TilemapBitmap({
   erase,
   onStrokeStart,
   onPaint,
+  onStrokeEnd,
 }: {
   tilemap: TilemapDocument;
   frames: ArtFrame[];
@@ -582,9 +600,19 @@ const TilemapBitmap = memo(function TilemapBitmap({
   erase: boolean;
   onStrokeStart: () => void;
   onPaint: (index: number, eraseCell: boolean) => void;
+  onStrokeEnd: (
+    action: "paint" | "erase",
+    inputMethod: "pointer" | "keyboard",
+    changedCells: number,
+    placedCells: number,
+    tileTypes: number,
+  ) => void;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const lastCell = useRef(-1);
+  const changedCells = useRef(0);
+  const strokeErasing = useRef(false);
+  const strokeCells = useRef<Array<number | null> | null>(null);
   const bitmapCache = useRef<{
     frames: ArtFrame[];
     layers: ArtLayer[];
@@ -657,11 +685,40 @@ const TilemapBitmap = memo(function TilemapBitmap({
     if (index < 0 || (!begin && index === lastCell.current)) return;
     if (begin) {
       event.currentTarget.setPointerCapture(event.pointerId);
-      onStrokeStart();
+      changedCells.current = 0;
+      strokeCells.current = [...tilemap.cells];
     }
     lastCell.current = index;
     setCursor({ x: index % tilemap.width, y: Math.floor(index / tilemap.width) });
-    onPaint(index, erase || event.button === 2 || (event.buttons & 2) === 2);
+    const eraseCell = erase || event.button === 2 || (event.buttons & 2) === 2;
+    const nextValue = eraseCell ? null : activeFrameId;
+    const workingCells = strokeCells.current ?? [...tilemap.cells];
+    strokeCells.current = workingCells;
+    if (workingCells[index] === nextValue) return;
+    if (changedCells.current === 0) onStrokeStart();
+    strokeErasing.current = eraseCell;
+    workingCells[index] = nextValue;
+    changedCells.current += 1;
+    onPaint(index, eraseCell);
+  }
+
+  function finishPointerStroke(event: ReactPointerEvent<HTMLCanvasElement>) {
+    lastCell.current = -1;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (changedCells.current > 0 && strokeCells.current) {
+      const summary = tilemapCellSummary(strokeCells.current);
+      onStrokeEnd(
+        strokeErasing.current ? "erase" : "paint",
+        "pointer",
+        changedCells.current,
+        summary.placedCells,
+        summary.tileTypes,
+      );
+    }
+    changedCells.current = 0;
+    strokeCells.current = null;
   }
 
   const status = `${modeLabel}. Row ${cursorRow}, column ${cursorColumn}. ${cursorFrame ? `Frame ${cursorFrame}` : "Empty cell"}.`;
@@ -669,14 +726,14 @@ const TilemapBitmap = memo(function TilemapBitmap({
     <>
       <canvas
         ref={ref}
-        className="tilemap-canvas"
+        className="tilemap-canvas ph-no-capture"
         tabIndex={0}
         aria-label={`${tilemap.width} by ${tilemap.height} tilemap. ${status} Arrow keys move; Space ${erase ? "erases" : "paints"}; Delete erases.`}
         onContextMenu={(event) => event.preventDefault()}
         onPointerDown={(event) => { if (event.button === 0 || event.button === 2) paintPointer(event, true); }}
         onPointerMove={(event) => { if (event.buttons) paintPointer(event); }}
-        onPointerUp={(event) => { lastCell.current = -1; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
-        onPointerCancel={() => { lastCell.current = -1; }}
+        onPointerUp={finishPointerStroke}
+        onPointerCancel={finishPointerStroke}
         onKeyDown={(event) => {
           const arrowKey = event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "ArrowDown";
           if (arrowKey) {
@@ -691,8 +748,21 @@ const TilemapBitmap = memo(function TilemapBitmap({
           } else if (event.key === " " || event.key === "Enter" || event.key === "Delete" || event.key === "Backspace") {
             event.preventDefault();
             if (event.repeat) return;
+            const eraseCell = erase || event.key === "Delete" || event.key === "Backspace";
+            const nextValue = eraseCell ? null : activeFrameId;
+            if (tilemap.cells[safeCursor] === nextValue) return;
             onStrokeStart();
-            onPaint(safeCursor, erase || event.key === "Delete" || event.key === "Backspace");
+            onPaint(safeCursor, eraseCell);
+            const nextCells = [...tilemap.cells];
+            nextCells[safeCursor] = nextValue;
+            const summary = tilemapCellSummary(nextCells);
+            onStrokeEnd(
+              eraseCell ? "erase" : "paint",
+              "keyboard",
+              1,
+              summary.placedCells,
+              summary.tileTypes,
+            );
           }
         }}
       />
@@ -858,6 +928,10 @@ export default function Home() {
   const strokeRecorded = useRef(false);
   const activeFrameRef = useRef(activeFrame);
   const saveWarningShown = useRef(false);
+  const autosaveFailureActive = useRef(false);
+  const editorSource = useRef<"fresh_demo" | "restored_v3" | "upgraded_v2" | "upgraded_v1">("fresh_demo");
+  const editorLoadedCaptured = useRef(false);
+  const guideSource = useRef<"automatic" | "footer">("automatic");
   const shouldRestoreExportFocus = useRef(false);
   const referenceDrag = useRef<null | {
     pointerId: number;
@@ -872,6 +946,7 @@ export default function Home() {
     startX: number;
     startY: number;
     origin?: SelectionRect;
+    current?: SelectionRect;
     pixels?: Pixel[];
   }>(null);
 
@@ -891,14 +966,9 @@ export default function Home() {
     const fps = String(Math.round(1000 / duration));
     return ["4", "6", "8", "10", "12", "24"].includes(fps) ? fps : "mixed";
   }, [activeClip, frames]);
-  const tilemapPlacedCells = useMemo(
-    () => tilemap.cells.reduce<number>((total, cell) => total + (cell === null ? 0 : 1), 0),
-    [tilemap.cells],
-  );
-  const tilemapTileTypes = useMemo(
-    () => new Set(tilemap.cells.filter((cell): cell is number => cell !== null)).size,
-    [tilemap.cells],
-  );
+  const tilemapSummary = useMemo(() => tilemapCellSummary(tilemap.cells), [tilemap.cells]);
+  const tilemapPlacedCells = tilemapSummary.placedCells;
+  const tilemapTileTypes = tilemapSummary.tileTypes;
   const currentPixels = useMemo(
     () => celPixels(currentFrame, activeLayerId, size),
     [activeLayerId, currentFrame, size],
@@ -914,6 +984,50 @@ export default function Home() {
     const matchScale = (Math.max(referenceDimensions.width, referenceDimensions.height) / size) * 100;
     return Math.min(REFERENCE_SCALE_MAX, Math.max(1600, Math.ceil(matchScale / 100) * 100));
   }, [referenceDimensions, size]);
+  const analyticsProjectShape = {
+    canvas_size: size,
+    frame_count: frames.length,
+    layer_count: layers.length,
+    clip_count: clips.length,
+    slice_count: slices.length,
+    has_reference: Boolean(reference),
+    tilemap_width: tilemap.width,
+    tilemap_height: tilemap.height,
+    tilemap_placed_cells: tilemapPlacedCells,
+  };
+
+  function captureCanvasEdit(editType: string, inputMethod: AnalyticsInputMethod, changedCells?: number) {
+    captureAnalyticsEvent("canvas_edit_committed", {
+      ...analyticsProjectShape,
+      edit_type: editType,
+      tool,
+      input_method: inputMethod,
+      linked_edges: tileSettings.linkEdges,
+      ...(changedCells === undefined ? {} : { changed_cells: changedCells }),
+    });
+  }
+
+  function captureProjectStructure(
+    resource: string,
+    action: string,
+    fromValue?: string | number | boolean,
+    toValue?: string | number | boolean,
+    shapeOverrides: Partial<typeof analyticsProjectShape> = {},
+  ) {
+    const resultingShape = { ...analyticsProjectShape, ...shapeOverrides };
+    if (resource === "canvas" && action === "resize" && typeof toValue === "number") resultingShape.canvas_size = toValue;
+    if (resource === "frame" && ["add", "duplicate", "delete"].includes(action) && typeof toValue === "number") resultingShape.frame_count = toValue;
+    if (resource === "layer" && ["add", "delete"].includes(action) && typeof toValue === "number") resultingShape.layer_count = toValue;
+    if (resource === "clip" && ["add", "delete"].includes(action) && typeof toValue === "number") resultingShape.clip_count = toValue;
+    if (resource === "slice" && ["add", "delete"].includes(action) && typeof toValue === "number") resultingShape.slice_count = toValue;
+    captureAnalyticsEvent("project_structure_changed", {
+      ...resultingShape,
+      resource,
+      action,
+      ...(fromValue === undefined ? {} : { from_value: fromValue }),
+      ...(toValue === undefined ? {} : { to_value: toValue }),
+    });
+  }
 
   function portableProject(): PortableProject {
     return {
@@ -1025,9 +1139,14 @@ export default function Home() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      if (isAnalyticsConfigured() && getAnalyticsConsentStatus() === "pending") return;
       try {
-        if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY) !== "done") setGuideOpen(true);
+        if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY) !== "done") {
+          guideSource.current = "automatic";
+          setGuideOpen(true);
+        }
       } catch {
+        guideSource.current = "automatic";
         setGuideOpen(true);
       }
     }, 0);
@@ -1076,6 +1195,7 @@ export default function Home() {
             project: PortableProject;
             editor: PortableEditor;
           };
+          editorSource.current = currentDraft ? "restored_v3" : v2Draft ? "upgraded_v2" : "upgraded_v1";
           loadPortableProject(loaded.project, loaded.editor, currentDraft ? "Local project restored" : "Older project upgraded");
         }
       } catch {
@@ -1088,6 +1208,27 @@ export default function Home() {
     // The one-time loader intentionally captures the initial project adapter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!storageReady || editorLoadedCaptured.current) return;
+    editorLoadedCaptured.current = true;
+    captureAnalyticsEvent("editor_loaded", {
+      ...analyticsProjectShape,
+      project_source: editorSource.current,
+    });
+    // The initial editor state is captured once after local restoration completes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageReady]);
+
+  useEffect(() => {
+    if (!guideOpen) return;
+    captureAnalyticsEvent("quick_guide_viewed", {
+      ...analyticsProjectShape,
+      source: guideSource.current,
+    });
+    // Only the closed-to-open transition should create a guide view event.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guideOpen]);
 
   useEffect(() => {
     if (!storageReady) return;
@@ -1104,9 +1245,20 @@ export default function Home() {
         setSaved(true);
         setSaveFailed(false);
         saveWarningShown.current = false;
+        if (autosaveFailureActive.current) {
+          autosaveFailureActive.current = false;
+          captureAnalyticsEvent("autosave_recovered", analyticsProjectShape);
+        }
       } catch {
         setSaved(false);
         setSaveFailed(true);
+        if (!autosaveFailureActive.current) {
+          autosaveFailureActive.current = true;
+          captureAnalyticsEvent("autosave_failed", {
+            ...analyticsProjectShape,
+            reason: "browser_storage_unavailable",
+          });
+        }
         if (!saveWarningShown.current) {
           saveWarningShown.current = true;
           setNotice("Local autosave failed — save a portable project file to protect your work");
@@ -1136,6 +1288,13 @@ export default function Home() {
       if (atEnd && activeClip && !activeClip.loop) {
         setPlaybackCursor(0);
         setPlaying(false);
+        captureAnalyticsEvent("animation_playback_changed", {
+          ...analyticsProjectShape,
+          action: "completed",
+          clip_frame_count: activeClip.frameIds.length,
+          direction: activeClip.direction,
+          loop: activeClip.loop,
+        });
         return;
       }
       const nextCursor = (sequenceIndex + 1) % sequence.length;
@@ -1144,6 +1303,8 @@ export default function Home() {
       if (nextIndex >= 0) setActiveFrame(nextIndex);
     }, duration);
     return () => window.clearTimeout(timer);
+    // Project analytics shape is intentionally sampled at completion, not used to schedule playback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeClip, activeFrame, frames, playbackCursor, playing]);
 
   useEffect(() => {
@@ -1293,7 +1454,7 @@ export default function Home() {
     setNotice(`Copied ${selection.width} × ${selection.height} pixels`);
   }
 
-  function pasteSelection() {
+  function pasteSelection(inputMethod: AnalyticsInputMethod = "toolbar") {
     if (!selectionClipboard || !activeLayerIsEditable()) return;
     const baseX = selection ? selection.x + 1 : Math.floor((size - selectionClipboard.width) / 2);
     const baseY = selection ? selection.y + 1 : Math.floor((size - selectionClipboard.height) / 2);
@@ -1308,9 +1469,10 @@ export default function Home() {
     setSelection(nextSelection);
     setTool("select");
     setNotice("Pasted selection");
+    captureCanvasEdit("selection_paste", inputMethod, selectionClipboard.width * selectionClipboard.height);
   }
 
-  function moveSelection(dx: number, dy: number) {
+  function moveSelection(dx: number, dy: number, inputMethod: AnalyticsInputMethod = "keyboard") {
     if (!selection || !activeLayerIsEditable()) return;
     const nextSelection = {
       ...selection,
@@ -1322,6 +1484,7 @@ export default function Home() {
     recordCelHistory();
     updateActivePixels((pixels) => stampSelection(pixels, size, nextSelection, buffer, selection));
     setSelection(nextSelection);
+    captureCanvasEdit("selection_move", inputMethod, selection.width * selection.height);
   }
 
   function flipActiveSelection(horizontal: boolean) {
@@ -1330,9 +1493,10 @@ export default function Home() {
     recordCelHistory();
     updateActivePixels((pixels) => stampSelection(pixels, size, selection, buffer, selection));
     setNotice(horizontal ? "Selection flipped horizontally" : "Selection flipped vertically");
+    captureCanvasEdit(horizontal ? "selection_flip_horizontal" : "selection_flip_vertical", "toolbar", selection.width * selection.height);
   }
 
-  function clearSelectionPixels() {
+  function clearSelectionPixels(inputMethod: AnalyticsInputMethod = "toolbar") {
     if (!selection || !activeLayerIsEditable()) return;
     recordCelHistory();
     updateActivePixels((pixels) => {
@@ -1345,6 +1509,7 @@ export default function Home() {
       return next;
     });
     setNotice("Selection cleared");
+    captureCanvasEdit("selection_clear", inputMethod, selection.width * selection.height);
   }
 
   function saveSelectionAsSlice() {
@@ -1365,6 +1530,7 @@ export default function Home() {
       pivot: { ...activePivot },
     }]);
     setNotice(`Saved ${selection.width} × ${selection.height} slice`);
+    captureProjectStructure("slice", "add", slices.length, slices.length + 1);
   }
 
   function renameSlice(sliceId: number, value: string) {
@@ -1379,6 +1545,7 @@ export default function Home() {
   function deleteSlice(sliceId: number) {
     recordProjectHistory();
     setSlices((current) => current.filter((slice) => slice.id !== sliceId));
+    captureProjectStructure("slice", "delete", slices.length, Math.max(0, slices.length - 1));
   }
 
   function applyTool(index: number, indices = [index]) {
@@ -1439,6 +1606,7 @@ export default function Home() {
       recordProjectHistory();
       setActiveFramePivot({ x: x + 0.5, y: y + 0.5 });
       setNotice(`Pivot set to ${x + 0.5}, ${y + 0.5}`);
+      captureCanvasEdit("pivot_set", "pointer", 1);
       return;
     }
     if (tool === "select") {
@@ -1472,6 +1640,7 @@ export default function Home() {
       recordCelHistory();
       strokeRecorded.current = true;
       applyTool(index);
+      if (tool === "fill") captureCanvasEdit("fill", "pointer");
     }
     if (tool === "pencil" || tool === "eraser") {
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -1497,6 +1666,7 @@ export default function Home() {
         };
         const buffer = extractSelection(drag.pixels, size, drag.origin);
         updateActivePixels(() => stampSelection(drag.pixels!, size, nextSelection, buffer, drag.origin!));
+        drag.current = nextSelection;
         setSelection(nextSelection);
       }
       setCursorIndex(index);
@@ -1524,8 +1694,22 @@ export default function Home() {
 
   function endStroke(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (activePointer.current !== event.pointerId) return;
+    const finishedSelectionDrag = selectionDrag.current;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (
+      finishedSelectionDrag?.mode === "move"
+      && finishedSelectionDrag.origin
+      && finishedSelectionDrag.current
+      && (
+        finishedSelectionDrag.current.x !== finishedSelectionDrag.origin.x
+        || finishedSelectionDrag.current.y !== finishedSelectionDrag.origin.y
+      )
+    ) {
+      captureCanvasEdit("selection_move", "pointer", finishedSelectionDrag.origin.width * finishedSelectionDrag.origin.height);
+    } else if (strokeRecorded.current && (tool === "pencil" || tool === "eraser")) {
+      captureCanvasEdit(tool === "eraser" ? "erase" : "stroke", "pointer");
     }
     activePointer.current = null;
     selectionDrag.current = null;
@@ -1556,12 +1740,12 @@ export default function Home() {
     if (commandKey && lowerKey === "x" && selection) {
       event.preventDefault();
       copySelection();
-      clearSelectionPixels();
+      clearSelectionPixels("keyboard");
       return;
     }
     if (commandKey && lowerKey === "v" && selectionClipboard) {
       event.preventDefault();
-      pasteSelection();
+      pasteSelection("keyboard");
       return;
     }
     if (event.key === "Escape" && selection) {
@@ -1571,7 +1755,7 @@ export default function Home() {
     }
     if ((event.key === "Delete" || event.key === "Backspace") && selection) {
       event.preventDefault();
-      clearSelectionPixels();
+      clearSelectionPixels("keyboard");
       return;
     }
     if (tool === "select" && selection && event.key.startsWith("Arrow")) {
@@ -1603,19 +1787,25 @@ export default function Home() {
     }
     if (event.key.toLowerCase() === "g") {
       event.preventDefault();
-      setShowGrid((value) => !value);
+      const enabled = !showGrid;
+      setShowGrid(enabled);
+      captureAnalyticsEvent("feature_toggled", { ...analyticsProjectShape, feature: "grid", enabled, source: "keyboard" });
       return;
     }
     if (lowerKey === "t") {
       event.preventDefault();
       recordProjectHistory();
-      setTileSettings((current) => ({ ...current, preview: !current.preview }));
+      const enabled = !tileSettings.preview;
+      setTileSettings((current) => ({ ...current, preview: enabled }));
+      captureAnalyticsEvent("feature_toggled", { ...analyticsProjectShape, feature: "seam_preview", enabled, source: "keyboard" });
       return;
     }
     if (lowerKey === "w") {
       event.preventDefault();
       recordProjectHistory();
-      setTileSettings((current) => ({ ...current, linkEdges: !current.linkEdges }));
+      const enabled = !tileSettings.linkEdges;
+      setTileSettings((current) => ({ ...current, linkEdges: enabled }));
+      captureAnalyticsEvent("feature_toggled", { ...analyticsProjectShape, feature: "linked_edges", enabled, source: "keyboard" });
       return;
     }
     let next = cursorIndex;
@@ -1637,6 +1827,7 @@ export default function Home() {
         if (!activeLayerIsEditable()) return;
         recordCelHistory();
         applyTool(cursorIndex);
+        captureCanvasEdit(tool === "fill" ? "fill" : tool === "eraser" ? "erase" : "stroke", "keyboard");
       }
     }
   }
@@ -1680,6 +1871,7 @@ export default function Home() {
     setSelection(null);
     setCellSize(fitCellSize(nextSize));
     setNotice(`Canvas resized to ${nextSize} × ${nextSize}`);
+    captureProjectStructure("canvas", "resize", size, nextSize);
   }
 
   function fitCellSize(targetSize = size) {
@@ -1720,6 +1912,7 @@ export default function Home() {
     }));
     setActiveFrame(insertAt);
     setSelection(null);
+    captureProjectStructure("frame", "add", frames.length, frames.length + 1);
   }
 
   function duplicateFrame() {
@@ -1750,6 +1943,7 @@ export default function Home() {
     }));
     setActiveFrame(activeFrame + 1);
     setSelection(null);
+    captureProjectStructure("frame", "duplicate", frames.length, frames.length + 1);
   }
 
   function deleteFrame() {
@@ -1772,6 +1966,17 @@ export default function Home() {
     }));
     setActiveFrame((current) => Math.max(0, Math.min(current, frames.length - 2)));
     setSelection(null);
+    const clearedTileCells = tilemap.cells.reduce<number>(
+      (total, frameId) => total + Number(frameId === deletedId),
+      0,
+    );
+    captureProjectStructure(
+      "frame",
+      "delete",
+      frames.length,
+      frames.length - 1,
+      { tilemap_placed_cells: Math.max(0, tilemapPlacedCells - clearedTileCells) },
+    );
   }
 
   function moveFrame(direction: -1 | 1) {
@@ -1789,6 +1994,7 @@ export default function Home() {
     })));
     setActiveFrame(destination);
     setSelection(null);
+    captureProjectStructure("frame", "reorder", activeFrame, destination);
   }
 
   function clearFrame() {
@@ -1800,6 +2006,12 @@ export default function Home() {
     recordCelHistory();
     updateActivePixels(() => Array(size * size).fill(null));
     setNotice("Active layer cleared in this frame");
+    captureCanvasEdit(
+      "frame_clear",
+      "toolbar",
+      currentPixels.reduce((total, pixel) => total + Number(pixel !== null), 0),
+    );
+    captureProjectStructure("frame", "clear_layer");
   }
 
   function addLayer() {
@@ -1812,6 +2024,7 @@ export default function Home() {
     setLayers((current) => [...current, { id, name: `LAYER ${current.length + 1}`, visible: true, locked: false, opacity: 100 }]);
     setActiveLayerId(id);
     setSelection(null);
+    captureProjectStructure("layer", "add", layers.length, layers.length + 1);
   }
 
   function deleteLayer(layerId = activeLayerId) {
@@ -1829,6 +2042,7 @@ export default function Home() {
     }));
     if (activeLayerId === layerId) setActiveLayerId(remaining.at(-1)!.id);
     setSelection(null);
+    captureProjectStructure("layer", "delete", layers.length, remaining.length);
   }
 
   function moveLayer(direction: -1 | 1) {
@@ -1839,6 +2053,7 @@ export default function Home() {
     const reordered = [...layers];
     [reordered[index], reordered[destination]] = [reordered[destination], reordered[index]];
     setLayers(reordered);
+    captureProjectStructure("layer", "reorder", index, destination);
   }
 
   function updateLayer(layerId: number, patch: Partial<Omit<ArtLayer, "id">>) {
@@ -1866,6 +2081,7 @@ export default function Home() {
       loop: true,
     }]);
     setActiveClipId(id);
+    captureProjectStructure("clip", "add", clips.length, clips.length + 1);
   }
 
   function activateClip(clipId: number) {
@@ -1891,6 +2107,7 @@ export default function Home() {
     setClips(remaining);
     setActiveClipId(remaining[0].id);
     if (exportClipId === activeClipId) setExportClipId("all");
+    captureProjectStructure("clip", "delete", clips.length, remaining.length);
   }
 
   function updateClip(patch: Partial<Omit<AnimationClip, "id">>) {
@@ -1922,6 +2139,7 @@ export default function Home() {
     const from = clamp(Math.min(fromIndex, toIndex), 0, frames.length - 1);
     const to = clamp(Math.max(fromIndex, toIndex), 0, frames.length - 1);
     updateClip({ frameIds: frames.slice(from, to + 1).map((frame) => frame.id) });
+    captureProjectStructure("clip", "range_change", activeClip?.frameIds.length ?? 0, to - from + 1);
   }
 
   function setFrameDuration(durationMs: number) {
@@ -1966,6 +2184,19 @@ export default function Home() {
     resizeTilemap(
       dimension === "width" ? nextValue : tilemap.width,
       dimension === "height" ? nextValue : tilemap.height,
+    );
+    const nextWidth = dimension === "width" ? nextValue : tilemap.width;
+    const nextHeight = dimension === "height" ? nextValue : tilemap.height;
+    captureProjectStructure(
+      "tilemap",
+      "resize",
+      `${tilemap.width}x${tilemap.height}`,
+      `${nextWidth}x${nextHeight}`,
+      {
+        tilemap_width: nextWidth,
+        tilemap_height: nextHeight,
+        tilemap_placed_cells: Math.max(0, tilemapPlacedCells - croppedTiles),
+      },
     );
     if (croppedTiles) setNotice(`${croppedTiles} painted ${croppedTiles === 1 ? "tile" : "tiles"} cropped · Undo restores ${croppedTiles === 1 ? "it" : "them"}`);
     return nextValue;
@@ -2028,6 +2259,17 @@ export default function Home() {
     recordProjectHistory();
     setTilemap((current) => ({ ...current, cells: Array(current.width * current.height).fill(null) }));
     setNotice("Tilemap cleared");
+    captureAnalyticsEvent("tilemap_edit_committed", {
+      ...analyticsProjectShape,
+      tilemap_placed_cells: 0,
+      action: "clear",
+      input_method: "toolbar",
+      changed_cells: tilemapPlacedCells,
+      map_width: tilemap.width,
+      map_height: tilemap.height,
+      placed_cells: 0,
+      tile_types: 0,
+    });
   }
 
   function useProjectPivot() {
@@ -2039,6 +2281,7 @@ export default function Home() {
       return withoutPivot;
     }));
     setNotice("Frame now uses the project pivot");
+    captureProjectStructure("pivot", "use_default");
   }
 
   function makeActivePivotProjectDefault() {
@@ -2051,6 +2294,7 @@ export default function Home() {
       return withoutPivot;
     }));
     setNotice("Project pivot updated from this frame");
+    captureProjectStructure("pivot", "set_default");
   }
 
   function setClipFps(fps: number) {
@@ -2060,6 +2304,7 @@ export default function Home() {
     const ids = new Set(activeClip?.frameIds ?? []);
     setFrames((current) => current.map((frame) => ids.has(frame.id) ? { ...frame, durationMs } : frame));
     setNotice(`${activeClip?.name ?? "Animation"} set to ${fps} FPS`);
+    captureProjectStructure("clip", "timing_change", activeClipFpsPreset, fps);
   }
 
   function setClipDirection(direction: AnimationDirection) {
@@ -2071,11 +2316,19 @@ export default function Home() {
     const firstId = clipPlaybackFrameIds(updated, frames)[0];
     const firstIndex = frames.findIndex((frame) => frame.id === firstId);
     if (firstIndex >= 0) setActiveFrame(firstIndex);
+    captureProjectStructure("clip", "direction_change", activeClip.direction, direction);
   }
 
   function togglePlayback() {
     if (playing) {
       setPlaying(false);
+      captureAnalyticsEvent("animation_playback_changed", {
+        ...analyticsProjectShape,
+        action: "paused",
+        clip_frame_count: activeClip?.frameIds.length ?? 0,
+        direction: activeClip?.direction ?? "forward",
+        loop: activeClip?.loop ?? false,
+      });
       return;
     }
     const sequence = clipPlaybackFrameIds(activeClip, frames);
@@ -2088,6 +2341,13 @@ export default function Home() {
     if (startIndex >= 0) setActiveFrame(startIndex);
     setSelection(null);
     setPlaying(true);
+    captureAnalyticsEvent("animation_playback_changed", {
+      ...analyticsProjectShape,
+      action: "started",
+      clip_frame_count: activeClip?.frameIds.length ?? 0,
+      direction: activeClip?.direction ?? "forward",
+      loop: activeClip?.loop ?? false,
+    });
   }
 
   function resetReferenceTransform() {
@@ -2095,6 +2355,7 @@ export default function Home() {
     setReferencePixelFit(false);
     setReferenceTile(0);
     setNotice("Projector image centered");
+    captureAnalyticsEvent("reference_action", { ...analyticsProjectShape, action: "center" });
   }
 
   function handleReference(event: ChangeEvent<HTMLInputElement>) {
@@ -2102,6 +2363,12 @@ export default function Home() {
     if (!file) return;
     if (file.size > 48 * 1024 * 1024) {
       setNotice("Reference images must be 48 MB or smaller to fit in a portable project");
+      captureAnalyticsEvent("reference_load_failed", {
+        ...analyticsProjectShape,
+        reason: "too_large",
+        mime_type: file.type || "unknown",
+        file_size_bucket: fileSizeBucket(file.size),
+      });
       event.target.value = "";
       return;
     }
@@ -2118,6 +2385,12 @@ export default function Home() {
     const mime = file.type.toLowerCase() || mimeByExtension[extension];
     if (!mime || !Object.values(mimeByExtension).includes(mime)) {
       setNotice("Use a PNG, JPEG, GIF, WebP, AVIF, or BMP reference image");
+      captureAnalyticsEvent("reference_load_failed", {
+        ...analyticsProjectShape,
+        reason: "unsupported_type",
+        mime_type: file.type || "unknown",
+        file_size_bucket: fileSizeBucket(file.size),
+      });
       event.target.value = "";
       return;
     }
@@ -2152,6 +2425,21 @@ export default function Home() {
             ? `${sheet.frameCount}-frame ${sheet.frameSize} × ${sheet.frameSize} sheet detected · use its matching grid`
             : `${dimensions.width} × ${dimensions.height} reference loaded`);
         }
+        captureAnalyticsEvent("reference_loaded", {
+          ...analyticsProjectShape,
+          has_reference: true,
+          mime_type: mime,
+          file_size_bucket: fileSizeBucket(file.size),
+          image_width: dimensions.width,
+          image_height: dimensions.height,
+          sprite_sheet_detected: Boolean(sheet),
+          ...(sheet ? {
+            sheet_direction: sheet.direction,
+            sheet_frame_count: sheet.frameCount,
+            sheet_frame_size: sheet.frameSize,
+          } : {}),
+          pixel_fit_auto: Boolean(sheet && sheet.frameSize === size),
+        });
       };
       image.onerror = () => {
         setReference(source);
@@ -2160,8 +2448,23 @@ export default function Home() {
         setReferencePixelFit(false);
         startReferenceAdjustment();
         setNotice("Reference loaded — drag it into position");
+        captureAnalyticsEvent("reference_load_failed", {
+          ...analyticsProjectShape,
+          reason: "decode_error",
+          mime_type: mime,
+          file_size_bucket: fileSizeBucket(file.size),
+        });
       };
       image.src = source;
+    };
+    reader.onerror = () => {
+      setNotice("Reference image could not be read");
+      captureAnalyticsEvent("reference_load_failed", {
+        ...analyticsProjectShape,
+        reason: "read_error",
+        mime_type: mime,
+        file_size_bucket: fileSizeBucket(file.size),
+      });
     };
     reader.readAsDataURL(file.type ? file : file.slice(0, file.size, mime));
     event.target.value = "";
@@ -2201,6 +2504,11 @@ export default function Home() {
     setReferenceTransform(DEFAULT_REFERENCE_TRANSFORM);
     setProjectorExpanded(false);
     window.requestAnimationFrame(() => projectorToggleRef.current?.focus());
+    captureAnalyticsEvent("reference_action", {
+      ...analyticsProjectShape,
+      has_reference: false,
+      action: "remove",
+    });
   }
 
   function matchReferencePixels(targetSize = size, tileIndex = referenceTile) {
@@ -2214,6 +2522,15 @@ export default function Home() {
     setNotice(sheet
       ? `Sprite ${safeTile + 1} of ${sheet.frameCount} · 1 image pixel = 1 canvas cell`
       : "1 image pixel = 1 canvas cell");
+    captureAnalyticsEvent("reference_action", {
+      ...analyticsProjectShape,
+      action: "match_pixels",
+      ...(sheet ? {
+        sheet_direction: sheet.direction,
+        sheet_frame_count: sheet.frameCount,
+        sheet_frame_size: sheet.frameSize,
+      } : {}),
+    });
   }
 
   function useDetectedSpriteGrid() {
@@ -2221,6 +2538,14 @@ export default function Home() {
     if (size !== spriteSheet.frameSize) changeSize(spriteSheet.frameSize);
     setCellSize(Math.max(comfortableTraceCellSize(spriteSheet.frameSize), fitCellSize(spriteSheet.frameSize)));
     matchReferencePixels(spriteSheet.frameSize, 0);
+    captureAnalyticsEvent("reference_action", {
+      ...analyticsProjectShape,
+      canvas_size: spriteSheet.frameSize,
+      action: "use_detected_grid",
+      sheet_direction: spriteSheet.direction,
+      sheet_frame_count: spriteSheet.frameCount,
+      sheet_frame_size: spriteSheet.frameSize,
+    });
   }
 
   function showReferenceTile(nextTile: number) {
@@ -2231,12 +2556,27 @@ export default function Home() {
     setReferencePixelFit(true);
     stopReferenceAdjustment();
     setNotice(`Sprite ${safeTile + 1} of ${spriteSheet.frameCount} aligned to the grid`);
+    captureAnalyticsEvent("reference_action", {
+      ...analyticsProjectShape,
+      action: safeTile > referenceTile ? "next_sprite" : "previous_sprite",
+      sheet_direction: spriteSheet.direction,
+      sheet_frame_count: spriteSheet.frameCount,
+      sheet_frame_size: spriteSheet.frameSize,
+    });
   }
 
   async function importDetectedSpriteSheet() {
     if (!reference || !spriteSheet || !GRID_SIZES.includes(spriteSheet.frameSize)) return;
     if (spriteSheet.frameCount > MAX_FRAMES) {
       setNotice(`This sheet has more than the ${MAX_FRAMES}-frame project limit`);
+      captureAnalyticsEvent("sprite_sheet_imported", {
+        ...analyticsProjectShape,
+        outcome: "failure",
+        reason: "frame_limit",
+        sheet_direction: spriteSheet.direction,
+        sheet_frame_count: spriteSheet.frameCount,
+        sheet_frame_size: spriteSheet.frameSize,
+      });
       return;
     }
     try {
@@ -2305,8 +2645,33 @@ export default function Home() {
       ));
       setReferencePixelFit(true);
       setNotice(`${spriteSheet.frameCount} editable frames imported${flattenedAlpha ? " · partial alpha flattened" : ""}`);
+      captureAnalyticsEvent("sprite_sheet_imported", {
+        ...analyticsProjectShape,
+        canvas_size: spriteSheet.frameSize,
+        frame_count: importedFrames.length,
+        layer_count: 1,
+        clip_count: 1,
+        slice_count: 0,
+        has_reference: true,
+        tilemap_width: 8,
+        tilemap_height: 8,
+        tilemap_placed_cells: 0,
+        outcome: "success",
+        sheet_direction: spriteSheet.direction,
+        sheet_frame_count: spriteSheet.frameCount,
+        sheet_frame_size: spriteSheet.frameSize,
+        partial_alpha_flattened: flattenedAlpha,
+      });
     } catch {
       setNotice("Sprite sheet import failed");
+      captureAnalyticsEvent("sprite_sheet_imported", {
+        ...analyticsProjectShape,
+        outcome: "failure",
+        reason: "processing_error",
+        sheet_direction: spriteSheet.direction,
+        sheet_frame_count: spriteSheet.frameCount,
+        sheet_frame_size: spriteSheet.frameSize,
+      });
     }
   }
 
@@ -2462,8 +2827,19 @@ export default function Home() {
       const source = stringifyProject(portableProject(), portableEditor(), { includeReference: true, pretty: true });
       downloadBlob(new Blob([source], { type: "application/json" }), `${exportFileStem(projectName, "pixelwall-project")}.pixelwall`);
       setNotice("Portable project saved · reference included");
+      captureAnalyticsEvent("project_file_operation", {
+        ...analyticsProjectShape,
+        operation: "save",
+        outcome: "success",
+      });
     } catch {
       setNotice("Project file could not be created");
+      captureAnalyticsEvent("project_file_operation", {
+        ...analyticsProjectShape,
+        operation: "save",
+        outcome: "failure",
+        reason: "serialization_error",
+      });
     }
   }
 
@@ -2477,8 +2853,29 @@ export default function Home() {
         throw new Error("Project exceeds editor limits");
       }
       loadPortableProject(loaded.project, loaded.editor, `${loaded.project.name} opened`);
+      const openedTilemap = tilemapCellSummary(loaded.project.tilemap.cells);
+      captureAnalyticsEvent("project_file_operation", {
+        ...analyticsProjectShape,
+        canvas_size: loaded.project.size,
+        frame_count: loaded.project.frames.length,
+        layer_count: loaded.project.layers.length,
+        clip_count: loaded.project.clips.length,
+        slice_count: loaded.project.slices.length,
+        has_reference: Boolean(loaded.project.projector.reference?.dataUrl),
+        tilemap_width: loaded.project.tilemap.width,
+        tilemap_height: loaded.project.tilemap.height,
+        tilemap_placed_cells: openedTilemap.placedCells,
+        operation: "open",
+        outcome: "success",
+      });
     } catch {
       setNotice("That project file is damaged or unsupported");
+      captureAnalyticsEvent("project_file_operation", {
+        ...analyticsProjectShape,
+        operation: "open",
+        outcome: "failure",
+        reason: "invalid_or_unsupported",
+      });
     }
   }
 
@@ -2498,6 +2895,7 @@ export default function Home() {
 
   async function exportCurrentFrame() {
     if (exporting) return;
+    const startedAt = performance.now();
     shouldRestoreExportFocus.current = true;
     setExportMenuOpen(false);
     setPlaying(false);
@@ -2507,13 +2905,30 @@ export default function Home() {
     const frameNumber = activeFrame + 1;
     const frame = currentFrame ? cloneFrames([currentFrame])[0] : undefined;
     const layerSnapshot = cloneLayers(layers);
+    captureAnalyticsEvent("export_started", {
+      ...analyticsProjectShape,
+      export_type: "frame_png",
+      exported_frame_count: 1,
+    });
     await yieldForPaint();
     try {
       const blob = await canvasToPngBlob(createFrameCanvas(frame, layerSnapshot, size));
       downloadBlob(blob, `pixelwall-${spriteFrameFilename(activeFrame, frames.length)}`);
       setNotice(`Frame ${frameNumber} exported · ${size} × ${size}px PNG`);
+      captureAnalyticsEvent("export_completed", {
+        ...analyticsProjectShape,
+        export_type: "frame_png",
+        exported_frame_count: 1,
+        duration_ms: Math.round(performance.now() - startedAt),
+      });
     } catch {
       setNotice("PNG export failed — try again");
+      captureAnalyticsEvent("export_failed", {
+        ...analyticsProjectShape,
+        export_type: "frame_png",
+        reason: "render_or_download_error",
+        duration_ms: Math.round(performance.now() - startedAt),
+      });
     } finally {
       setExporting(null);
     }
@@ -2521,6 +2936,7 @@ export default function Home() {
 
   async function exportSpritePackage() {
     if (exporting) return;
+    const startedAt = performance.now();
     shouldRestoreExportFocus.current = true;
     setExportMenuOpen(false);
     setPlaying(false);
@@ -2530,6 +2946,16 @@ export default function Home() {
     const frameSnapshot = cloneFrames(frames);
     const layerSnapshot = cloneLayers(layers);
     const clipSnapshot = cloneClips(clips);
+    const exportProperties = {
+      ...analyticsProjectShape,
+      export_type: "sprite_package",
+      clip_scope: exportClipId === "all" ? "all" : "single",
+      layout: exportLayout,
+      padding: exportPadding,
+      trim: exportTrim,
+      include_individual_frames: exportIndividualFrames,
+    };
+    captureAnalyticsEvent("export_started", exportProperties);
     await yieldForPaint();
     try {
       const renderedFrames = frameSnapshot.map((frame) => createFrameCanvas(frame, layerSnapshot, size));
@@ -2609,8 +3035,18 @@ export default function Home() {
         plan.files.archive,
       );
       setNotice(`Sprite package exported · ${plan.frames.length} frames + sheet + JSON${exportIndividualFrames ? " + PNGs" : ""}`);
+      captureAnalyticsEvent("export_completed", {
+        ...exportProperties,
+        exported_frame_count: plan.frames.length,
+        duration_ms: Math.round(performance.now() - startedAt),
+      });
     } catch {
       setNotice("Sprite package export failed — try fewer or smaller frames");
+      captureAnalyticsEvent("export_failed", {
+        ...exportProperties,
+        reason: "render_or_package_error",
+        duration_ms: Math.round(performance.now() - startedAt),
+      });
     } finally {
       setExporting(null);
     }
@@ -2620,8 +3056,18 @@ export default function Home() {
     if (exporting) return;
     if (!tilemapPlacedCells) {
       setNotice("Paint at least one tile in Tilemap Lab before exporting");
+      captureAnalyticsEvent("export_blocked", {
+        ...analyticsProjectShape,
+        export_type: "tilemap_package",
+        reason: "empty_tilemap",
+        map_width: tilemap.width,
+        map_height: tilemap.height,
+        placed_cells: 0,
+        tile_types: 0,
+      });
       return;
     }
+    const startedAt = performance.now();
     shouldRestoreExportFocus.current = true;
     setExportMenuOpen(false);
     setPlaying(false);
@@ -2633,6 +3079,15 @@ export default function Home() {
     const tilemapSnapshot = { ...tilemap, cells: [...tilemap.cells] };
     const sizeSnapshot = size;
     const projectNameSnapshot = projectName;
+    const exportProperties = {
+      ...analyticsProjectShape,
+      export_type: "tilemap_package",
+      map_width: tilemap.width,
+      map_height: tilemap.height,
+      placed_cells: tilemapPlacedCells,
+      tile_types: tilemapTileTypes,
+    };
+    captureAnalyticsEvent("export_started", exportProperties);
     await yieldForPaint();
     try {
       const plan = createTilemapExportPlan({
@@ -2696,20 +3151,34 @@ export default function Home() {
       const archiveBytes = archive.buffer.slice(archive.byteOffset, archive.byteOffset + archive.byteLength) as ArrayBuffer;
       downloadBlob(new Blob([archiveBytes], { type: "application/zip" }), plan.files.archive);
       setNotice(`Tilemap package exported · ${tilemapSnapshot.width} × ${tilemapSnapshot.height} · ${tilemapPlacedCells} cells · ${tilemapTileTypes} used tiles`);
+      captureAnalyticsEvent("export_completed", {
+        ...exportProperties,
+        duration_ms: Math.round(performance.now() - startedAt),
+      });
     } catch {
       setNotice("Tilemap export failed — check the map and try again");
+      captureAnalyticsEvent("export_failed", {
+        ...exportProperties,
+        reason: "render_or_package_error",
+        duration_ms: Math.round(performance.now() - startedAt),
+      });
     } finally {
       setExporting(null);
     }
   }
 
-  function dismissGuide() {
+  function dismissGuide(method: "got_it" | "escape") {
     try {
       window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "done");
     } catch {
       // The guide can still close when browser storage is unavailable.
     }
     setGuideOpen(false);
+    captureAnalyticsEvent("quick_guide_dismissed", {
+      ...analyticsProjectShape,
+      source: guideSource.current,
+      method,
+    });
   }
 
   const surfaceStyle = {
@@ -2748,7 +3217,7 @@ export default function Home() {
           <span>PIXELWALL</span>
         </Link>
 
-        <div className="project-title" aria-live="polite">
+        <div className="project-title ph-no-capture" aria-live="polite">
           <span className={`status-dot ${saved ? "" : saveFailed ? "save-failed" : "saving"}`} />
           <input
             className="project-name-input"
@@ -2813,7 +3282,7 @@ export default function Home() {
                   {!tilemapPlacedCells && <small className="export-disabled-reason">PAINT IN TILEMAP LAB TO ENABLE</small>}
                 </span>
               </button>
-              <div className="export-settings" role="group" aria-labelledby="sprite-package-settings-title">
+              <div className="export-settings ph-no-capture" role="group" aria-labelledby="sprite-package-settings-title">
                 <strong id="sprite-package-settings-title" className="export-settings-title">SPRITE PACKAGE SETTINGS</strong>
                 <label>
                   <span>ANIMATION</span>
@@ -2882,7 +3351,7 @@ export default function Home() {
 
         <div className="canvas-zone">
           <div className="canvas-toolbar">
-            <div className="canvas-color-rack" role="group" aria-label="Color rack">
+            <div className="canvas-color-rack ph-no-capture" role="group" aria-label="Color rack">
               <div className="current-color" style={{ "--swatch": selectedColor } as CSSProperties}>
                 <span aria-hidden="true" />
                 <code>{selectedColor.toUpperCase()}</code>
@@ -2910,10 +3379,18 @@ export default function Home() {
                 VIEW
                 <HelpTip id="canvas-help-tip" label="Canvas help" text="Pick a tool. Draw." />
               </span>
-              <button className={showGrid ? "active" : ""} onClick={() => setShowGrid((value) => !value)} aria-pressed={showGrid} aria-label="Toggle pixel grid">
+              <button className={showGrid ? "active" : ""} onClick={() => {
+                const enabled = !showGrid;
+                setShowGrid(enabled);
+                captureAnalyticsEvent("feature_toggled", { ...analyticsProjectShape, feature: "grid", enabled, source: "toolbar" });
+              }} aria-pressed={showGrid} aria-label="Toggle pixel grid">
                 <Grid2X2 size={15} /><span>GRID</span>
               </button>
-              <button className={showOnion ? "active" : ""} onClick={() => setShowOnion((value) => !value)} aria-pressed={showOnion} aria-label="Toggle onion skin">
+              <button className={showOnion ? "active" : ""} onClick={() => {
+                const enabled = !showOnion;
+                setShowOnion(enabled);
+                captureAnalyticsEvent("feature_toggled", { ...analyticsProjectShape, feature: "onion_skin", enabled, source: "toolbar" });
+              }} aria-pressed={showOnion} aria-label="Toggle onion skin">
                 {showOnion ? <Eye size={15} /> : <EyeOff size={15} />}<span>ONION</span>
               </button>
               <div className="view-zoom" aria-label="Workspace pixel size">
@@ -2928,18 +3405,18 @@ export default function Home() {
             <div className="frame-rig">
               <span className="frame-screw screw-a" /><span className="frame-screw screw-b" />
               <span className="frame-screw screw-c" /><span className="frame-screw screw-d" />
-              <div className="art-surface" style={surfaceStyle}>
+              <div className="art-surface ph-no-capture" style={surfaceStyle}>
                 <div className="transparent-grid" />
                 {reference && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img className="projection-image" src={reference} alt="Projected reference" style={referenceStyle} />
+                  <img className="projection-image ph-no-capture" src={reference} alt="Projected reference" style={referenceStyle} />
                 )}
                 {showOnion && frames.length > 1 && (
                   <FrameBitmap frame={previousFrame} layers={layers} size={size} className="onion-layer" />
                 )}
                 <canvas
                   ref={canvasRef}
-                  className={`pixel-canvas ${tool === "picker" ? "picker-active" : ""} ${tool === "select" ? "select-active" : ""}`}
+                  className={`pixel-canvas ph-no-capture ${tool === "picker" ? "picker-active" : ""} ${tool === "select" ? "select-active" : ""}`}
                   width={size}
                   height={size}
                   aria-label={`${size} by ${size} pixel editor`}
@@ -2986,11 +3463,11 @@ export default function Home() {
           {selection && (
             <div className="selection-toolbar" aria-label="Selection actions">
               <button onClick={copySelection}><Copy size={14} /> COPY</button>
-              <button onClick={pasteSelection} disabled={!selectionClipboard}><CopyPlus size={14} /> PASTE</button>
+              <button onClick={() => pasteSelection()} disabled={!selectionClipboard}><CopyPlus size={14} /> PASTE</button>
               <button onClick={() => flipActiveSelection(true)}><FlipHorizontal size={14} /> FLIP H</button>
               <button onClick={() => flipActiveSelection(false)}><FlipVertical size={14} /> FLIP V</button>
               <button onClick={saveSelectionAsSlice} disabled={slices.length >= MAX_SLICES}><Crosshair size={14} /> SAVE SLICE</button>
-              <button onClick={clearSelectionPixels}><Trash2 size={14} /> CLEAR</button>
+              <button onClick={() => clearSelectionPixels()}><Trash2 size={14} /> CLEAR</button>
               <button onClick={() => setSelection(null)}>DONE</button>
             </div>
           )}
@@ -3066,6 +3543,11 @@ export default function Home() {
                   onClick={() => {
                     addFrame();
                     setNotice("Blank trace frame added");
+                    captureAnalyticsEvent("reference_action", {
+                      ...analyticsProjectShape,
+                      frame_count: frames.length + 1,
+                      action: "add_trace_frame",
+                    });
                   }}
                   disabled={frames.length >= MAX_FRAMES}
                   aria-label="Add blank trace frame"
@@ -3184,7 +3666,7 @@ export default function Home() {
               <button onClick={() => deleteLayer()} disabled={layers.length === 1} aria-label="Delete active layer"><Trash2 size={14} /></button>
             </div>
           </div>
-          <div className="layer-list" aria-label="Artwork layers">
+          <div className="layer-list ph-no-capture" aria-label="Artwork layers">
             {[...layers].reverse().map((layer) => (
               <div
                 key={layer.id}
@@ -3193,7 +3675,12 @@ export default function Home() {
                 onFocusCapture={() => { setActiveLayerId(layer.id); setSelection(null); }}
               >
                 <button
-                  onClick={(event) => { event.stopPropagation(); recordProjectHistory(); updateLayer(layer.id, { visible: !layer.visible }); }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    recordProjectHistory();
+                    updateLayer(layer.id, { visible: !layer.visible });
+                    captureProjectStructure("layer", "visibility_toggle", layer.visible ? 1 : 0, layer.visible ? 0 : 1);
+                  }}
                   aria-label={`${layer.visible ? "Hide" : "Show"} ${layer.name}`}
                 >
                   {layer.visible ? <Eye size={14} /> : <EyeOff size={14} />}
@@ -3207,7 +3694,12 @@ export default function Home() {
                   aria-label={`Layer name ${layer.name}`}
                 />
                 <button
-                  onClick={(event) => { event.stopPropagation(); recordProjectHistory(); updateLayer(layer.id, { locked: !layer.locked }); }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    recordProjectHistory();
+                    updateLayer(layer.id, { locked: !layer.locked });
+                    captureProjectStructure("layer", "lock_toggle", layer.locked ? 1 : 0, layer.locked ? 0 : 1);
+                  }}
                   aria-label={`${layer.locked ? "Unlock" : "Lock"} ${layer.name}`}
                 >
                   {layer.locked ? <Lock size={13} /> : <Unlock size={13} />}
@@ -3229,16 +3721,26 @@ export default function Home() {
           <div className="production-tools">
             <button
               className={tileSettings.preview ? "active" : ""}
-              onClick={() => { recordProjectHistory(); setTileSettings((current) => ({ ...current, preview: !current.preview })); }}
+              onClick={() => {
+                recordProjectHistory();
+                const enabled = !tileSettings.preview;
+                setTileSettings((current) => ({ ...current, preview: enabled }));
+                captureAnalyticsEvent("feature_toggled", { ...analyticsProjectShape, feature: "seam_preview", enabled, source: "toolbar" });
+              }}
               aria-pressed={tileSettings.preview}
             ><Grid2X2 size={14} /> SEAM CHECK</button>
             <button
               className={tileSettings.linkEdges ? "active" : ""}
-              onClick={() => { recordProjectHistory(); setTileSettings((current) => ({ ...current, linkEdges: !current.linkEdges })); }}
+              onClick={() => {
+                recordProjectHistory();
+                const enabled = !tileSettings.linkEdges;
+                setTileSettings((current) => ({ ...current, linkEdges: enabled }));
+                captureAnalyticsEvent("feature_toggled", { ...analyticsProjectShape, feature: "linked_edges", enabled, source: "toolbar" });
+              }}
               aria-pressed={tileSettings.linkEdges}
             ><Repeat2 size={14} /> LINK EDGES</button>
           </div>
-          <div className="slice-list" aria-label="Named export slices">
+          <div className="slice-list ph-no-capture" aria-label="Named export slices">
             <span>NAMED SLICES <b>{slices.length}</b></span>
             {slices.length === 0 ? <small>SELECT AN AREA, THEN SAVE SLICE</small> : slices.map((slice) => (
               <div key={slice.id}>
@@ -3252,7 +3754,11 @@ export default function Home() {
             <span><Crosshair size={13} /> {currentFrame?.pivot ? "FRAME PIVOT" : "PROJECT PIVOT"}</span>
             <label>X <input type="number" min="0" max={size} step="0.5" value={activePivot.x} onFocus={recordProjectHistory} onChange={(event) => { if (Number.isFinite(event.target.valueAsNumber)) setActiveFramePivot({ ...activePivot, x: event.target.valueAsNumber }); }} /></label>
             <label>Y <input type="number" min="0" max={size} step="0.5" value={activePivot.y} onFocus={recordProjectHistory} onChange={(event) => { if (Number.isFinite(event.target.valueAsNumber)) setActiveFramePivot({ ...activePivot, y: event.target.valueAsNumber }); }} /></label>
-            <button onClick={() => { recordProjectHistory(); setActiveFramePivot({ x: size / 2, y: size }); }}>BOTTOM CENTER</button>
+            <button onClick={() => {
+              recordProjectHistory();
+              setActiveFramePivot({ x: size / 2, y: size });
+              captureProjectStructure("pivot", "bottom_center");
+            }}>BOTTOM CENTER</button>
             <button onClick={makeActivePivotProjectDefault}>MAKE DEFAULT</button>
             {currentFrame?.pivot && <button onClick={useProjectPivot}>USE DEFAULT</button>}
           </div>
@@ -3276,7 +3782,7 @@ export default function Home() {
               <button onClick={deleteFrame} aria-label="Delete active frame" title="Delete frame"><Trash2 size={16} /></button>
             </div>
           </div>
-          <div className="animation-bar" aria-label="Animation clip controls">
+          <div className="animation-bar ph-no-capture" aria-label="Animation clip controls">
             <label>CLIP
               <select value={activeClipId} onChange={(event) => activateClip(Number(event.target.value))}>
                 {clips.map((clip) => <option key={clip.id} value={clip.id}>{clip.name}</option>)}
@@ -3299,7 +3805,12 @@ export default function Home() {
                 <option>4</option><option>6</option><option>8</option><option>10</option><option>12</option><option>24</option>
               </select>
             </label>
-            <button className={activeClip?.loop ? "active" : ""} onClick={() => { recordProjectHistory(); updateClip({ loop: !activeClip?.loop }); }} aria-pressed={activeClip?.loop}>LOOP</button>
+            <button className={activeClip?.loop ? "active" : ""} onClick={() => {
+              recordProjectHistory();
+              const enabled = !activeClip?.loop;
+              updateClip({ loop: enabled });
+              captureProjectStructure("clip", "loop_toggle", activeClip?.loop ? 1 : 0, enabled ? 1 : 0);
+            }} aria-pressed={activeClip?.loop}>LOOP</button>
             <button onClick={addClip} disabled={clips.length >= MAX_CLIPS} aria-label="Add animation clip"><Plus size={14} /></button>
             <button onClick={deleteClip} disabled={clips.length === 1} aria-label="Delete animation clip"><Trash2 size={14} /></button>
           </div>
@@ -3403,6 +3914,19 @@ export default function Home() {
                 erase={tilemapErase}
                 onStrokeStart={recordProjectHistory}
                 onPaint={paintTilemapCell}
+                onStrokeEnd={(action, inputMethod, changedCells, placedCells, tileTypes) => {
+                  captureAnalyticsEvent("tilemap_edit_committed", {
+                    ...analyticsProjectShape,
+                    tilemap_placed_cells: placedCells,
+                    action,
+                    input_method: inputMethod,
+                    changed_cells: changedCells,
+                    map_width: tilemap.width,
+                    map_height: tilemap.height,
+                    placed_cells: placedCells,
+                    tile_types: tileTypes,
+                  });
+                }}
               />
             </div>
             <p>Choose a frame above, then paint a level. Right-click erases.</p>
@@ -3410,12 +3934,21 @@ export default function Home() {
         </div>
       </section>
 
-        {notice && <div className="toast" role="status">{notice}</div>}
+        {notice && <div className="toast ph-no-capture" role="status">{notice}</div>}
       </main>
       <footer className="studio-footer">
         <span>© 2026 CapLock</span>
         <a href="mailto:contact@caplock.ai">contact@caplock.ai</a>
-        <button type="button" onClick={() => setGuideOpen(true)}>QUICK GUIDE</button>
+        <button type="button" onClick={() => { guideSource.current = "footer"; setGuideOpen(true); }}>QUICK GUIDE</button>
+        <AnalyticsConsent onInitialPromptClosed={() => {
+          try {
+            if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === "done") return;
+          } catch {
+            // The guide remains available when browser storage is unavailable.
+          }
+          guideSource.current = "automatic";
+          setGuideOpen(true);
+        }} />
       </footer>
       <OnboardingGuide open={guideOpen} onDismiss={dismissGuide} />
     </>

@@ -30,6 +30,54 @@ npm run dev
 
 Use `npm run build`, `npm run lint`, and `npm test` to validate the project.
 
+## PostHog analytics (optional)
+
+PixelWall works normally without analytics configuration. To enable PostHog,
+copy `.env.example` to `.env.local` and set the two public variables:
+
+```bash
+cp .env.example .env.local
+```
+
+- `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` is the **project token** from the PostHog
+  project settings. It is intentionally public; do not use a personal API key.
+- `NEXT_PUBLIC_POSTHOG_HOST` must match the project's region: use
+  `https://us.i.posthog.com` for US Cloud or `https://eu.i.posthog.com` for EU
+  Cloud.
+
+Browser events use the first-party `/beam` relay in
+`app/beam/[...path]/route.ts`; the host variable still selects the US or EU
+upstream. The relay strips cookies, authorization, referrer, and other app
+headers before forwarding. It improves delivery but does not bypass consent,
+Do Not Track, or Global Privacy Control.
+
+Restart the development server after changing `.env.local`. For an OpenAI Sites
+or Vercel deployment, add both variables in that project's environment-variable
+settings for each environment where analytics should run, then redeploy. Leaving
+the token unset is supported and keeps PostHog disabled.
+
+Analytics and session replay require an explicit visitor opt-in. A saved opt-out,
+Do Not Track, or Global Privacy Control keeps capture disabled. Pixel artwork,
+uploaded references, project and layer names, animation and slice names, and
+notices are excluded from replay/autocapture. Custom event properties use strict
+per-event allowlists containing only coarse counts, dimensions, timings,
+booleans, and operation/result enums—never names, filenames, colors, pixels, or
+uploaded content.
+
+The custom event taxonomy is intentionally small:
+
+- Lifecycle and guidance: `editor_loaded`, `quick_guide_viewed`,
+  `quick_guide_dismissed`
+- Editing: `canvas_edit_committed`, `project_structure_changed`,
+  `feature_toggled`, `animation_playback_changed`, `tilemap_edit_committed`
+- References: `reference_loaded`, `reference_load_failed`, `reference_action`,
+  `sprite_sheet_imported`
+- Storage and recovery: `project_file_operation`, `autosave_failed`,
+  `autosave_recovered`
+- Export funnel: `export_started`, `export_completed`, `export_failed`,
+  `export_blocked`
+- Privacy choice: `analytics_consent_updated`
+
 ## GitHub and Vercel
 
 PixelWall stores projects in the browser and portable files; it does not depend

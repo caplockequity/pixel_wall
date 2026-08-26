@@ -71,7 +71,7 @@ export function HelpTip({ id, label, text }: HelpTipProps) {
 
 type OnboardingGuideProps = {
   open: boolean;
-  onDismiss: () => void;
+  onDismiss: (method: "got_it" | "escape") => void;
 };
 
 export function OnboardingGuide({ open, onDismiss }: OnboardingGuideProps) {
@@ -97,7 +97,7 @@ export function OnboardingGuide({ open, onDismiss }: OnboardingGuideProps) {
       aria-labelledby="quick-guide-title"
       onCancel={(event) => {
         event.preventDefault();
-        onDismiss();
+        onDismiss("escape");
       }}
     >
       <div className="quick-guide-card">
@@ -111,7 +111,7 @@ export function OnboardingGuide({ open, onDismiss }: OnboardingGuideProps) {
             </li>
           ))}
         </ul>
-        <button type="button" className="quick-guide-done" onClick={onDismiss}>GOT IT</button>
+        <button type="button" className="quick-guide-done" onClick={() => onDismiss("got_it")}>GOT IT</button>
       </div>
     </dialog>
   );

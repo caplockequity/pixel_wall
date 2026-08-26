@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
+import {
+  posthogRequestHeaders,
+  posthogResponseHeaders,
+  posthogUpstreamUrl,
+} from "../app/posthog-proxy-core.mjs";
 
 const projectRoot = new URL("../", import.meta.url);
 
@@ -86,6 +91,154 @@ test("server-renders the PixelWall studio", async () => {
     html,
     /codex-preview|Your site is taking shape|react-loading-skeleton/i,
   );
+});
+
+test("keeps optional analytics private and content-safe", async () => {
+  const response = await render();
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(
+    html,
+    /class="(?=[^"]*\bart-surface\b)(?=[^"]*\bph-no-capture\b)[^"]*"/i,
+  );
+
+  const [envExample, instrumentationSource, analyticsSource, pageSource, proxyCoreSource, proxyRouteSource, nextConfigSource] = await Promise.all([
+    readFile(new URL(".env.example", projectRoot), "utf8"),
+    readFile(new URL("instrumentation-client.ts", projectRoot), "utf8"),
+    readFile(new URL("app/analytics.ts", projectRoot), "utf8"),
+    readFile(new URL("app/page.tsx", projectRoot), "utf8"),
+    readFile(new URL("app/posthog-proxy-core.mjs", projectRoot), "utf8"),
+    readFile(new URL("app/beam/[...path]/route.ts", projectRoot), "utf8"),
+    readFile(new URL("next.config.ts", projectRoot), "utf8"),
+  ]);
+
+  assert.match(envExample, /^NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=\s*$/m);
+  assert.match(
+    instrumentationSource,
+    /if\s*\(\s*isAnalyticsConfigured\(\)\s*\)\s*\{\s*initializeAnalytics\(\);?\s*\}/s,
+  );
+  const initializationSource = analyticsSource.slice(
+    analyticsSource.indexOf("export function initializeAnalytics"),
+    analyticsSource.indexOf("export function getAnalyticsConsentStatus"),
+  );
+  assert.match(initializationSource, /storedAnalyticsConsent\(\)\s*!==\s*"granted"/);
+  assert.ok(
+    initializationSource.indexOf('storedAnalyticsConsent() !== "granted"')
+      < initializationSource.indexOf("posthog.init"),
+  );
+
+  const artSurfaceStart = pageSource.indexOf('className="art-surface ph-no-capture"');
+  assert.notEqual(artSurfaceStart, -1);
+  const artSurfaceSource = pageSource.slice(artSurfaceStart, artSurfaceStart + 3_000);
+  assert.match(
+    artSurfaceSource,
+    /<img\s+className="(?=[^"]*\bprojection-image\b)(?=[^"]*\bph-no-capture\b)[^"]*"[^>]*\ssrc=\{reference\}/s,
+  );
+  assert.match(
+    artSurfaceSource,
+    /className=\{`(?=[^`]*\bpixel-canvas\b)(?=[^`]*\bph-no-capture\b)[^`]*`\}/s,
+  );
+  assert.match(pageSource, /className=\{`\$\{className\}\s+ph-no-capture`\}/);
+  assert.match(pageSource, /className="seam-tiles ph-no-capture"/);
+  assert.match(pageSource, /className="tilemap-canvas ph-no-capture"/);
+
+  const allowlistStart = analyticsSource.indexOf("EVENT_PROPERTY_ALLOWLIST");
+  const sanitizerStart = analyticsSource.indexOf("sanitizeEventProperties", allowlistStart);
+  assert.notEqual(allowlistStart, -1);
+  assert.notEqual(sanitizerStart, -1);
+  const allowlistSource = analyticsSource.slice(allowlistStart, sanitizerStart);
+  const eventNames = [
+    "editor_loaded",
+    "quick_guide_viewed",
+    "quick_guide_dismissed",
+    "canvas_edit_committed",
+    "project_structure_changed",
+    "feature_toggled",
+    "animation_playback_changed",
+    "reference_loaded",
+    "reference_load_failed",
+    "reference_action",
+    "sprite_sheet_imported",
+    "tilemap_edit_committed",
+    "project_file_operation",
+    "autosave_failed",
+    "autosave_recovered",
+    "export_started",
+    "export_completed",
+    "export_failed",
+    "export_blocked",
+    "analytics_consent_updated",
+  ];
+  for (const eventName of eventNames) {
+    assert.match(allowlistSource, new RegExp(`["']?${eventName}["']?\\s*:`));
+  }
+  assert.doesNotMatch(
+    allowlistSource,
+    /["'](?:name|project_name|file_name|filename|layer_name|clip_name|slice_name|color|colors|pixels|pixel_data|data_url|reference_url|content)["']/i,
+  );
+
+  const captureStart = analyticsSource.indexOf("captureAnalyticsEvent");
+  assert.notEqual(captureStart, -1);
+  const captureSource = analyticsSource.slice(captureStart);
+  assert.match(captureSource, /sanitizeEventProperties\(\s*event\s*,\s*properties\s*\)/s);
+  assert.doesNotMatch(captureSource, /posthog\.capture\(\s*event\s*,\s*properties\s*\)/s);
+
+  assert.doesNotMatch(nextConfigSource, /\brewrites\s*\(/);
+  const requestAllowlist = proxyCoreSource.slice(
+    proxyCoreSource.indexOf("REQUEST_HEADER_ALLOWLIST"),
+    proxyCoreSource.indexOf("RESPONSE_HEADER_ALLOWLIST"),
+  );
+  assert.match(requestAllowlist, /"content-type"/);
+  assert.doesNotMatch(requestAllowlist, /cookie|authorization|referer|origin|x-api-key/i);
+  const responseAllowlist = proxyCoreSource.slice(
+    proxyCoreSource.indexOf("RESPONSE_HEADER_ALLOWLIST"),
+    proxyCoreSource.indexOf("function copyAllowedHeaders"),
+  );
+  assert.match(responseAllowlist, /"cache-control"/);
+  assert.doesNotMatch(responseAllowlist, /set-cookie/i);
+  assert.match(proxyRouteSource, /body:\s*hasBody\s*\?\s*await request\.arrayBuffer\(\)/s);
+});
+
+test("relays PostHog without forwarding site credentials", async () => {
+  const sourceHeaders = new Headers({
+    authorization: "Bearer private",
+    cookie: "private-cookie=1",
+    "content-encoding": "gzip",
+    "content-type": "text/plain",
+    origin: "https://private.example",
+    referer: "https://private.example/project?secret=1",
+    "x-api-key": "private-key",
+  });
+  const upstreamHeaders = posthogRequestHeaders(sourceHeaders);
+  assert.equal(upstreamHeaders.get("content-type"), "text/plain");
+  assert.equal(upstreamHeaders.get("content-encoding"), "gzip");
+  assert.equal(upstreamHeaders.get("accept-encoding"), "identity");
+  for (const name of ["authorization", "cookie", "origin", "referer", "x-api-key"]) {
+    assert.equal(upstreamHeaders.get(name), null);
+  }
+
+  const upstream = posthogUpstreamUrl(
+    "https://pixelwall.example/beam/e/?v=1",
+    "https://us.i.posthog.com",
+  );
+  assert.equal(upstream.href, "https://us.i.posthog.com/e/?v=1");
+  assert.equal(
+    posthogUpstreamUrl("https://pixelwall.example/beam/array/token/config", "https://eu.i.posthog.com").href,
+    "https://eu-assets.i.posthog.com/array/token/config",
+  );
+  assert.equal(
+    posthogUpstreamUrl("https://pixelwall.example/beam//untrusted.example/path", "https://us.i.posthog.com").hostname,
+    "us.i.posthog.com",
+  );
+
+  const returnedHeaders = posthogResponseHeaders(new Headers({
+    "cache-control": "public, max-age=60",
+    "content-type": "text/plain",
+    "set-cookie": "should-not-return=1",
+  }));
+  assert.equal(returnedHeaders.get("set-cookie"), null);
+  assert.equal(returnedHeaders.get("cache-control"), "public, max-age=60");
 });
 
 test("contains no disposable starter preview", async () => {
