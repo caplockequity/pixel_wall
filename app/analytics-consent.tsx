@@ -164,7 +164,7 @@ export function AnalyticsConsent({ onInitialPromptClosed }: AnalyticsConsentProp
                 PRIVACY
               </span>
               <h2 id="analytics-consent-title" style={{ fontSize: 22, margin: "4px 0 10px" }}>
-                Anonymous analytics
+                Optional analytics
               </h2>
             </div>
             <button type="button" style={{ ...actionStyle, background: "transparent", padding: "4px 8px" }} aria-label="Close analytics settings" onClick={closeDialog}>
@@ -174,11 +174,8 @@ export function AnalyticsConsent({ onInitialPromptClosed }: AnalyticsConsentProp
 
           <p id="analytics-consent-description" style={{ fontSize: 14, lineHeight: 1.5, margin: "0 0 14px" }}>
             {privacySignalEnabled
-              ? "Your browser’s Global Privacy Control or Do Not Track setting is blocking analytics. PixelWall will honor that choice."
-              : "Allow anonymous product usage, performance, error, heatmap, and replay data to help improve PixelWall. Artwork, names, file contents, input values, and replay text are excluded."}
-          </p>
-          <p style={{ fontSize: 12, lineHeight: 1.45, margin: "0 0 18px", opacity: 0.8 }}>
-            PostHog stores an anonymous device and session identifier only after you allow it. PixelWall never creates analytics person profiles. You can change this setting anytime.
+              ? "Your browser is blocking analytics. PixelWall respects that choice."
+              : "Help improve PixelWall with anonymous usage and privacy-masked replay data. Artwork, names, files, and input values stay private."}
           </p>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 9 }}>
@@ -196,7 +193,7 @@ export function AnalyticsConsent({ onInitialPromptClosed }: AnalyticsConsentProp
                   Allow analytics
                 </button>
                 <button type="button" style={{ ...actionStyle, background: "transparent" }} onClick={turnOffAnalytics}>
-                  Keep analytics off
+                  No thanks
                 </button>
               </>
             )}
