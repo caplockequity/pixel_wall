@@ -57,7 +57,10 @@ test("checkout fixes price and return URLs on the server, with a private claim c
   assert.match(options.body.get("success_url"), /^https:\/\/pixelwall.example\//);
   assert.equal(options.body.get("client_reference_id"), state.purchase.client_reference_id);
   assert.equal(options.body.get("automatic_tax[enabled]"), "false");
+  assert.equal(options.body.get("allow_promotion_codes"), "true");
+  assert.equal(options.body.get("payment_method_collection"), null);
   state.purchase.status = "open"; state.purchase.url = "https://checkout.stripe.com/c/pay/example";
+  state.purchase.allow_promotion_codes = true; state.purchase.payment_method_collection = "if_required";
   const retry = await request("checkout", undefined, response.headers.get("set-cookie").split(";")[0]);
   assert.equal((await retry.json()).url, state.purchase.url);
   assert.equal(state.calls.filter(call => call.options.method === "POST").length, 1);
@@ -197,4 +200,77 @@ test("claim cookies bind the browser to the current checkout session", async () 
   const { request } = setup();
   assert.equal((await request("claim", { sessionId: id }, `pixelwall_checkout=${claim}.${id}`)).status, 200);
   assert.equal((await request("claim", { sessionId: id }, `pixelwall_checkout=${claim}.cs_test_different12345`)).status, 403);
+});
+
+function complimentary(state) {
+  Object.assign(state.purchase, { payment_status: "no_payment_required", payment_intent: null, amount_subtotal: 1900, amount_total: 0, total_details: { amount_discount: 1900 } });
+}
+
+for (const paymentStatus of ["paid", "no_payment_required"]) test(`a completed 100% discounted checkout (${paymentStatus}) grants a restorable lifetime license without a payment intent`, async () => {
+  const { state, request } = setup(); complimentary(state);
+  state.purchase.payment_status = paymentStatus;
+  const claimed = await request("claim", { sessionId: id }, `pixelwall_checkout=${claim}.${id}`);
+  assert.equal(claimed.status, 200);
+  const { recoveryCode } = await claimed.json();
+  const restored = await request("restore", { code: recoveryCode });
+  assert.equal(restored.status, 200);
+  const cookie = restored.headers.get("set-cookie").split(";")[0];
+  assert.equal((await request("authorize", undefined, cookie)).status, 200);
+  assert.equal((await (await request("status", undefined, cookie)).json()).pro, true);
+  assert.equal((await (await request("checkout", undefined, cookie)).json()).pro, true);
+  assert.equal((await (await request("recovery", undefined, cookie)).json()).recoveryCode, recoveryCode);
+  assert.equal(state.calls.some(call => /coupons|promotion_codes/.test(call.url.pathname)), false);
+});
+
+test("free checkout still requires the originating browser and the correct store, product, and quantity", async () => {
+  const { state, request } = setup(); complimentary(state);
+  assert.equal((await request("claim", { sessionId: id })).status, 403);
+  assert.equal((await request("claim", { sessionId: id }, `pixelwall_checkout=${"b".repeat(64)}`)).status, 403);
+  for (const field of ["product", "quantity", "mode", "app", "extra_line"]) {
+    const { state: altered, request: attempt } = setup(); complimentary(altered);
+    if (field === "product") altered.purchase.line_items.data[0].price.id = "price_other";
+    if (field === "quantity") altered.purchase.line_items.data[0].quantity = 2;
+    if (field === "mode") altered.purchase.livemode = true;
+    if (field === "app") altered.purchase.metadata.app = "another-app";
+    if (field === "extra_line") altered.purchase.line_items.has_more = true;
+    assert.equal((await attempt("claim", { sessionId: id }, `pixelwall_checkout=${claim}`)).status, 403, field);
+  }
+});
+
+for (const [label, changes] of [
+  ["an open checkout", { status: "open" }],
+  ["an expired checkout", { status: "expired" }],
+  ["an unpaid checkout", { payment_status: "unpaid" }],
+  ["a claimed paid order without a successful charge", { payment_status: "paid", amount_total: 1900, total_details: { amount_discount: 0 } }],
+  ["a remaining balance", { amount_total: 1 }],
+  ["missing totals", { amount_total: undefined }],
+  ["a zero-priced item instead of a discount", { amount_subtotal: 0, total_details: { amount_discount: 0 } }],
+  ["an incomplete discount", { total_details: { amount_discount: 1000 } }],
+  ["missing discount details", { total_details: undefined }],
+  ["an unexpected payment intent", { payment_intent: { status: "requires_payment_method" } }],
+]) {
+  test(`${label} never grants complimentary Pro`, async () => {
+    const { state, request } = setup(); complimentary(state); Object.assign(state.purchase, changes);
+    assert.equal((await request("claim", { sessionId: id }, `pixelwall_checkout=${claim}`)).status, 409);
+  });
+}
+
+test("discounted paid orders still enforce successful payment and full refunds", async () => {
+  const { state, request, service } = setup();
+  Object.assign(state.purchase, { amount_subtotal: 1900, amount_total: 950, total_details: { amount_discount: 950 } });
+  state.purchase.payment_intent.latest_charge.amount = 950;
+  const cookie = `pixelwall_pro=${await service.licenseFor(id)}`;
+  assert.equal((await request("authorize", undefined, cookie)).status, 200);
+  state.purchase.payment_intent.latest_charge.amount_refunded = 950;
+  assert.equal((await request("authorize", undefined, cookie)).status, 403);
+});
+
+test("old open checkout links are replaced with promo-enabled checkout", async () => {
+  const { state, request } = setup();
+  state.purchase.status = "open"; state.purchase.url = "https://checkout.stripe.com/c/pay/old";
+  const result = await request("checkout", undefined, `pixelwall_checkout=${claim}.${id}`);
+  assert.equal(result.status, 200);
+  const created = state.calls.find(call => call.options.method === "POST");
+  assert.ok(created);
+  assert.equal(created.options.body.get("allow_promotion_codes"), "true");
 });

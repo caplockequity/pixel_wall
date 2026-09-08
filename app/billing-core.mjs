@@ -100,7 +100,18 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
     if (session.livemode !== (config.mode === "live") || session.mode !== "payment" || session.metadata?.app !== APP || session.line_items?.has_more || session.line_items?.data?.length !== 1 || session.line_items.data[0].price?.id !== config.price || session.line_items.data[0].quantity !== 1) {
       throw new BillingError("This purchase does not include PixelWall Pro.", 403, "wrong_product");
     }
-    if (session.status !== "complete" || session.payment_status !== "paid") throw new BillingError("Stripe is still confirming payment. Try again in a moment.", 409, "payment_pending");
+    if (session.status !== "complete") throw new BillingError("Stripe is still confirming checkout. Try again in a moment.", 409, "payment_pending");
+    if (!["paid", "no_payment_required"].includes(session.payment_status)) throw new BillingError("Stripe is still confirming payment. Try again in a moment.", 409, "payment_pending");
+    // A completed, fully discounted order has no PaymentIntent. Verify Stripe's
+    // totals as well as the product above; an unpaid or merely open session is
+    // never a complimentary license. A redeemed discount remains lifetime access
+    // even after the owner disables its promotion code for future redemptions.
+    if (session.amount_total === 0 || session.payment_status === "no_payment_required") {
+      if (session.amount_total !== 0 || !(session.amount_subtotal > 0) || session.total_details?.amount_discount !== session.amount_subtotal || session.payment_intent) {
+        throw new BillingError("This complimentary checkout is not complete.", 409, "payment_pending");
+      }
+      return session;
+    }
     const intent = session.payment_intent;
     const charge = intent?.latest_charge;
     if (intent?.status !== "succeeded" || !charge || typeof charge !== "object" || !charge.paid || charge.status !== "succeeded") throw new BillingError("This payment is not complete.", 409, "payment_pending");
@@ -199,7 +210,7 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
           let previous;
           try { previous = await stripe(`checkout/sessions/${existingClaim.sessionId}`, { "expand[0]": "line_items" }); }
           catch (error) { if (!(error instanceof BillingError) || error.status !== 404) throw error; }
-          if (previous?.status === "open" && previous.livemode === (config.mode === "live") && previous.metadata?.app === APP && previous.line_items?.data?.[0]?.price?.id === config.price && previous.client_reference_id === await hash(claim, crypto) && previous.url && new URL(previous.url).origin === "https://checkout.stripe.com") {
+          if (previous?.status === "open" && previous.allow_promotion_codes === true && previous.payment_method_collection === "if_required" && previous.livemode === (config.mode === "live") && previous.metadata?.app === APP && previous.line_items?.data?.[0]?.price?.id === config.price && previous.client_reference_id === await hash(claim, crypto) && previous.url && new URL(previous.url).origin === "https://checkout.stripe.com") {
             return response({ url: previous.url });
           }
           // Completed, refunded, or expired checkout links cannot be reused.
@@ -210,11 +221,13 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
         const session = await stripe("checkout/sessions", {
           mode: "payment", "line_items[0][price]": config.price, "line_items[0][quantity]": "1",
           "payment_method_types[0]": "card", customer_creation: "always", client_reference_id: reference,
-          "metadata[app]": APP, "metadata[offer]": "pro-one-time", "payment_intent_data[metadata][app]": APP,
+          // Payment-mode Checkout automatically skips card collection at $0.
+          allow_promotion_codes: "true",
+          "metadata[app]": APP, "metadata[offer]": "pro-lifetime", "payment_intent_data[metadata][app]": APP,
           success_url: `${requestOrigin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${requestOrigin}/?checkout=cancelled`,
           "automatic_tax[enabled]": String(config.automaticTax),
-          "custom_text[after_submit][message]": "Return to PixelWall after payment to save your private Pro recovery code. Keep it to restore access on another device.",
+          "custom_text[after_submit][message]": "Return to PixelWall after checkout to save your private lifetime Pro recovery code. Keep it to restore access on another device.",
         }, "POST", `pixelwall-checkout-${reference}`);
         if (!SESSION_PATTERN.test(session.id ?? "") || !session.id.startsWith(`cs_${config.mode}_`) || !session.url || new URL(session.url).origin !== "https://checkout.stripe.com") throw new BillingError("Checkout is unavailable. Please try again.", 503);
         return response({ url: session.url }, 200, { "Set-Cookie": setCookie(CLAIM_COOKIE, `${claim}.${session.id}`, 86400) });

@@ -67,7 +67,7 @@ export function useProAccess() {
     setStatus((current) => ({ ...current, pro: true }));
     setRecoveryCode(data.recoveryCode ?? ""); setSessionId("");
     clearCheckoutReturn();
-    setMessage("Pro is ready. Save your recovery code before closing this window.");
+    setMessage("Lifetime Pro is ready. Save your recovery code before closing this window.");
   }), [run]);
 
   useEffect(() => {
@@ -123,7 +123,7 @@ export function ProDialog({ access, beforeCheckout }: { access: ProAccess; befor
     else if (!access.open && dialog.current?.open) dialog.current.close();
   }, [access.open]);
   function recoveryDownloadUrl() {
-    const content = `PixelWall Pro — private recovery code\n\n${access.recoveryCode}\n\nKeep this file private. Anyone with this code can use your purchase.\nTo restore: open PixelWall, choose Pro, then Restore purchase.\nStore: ${window.location.origin}\nMode: ${access.mode ?? "unknown"}\nSupport: contact@caplock.ai\nThis code restores Pro access, not your artwork. Use Save Project to back up artwork.\n`;
+    const content = `PixelWall Pro — lifetime access recovery code\n\n${access.recoveryCode}\n\nKeep this file private. Anyone with this code can use your Pro access.\nTo restore: open PixelWall, choose Pro, then Restore Pro.\nStore: ${window.location.origin}\nMode: ${access.mode ?? "unknown"}\nSupport: contact@caplock.ai\nThis code restores Pro access, not your artwork. Use Save Project to back up artwork.\n`;
     return `data:text/plain;charset=utf-8,${encodeURIComponent(content)}`;
   }
   return <dialog ref={dialog} className="pro-dialog ph-no-capture" aria-labelledby="pro-title" onCancel={access.close} onClose={access.close}>
@@ -132,23 +132,24 @@ export function ProDialog({ access, beforeCheckout }: { access: ProAccess; befor
     <h2 id="pro-title" ref={heading} tabIndex={-1}>{access.pro ? "Your next frame is ready." : "Make art. Ship the whole thing."}</h2>
     {access.mode === "test" && <p className="pro-test">TEST MODE · Purchases here don’t unlock the live store. No real payment is collected.</p>}
     {access.pro ? <>
-      <p className="pro-active"><Check size={18} /> Pro is active in this browser</p>
+      <p className="pro-active"><Check size={18} /> Lifetime Pro is active in this browser</p>
       <p>GIFs, sprite sheets, game packages, and saved export presets are unlocked.</p>
       {!access.recoveryCode && <button type="button" className="pro-primary" disabled={access.busy} onClick={access.getRecovery}>GET MY RECOVERY CODE</button>}
     </> : <>
-      <p>Keep the studio free. Pay once for the exports that take your work further.</p>
+      <p>Keep the studio free. Get lifetime access to the exports that take your work further.</p>
       <div className="pro-plans">
         <section><h3>Free, always</h3><ul><li>Drawing, layers &amp; reference images</li><li>Animation editing &amp; Tilemap Lab</li><li>Individual frame PNG exports</li><li>Browser autosave &amp; Save/Open Project</li></ul></section>
-        <section className="pro-plan-paid"><h3>Pro <span>$19 <small>USD once</small></span></h3><ul><li>Animated GIF exports</li><li>Sprite-sheet PNG exports</li><li>Sprite &amp; Tiled tilemap ZIP packages</li><li>Named export presets</li></ul></section>
+        <section className="pro-plan-paid"><h3>Pro · Lifetime access <span>$19 <small>USD</small></span></h3><ul><li>Animated GIF exports</li><li>Sprite-sheet PNG exports</li><li>Sprite &amp; Tiled tilemap ZIP packages</li><li>Named export presets</li></ul></section>
       </div>
-      <p className="pro-fine">One payment. No subscription. Permanent access to the Pro features listed here while PixelWall is available. Taxes may apply.</p>
-      <button type="button" className="pro-primary" disabled={access.busy || !access.checkoutAvailable || Boolean(access.sessionId)} onClick={() => access.checkout(beforeCheckout)}>{access.busy ? "CONNECTING…" : access.checkoutAvailable ? "GET PRO — $19 ONCE" : "CHECKOUT COMING SOON"}</button>
+      <p className="pro-fine">Lifetime access. One payment. No subscription. Includes the Pro features listed here for as long as PixelWall is available. Taxes may apply.</p>
+      <button type="button" className="pro-primary" disabled={access.busy || !access.checkoutAvailable || Boolean(access.sessionId)} onClick={() => access.checkout(beforeCheckout)}>{access.busy ? "CONNECTING…" : access.checkoutAvailable ? "GET LIFETIME PRO — $19" : "CHECKOUT COMING SOON"}</button>
       <p className="pro-fine">{access.checkoutAvailable ? "Secure checkout with Stripe. Your project stays in this browser during checkout." : "The free studio is ready. Pro checkout is still being connected."}</p>
+      {access.checkoutAvailable && <p className="pro-fine">Have a gift or promo code? Enter it at checkout. A 100% off gift code unlocks lifetime Pro without a card.</p>}
     </>}
     {access.message && <p className="pro-message" role="status">{access.message}</p>}
     {access.sessionId && <button type="button" className="pro-secondary" disabled={access.busy} onClick={access.retryClaim}>CHECK MY PAYMENT AGAIN</button>}
-    {access.recoveryCode && <div className="pro-recovery"><h3>Keep your Pro recovery code</h3><p>Use it on another browser or device. This private code restores your purchase; save your artwork separately.</p><textarea aria-label="Private Pro recovery code" readOnly value={access.recoveryCode} rows={3} /><a className="pro-primary" href={recoveryDownloadUrl()} download="pixelwall-pro-recovery.txt"><Download size={16} /> SAVE RECOVERY CODE</a></div>}
-    {!access.pro && <details className="pro-restore"><summary>Already paid? Restore purchase</summary><form onSubmit={(event) => { event.preventDefault(); void access.restore(code); }}><label>Private recovery code<textarea value={code} onChange={(event) => setCode(event.target.value)} placeholder="PW1.…" autoComplete="off" spellCheck={false} rows={3} maxLength={400} required /></label><button type="submit" className="pro-secondary" disabled={access.busy || !code.trim()}>RESTORE PRO</button></form></details>}
+    {access.recoveryCode && <div className="pro-recovery"><h3>Keep your Pro recovery code</h3><p>Use it on another browser or device. This private code restores your lifetime access; save your artwork separately.</p><textarea aria-label="Private Pro recovery code" readOnly value={access.recoveryCode} rows={3} /><a className="pro-primary" href={recoveryDownloadUrl()} download="pixelwall-pro-recovery.txt"><Download size={16} /> SAVE RECOVERY CODE</a></div>}
+    {!access.pro && <details className="pro-restore"><summary>Already have a recovery code? Restore Pro</summary><form onSubmit={(event) => { event.preventDefault(); void access.restore(code); }}><label>Private recovery code<textarea value={code} onChange={(event) => setCode(event.target.value)} placeholder="PW1.…" autoComplete="off" spellCheck={false} rows={3} maxLength={400} required /></label><button type="submit" className="pro-secondary" disabled={access.busy || !code.trim()}>RESTORE PRO</button></form></details>}
     <p className="pro-fine">Need help with a purchase or refund? <a href="mailto:contact@caplock.ai">contact@caplock.ai</a>. If you lost your code, include your Stripe receipt number. Never send card details.</p>
   </dialog>;
 }

@@ -123,9 +123,10 @@ Generated exports and project backups keep a visible Download File link until
 dismissed or replaced, so they can be saved when a browser blocks the automatic
 download. Recovery codes use a direct download link.
 
-Pro is a **$19 USD one-time purchase** for animated GIFs, sprite-sheet PNGs,
+Pro is **$19 USD for lifetime access, paid once**, for animated GIFs, sprite-sheet PNGs,
 sprite and Tiled tilemap ZIP packages, and named export presets. Existing presets
-are retained. There are no ads or recurring charges.
+are retained. Access lasts for as long as PixelWall is available. There are no
+ads or recurring charges.
 
 ### Connection
 
@@ -166,27 +167,27 @@ it. A won dispute restores eligibility.
 
 ### Recovery and privacy
 
-After payment, returning to PixelWall issues a signed recovery code and an
+After a paid or fully discounted checkout, returning to PixelWall issues a signed recovery code and an
 HttpOnly, SameSite cookie. A separate private checkout cookie ties the return to
 the browser that started the purchase; a Checkout Session ID alone cannot claim
 someone else's payment. An unfinished checkout can be resumed; completed or
 expired sessions are replaced when the buyer starts a new purchase. Buyers
 download the code and can paste it into **Pro →
-Restore purchase** on another device. It is a bearer license: anyone given a
+Restore Pro** on another device. It is a bearer license: anyone given a
 valid code can restore it. Codes do not restore artwork and are never included
 in project or artwork exports. The app has no automatic email login/recovery.
 
-For a lost code, verify ownership by replying to the email on the successful
-Stripe payment. Do not treat a receipt number alone as proof of ownership. The
+For a lost code, verify ownership by replying to the email on the completed
+Stripe checkout. Do not treat a receipt number alone as proof of ownership. The
 owner can retrieve the Checkout Session ID in Stripe and run:
 
 ```bash
 node --env-file=.env.local scripts/recover-pro.mjs cs_test_EXAMPLE /private/path/pro-recovery.txt
 ```
 
-The tool verifies the payment and writes a new copy of the same code to a private
+The tool verifies the completed order and writes a new copy of the same code to a private
 file, refusing to overwrite an existing file. Deliver it only to the verified
-purchase email. Do not commit recovery files or include them in public logs.
+checkout email. Do not commit recovery files or include them in public logs.
 Support and refund requests go to `contact@caplock.ai`; refunds are performed in
 Stripe, and subsequent paid actions check their current status.
 
@@ -200,6 +201,29 @@ browser, so someone deliberately modifying the open source code can bypass its
 UI. Stripe keys and recovery-code signing stay on the server. No client-side
 `isPro` flag or unverified redirect can unlock the normal product flow.
 
+### Complimentary lifetime access through Stripe
+
+In the live Stripe Dashboard, open **Product catalog → Coupons → PixelWall Pro
+lifetime gift**. This reusable coupon gives 100% off and is restricted to the
+PixelWall Pro product. Create a promotion code beneath it for each recipient,
+set **maximum redemptions to 1**, and optionally add a redemption deadline.
+Use the separate test-mode coupon when testing.
+
+Give the recipient their promotion code and the PixelWall website address.
+They open **Pro → Get Lifetime Pro**, choose **Add promotion code** in Stripe,
+apply the code, and complete the $0 checkout without entering a card. They must
+start checkout from PixelWall, so the app can securely claim the order when they
+return. A generic Stripe Payment Link does not replace this app checkout flow.
+After returning, they save the private recovery code for restoring Pro on their
+own devices. The gift code is redeemed once; the recovery code can be reused.
+
+The coupon's “once” duration describes the discount, not the length of access.
+Deactivating a promotion code prevents future redemptions; it does not revoke
+lifetime access that was already redeemed. Stripe remains the order record.
+Fully discounted checkout verification requires a completed session for the
+correct product, a zero total, a discount equal to the positive subtotal, and no
+PaymentIntent. An open checkout or an unpaid balance never grants access.
+
 ### Launch checks
 
 - Finish one Stripe test checkout, cancel another, retry the return page, restore
@@ -207,6 +231,8 @@ UI. Stripe keys and recovery-code signing stay on the server. No client-side
 - Refund the test purchase and confirm its next paid action is blocked. Automated
   billing tests also cover forged codes, cross-site requests, pending payments,
   wrong prices, outages, disputes, and webhook tampering.
+- Redeem a single-use 100% promotion code in test mode, verify the $0 order grants
+  Pro, restore its recovery code, and confirm the gift code cannot be used again.
 - Before live launch, finish any Stripe account activation/payout requirements,
   confirm the final host/domain, support/refund terms, and applicable tax setup.
   Set `STRIPE_AUTOMATIC_TAX=true` only after configuring the intended Stripe Tax

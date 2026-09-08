@@ -14,8 +14,8 @@ if (!sessionId || !destination) {
     const service = createBillingService({ env: process.env });
     await service.readPurchase(sessionId);
     const code = await service.licenseFor(sessionId);
-    await writeFile(resolve(destination), `PixelWall Pro recovery code\n\n${code}\n\nKeep this code private. Restore it from the Pro menu at ${config.origin}.\n`, { mode: 0o600, flag: "wx" });
-    console.log("Private recovery file created. Deliver only to the verified purchase email.");
+    await writeFile(resolve(destination), `PixelWall lifetime Pro recovery code\n\n${code}\n\nKeep this code private. Restore it from the Pro menu at ${config.origin}.\n`, { mode: 0o600, flag: "wx" });
+    console.log("Private recovery file created. Deliver only to the verified checkout email.");
   } catch (error) {
     console.error(error instanceof Error ? error.message : "Recovery failed.");
     process.exitCode = 1;
