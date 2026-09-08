@@ -18,8 +18,23 @@ onto a wall, mount a crisp pixel frame over it, and draw frame by frame.
 - A compact tilemap lab that paints frames as reusable level tiles and exports a dedicated Tiled-compatible map package with a tileset, flattened preview, and stable frame mapping
 - Stroke-level undo and redo
 - Compact local autosave and portable `.pixelwall` project save/open files
+- A blank-project dialog with a backup download selected by default and in-session Undo recovery of the previous project
+- Persistent navigation to drawing, layers, animation, tilemaps, and reference tools, plus a practical guide with direct links to each workflow
 - Native transparent frame PNGs and configurable sprite packages with horizontal, vertical, or grid sheets, padding, transparent-edge trimming, individual PNGs, and Phaser/Pixi/Aseprite-style JSON
+- Standalone sprite-sheet PNG downloads using the selected frames, layout, and padding, with full untrimmed canvas cells
+- Animated GIF downloads of the active clip at 1×, 2×, 4×, or 8× nearest-neighbor scale, preserving playback direction, timing, and looping
+- Up to eight named export presets saved in this browser for layout, padding, trimming, individual PNGs, and GIF scale
 - Mouse, touch, and keyboard drawing
+
+GIF uses a maximum of 256 colors per frame and binary transparency: alpha below
+128 becomes transparent; other pixels become opaque. Small pixel-art palettes
+retain exact RGB colors. Frame timing is rounded to GIF centiseconds with a
+20 ms minimum; rounding is balanced across the animation. Exports are limited
+to 64 million output pixels across the full playback sequence and processed a
+frame at a time. PNG and project files retain the original artwork.
+
+Export presets contain no artwork or project-specific clip identifiers. They
+stay in local browser storage and are not included in portable project files.
 
 ## Run locally
 

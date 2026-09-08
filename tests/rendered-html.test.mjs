@@ -289,7 +289,7 @@ test("keeps tracing visuals locked to logical pixels", async () => {
   assert.match(pageSource, /className="tilemap-stepper"/);
   assert.match(pageSource, /Paint: Drag or use Arrow Keys \+ Space/);
   assert.doesNotMatch(pageSource, /WORK TOO/);
-  assert.match(pageSource, /SPRITE PACKAGE SETTINGS/);
+  assert.match(pageSource, /SPRITE SHEET &amp; PACKAGE SETTINGS/);
   assert.match(pageSource, /createTilemapExportPlan/);
   assert.match(pageSource, /SPRITE \{referenceTile \+ 1\}\/\{spriteSheet\.frameCount\}/);
   assert.match(pageSource, /\{cellSize\} PX\/CELL/);

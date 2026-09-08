@@ -7,8 +7,10 @@ import {
 } from "./sprite-export.mjs";
 import { createSpriteExportPlan, exportFileStem } from "./sprite-export-core.mjs";
 import { createTilemapExportPlan } from "./tilemap-export-core.mjs";
-import { parseProject, stringifyProject } from "./project-format.mjs";
-import { HelpTip, OnboardingGuide } from "./onboarding";
+import { createBlankProject, parseProject, stringifyProject } from "./project-format.mjs";
+import { HelpTip, OnboardingGuide, type GuideTarget } from "./onboarding";
+import { NewProjectDialog } from "./new-project";
+import { ExportPresets } from "./export-presets";
 import { captureAnalyticsEvent, getAnalyticsConsentStatus, isAnalyticsConfigured } from "./analytics";
 import { AnalyticsConsent } from "./analytics-consent";
 import type {
@@ -902,7 +904,8 @@ export default function Home() {
   const [saveFailed, setSaveFailed] = useState(false);
   const [samplingColor, setSamplingColor] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const [exporting, setExporting] = useState<"frame" | "package" | "tilemap" | null>(null);
+  const [exporting, setExporting] = useState<"frame" | "package" | "sheet" | "gif" | "tilemap" | null>(null);
+  const [gifScale, setGifScale] = useState(4);
   const [exportLayout, setExportLayout] = useState<SheetLayout>("horizontal");
   const [exportClipId, setExportClipId] = useState<number | "all">("all");
   const [exportIndividualFrames, setExportIndividualFrames] = useState(true);
@@ -912,6 +915,7 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const [storageReady, setStorageReady] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -931,7 +935,7 @@ export default function Home() {
   const autosaveFailureActive = useRef(false);
   const editorSource = useRef<"fresh_demo" | "restored_v3" | "upgraded_v2" | "upgraded_v1">("fresh_demo");
   const editorLoadedCaptured = useRef(false);
-  const guideSource = useRef<"automatic" | "footer">("automatic");
+  const guideSource = useRef<"automatic" | "footer" | "toolbar">("automatic");
   const shouldRestoreExportFocus = useRef(false);
   const referenceDrag = useRef<null | {
     pointerId: number;
@@ -2832,6 +2836,7 @@ export default function Home() {
         operation: "save",
         outcome: "success",
       });
+      return true;
     } catch {
       setNotice("Project file could not be created");
       captureAnalyticsEvent("project_file_operation", {
@@ -2840,7 +2845,37 @@ export default function Home() {
         outcome: "failure",
         reason: "serialization_error",
       });
+      return false;
     }
+  }
+
+  function navigateWorkspace(target: GuideTarget) {
+    if (target === "export") {
+      window.scrollTo({ top: 0, behavior: "instant" });
+      setExportMenuOpen(true);
+      window.setTimeout(() => exportFirstOptionRef.current?.focus(), 0);
+      return;
+    }
+    if (target === "reference") setProjectorExpanded(true);
+    window.requestAnimationFrame(() => {
+      const element = document.getElementById(target === "reference" ? "projector-controls" : `workspace-${target}`);
+      element?.scrollIntoView({ block: "start", behavior: "instant" });
+      element?.focus({ preventScroll: true });
+    });
+  }
+
+  function startBlankProject(name: string, nextSize: number, backup: boolean) {
+    if (backup && !saveProjectFile()) return false;
+    const previous = projectSnapshot();
+    const blank = createBlankProject({ name, size: nextSize, palette: STARTER_PALETTE }) as { project: PortableProject; editor: PortableEditor };
+    loadPortableProject(blank.project, blank.editor, "New project ready · Undo restores your previous project");
+    setUndoStack([{ kind: "project", snapshot: previous }]);
+    setTool("pencil");
+    setShowOnion(false);
+    setCursorIndex(0);
+    setNewProjectOpen(false);
+    navigateWorkspace("draw");
+    return true;
   }
 
   async function openProjectFile(event: ChangeEvent<HTMLInputElement>) {
@@ -2934,26 +2969,64 @@ export default function Home() {
     }
   }
 
-  async function exportSpritePackage() {
+  async function exportAnimatedGif() {
+    if (exporting) return;
+    const startedAt = performance.now();
+    const frameSnapshot = cloneFrames(frames);
+    const layerSnapshot = cloneLayers(layers);
+    const clipSnapshot = activeClip ? { ...activeClip, frameIds: [...activeClip.frameIds] } : undefined;
+    const properties = { ...analyticsProjectShape, export_type: "animated_gif", clip_scope: "single" };
+    shouldRestoreExportFocus.current = true;
+    setExportMenuOpen(false);
+    setPlaying(false);
+    setExporting("gif");
+    setNotice("Preparing animated GIF…");
+    exportTriggerRef.current?.focus();
+    captureAnalyticsEvent("export_started", properties);
+    await yieldForPaint();
+    try {
+      const { animationExportPlan, encodeAnimationGif } = await import("./animation-export.mjs");
+      const plan = animationExportPlan(frameSnapshot, clipSnapshot, size, gifScale);
+      const bytes = await encodeAnimationGif(plan, (frame: ArtFrame) => {
+        const canvas = createFrameCanvas(frame, layerSnapshot, size);
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (!context) throw new Error("The browser could not render the animation");
+        return context.getImageData(0, 0, size, size).data;
+      }, async (done: number, total: number) => {
+        setNotice(`Building GIF · ${done} of ${total} frames`);
+        await yieldForPaint();
+      });
+      const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+      downloadBlob(new Blob([buffer], { type: "image/gif" }), `${exportFileStem(projectName)}-${exportFileStem(clipSnapshot?.name, "animation")}.gif`);
+      setNotice(`GIF exported · ${plan.width} × ${plan.height}px · ${plan.sequence.length} frames`);
+      captureAnalyticsEvent("export_completed", { ...properties, exported_frame_count: plan.sequence.length, duration_ms: Math.round(performance.now() - startedAt) });
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "GIF export failed. Try a smaller scale.");
+      captureAnalyticsEvent("export_failed", { ...properties, reason: "render_or_encode_error", duration_ms: Math.round(performance.now() - startedAt) });
+    } finally { setExporting(null); }
+  }
+
+  async function exportSpritePackage(format: "package" | "sheet" = "package") {
     if (exporting) return;
     const startedAt = performance.now();
     shouldRestoreExportFocus.current = true;
     setExportMenuOpen(false);
     setPlaying(false);
-    setExporting("package");
-    setNotice("Building sprite package…");
+    setExporting(format);
+    setNotice(format === "sheet" ? "Building sprite sheet…" : "Building sprite package…");
     exportTriggerRef.current?.focus();
     const frameSnapshot = cloneFrames(frames);
     const layerSnapshot = cloneLayers(layers);
     const clipSnapshot = cloneClips(clips);
+    const shouldTrim = format === "package" && exportTrim;
     const exportProperties = {
       ...analyticsProjectShape,
-      export_type: "sprite_package",
+      export_type: format === "sheet" ? "sprite_sheet_png" : "sprite_package",
       clip_scope: exportClipId === "all" ? "all" : "single",
       layout: exportLayout,
       padding: exportPadding,
-      trim: exportTrim,
-      include_individual_frames: exportIndividualFrames,
+      trim: shouldTrim,
+      include_individual_frames: format === "package" && exportIndividualFrames,
     };
     captureAnalyticsEvent("export_started", exportProperties);
     await yieldForPaint();
@@ -2964,7 +3037,7 @@ export default function Home() {
         frames: frameSnapshot.map((frame, index) => ({
           id: frame.id,
           durationMs: frame.durationMs,
-          ...(exportTrim ? { trimBounds: opaqueBounds(renderedFrames[index], size) } : {}),
+          ...(shouldTrim ? { trimBounds: opaqueBounds(renderedFrames[index], size) } : {}),
           ...(frame.pivot ? { pivot: { ...frame.pivot, unit: "pixels" } } : {}),
         })),
         size,
@@ -2982,11 +3055,11 @@ export default function Home() {
           pivot: { ...(slice.pivot ?? pivot), unit: "pixels" },
         })),
         padding: exportPadding,
-        trim: exportTrim,
+        trim: shouldTrim,
         tilemap: selectedClip === null ? { ...tilemap, cells: [...tilemap.cells] } : undefined,
         basename: projectName,
         app: window.location.origin,
-        includeIndividualFrames: exportIndividualFrames,
+        includeIndividualFrames: format === "package" && exportIndividualFrames,
         maxTextureSize: 16_384,
         maxSheetPixels: 16_777_216,
       });
@@ -3009,6 +3082,13 @@ export default function Home() {
           entry.rect.h,
         );
       });
+
+      if (format === "sheet") {
+        downloadBlob(await canvasToPngBlob(sheet), plan.files.sheet);
+        setNotice(`Sprite sheet exported · ${plan.sheet.width} × ${plan.sheet.height}px PNG · ${plan.frames.length} frames`);
+        captureAnalyticsEvent("export_completed", { ...exportProperties, exported_frame_count: plan.frames.length, duration_ms: Math.round(performance.now() - startedAt) });
+        return;
+      }
 
       const [sheetBlob, archiveTools, individualBlobs] = await Promise.all([
         canvasToPngBlob(sheet),
@@ -3041,7 +3121,7 @@ export default function Home() {
         duration_ms: Math.round(performance.now() - startedAt),
       });
     } catch {
-      setNotice("Sprite package export failed — try fewer or smaller frames");
+      setNotice(`${format === "sheet" ? "Sprite sheet" : "Sprite package"} export failed — try fewer or smaller frames`);
       captureAnalyticsEvent("export_failed", {
         ...exportProperties,
         reason: "render_or_package_error",
@@ -3265,7 +3345,15 @@ export default function Home() {
                 <FileImage size={19} />
                 <span><strong>CURRENT FRAME</strong><small>PNG · {size} × {size} PX</small></span>
               </button>
-              <button onClick={exportSpritePackage} disabled={exporting !== null}>
+              <button onClick={exportAnimatedGif} disabled={exporting !== null}>
+                <Play size={19} />
+                <span className="ph-no-capture"><strong>ANIMATED GIF</strong><small>{activeClip?.name ?? "Animation"} · {size * gifScale} × {size * gifScale} PX</small></span>
+              </button>
+              <button onClick={() => exportSpritePackage("sheet")} disabled={exporting !== null}>
+                <Grid2X2 size={19} />
+                <span><strong>SPRITE SHEET</strong><small>PNG · FULL-SIZE FRAME CELLS</small></span>
+              </button>
+              <button onClick={() => exportSpritePackage("package")} disabled={exporting !== null}>
                 <PackageOpen size={19} />
                 <span><strong>SPRITE PACKAGE</strong><small>ZIP · SHEET + JSON{exportIndividualFrames ? " + PNGS" : ""}</small></span>
               </button>
@@ -3282,8 +3370,15 @@ export default function Home() {
                   {!tilemapPlacedCells && <small className="export-disabled-reason">PAINT IN TILEMAP LAB TO ENABLE</small>}
                 </span>
               </button>
-              <div className="export-settings ph-no-capture" role="group" aria-labelledby="sprite-package-settings-title">
-                <strong id="sprite-package-settings-title" className="export-settings-title">SPRITE PACKAGE SETTINGS</strong>
+              <div className="gif-export-settings">
+                <label>GIF SIZE<select value={gifScale} onChange={(event) => setGifScale(Number(event.target.value))}>
+                  {[1, 2, 4, 8].map((scale) => <option key={scale} value={scale}>{scale}× · {size * scale} × {size * scale} px</option>)}
+                </select></label>
+                <small>GIF follows the active animation’s timing, direction, and loop setting. Up to 256 colors; transparency is on or off.</small>
+              </div>
+              <details className="export-settings-group">
+                <summary id="sprite-package-settings-title">SPRITE SHEET &amp; PACKAGE SETTINGS</summary>
+                <div className="export-settings ph-no-capture" role="group" aria-labelledby="sprite-package-settings-title">
                 <label>
                   <span>ANIMATION</span>
                   <select value={exportClipId} onChange={(event) => setExportClipId(event.target.value === "all" ? "all" : Number(event.target.value))}>
@@ -3312,13 +3407,36 @@ export default function Home() {
                   <span>INCLUDE INDIVIDUAL PNGS</span>
                 </label>
                 <small>PIVOT {Math.round(activePivot.x * 10) / 10}, {Math.round(activePivot.y * 10) / 10} · PHASER / PIXI / ASEPRITE JSON</small>
-              </div>
+                <small>Trimming and individual PNGs apply to the ZIP. Sheet PNGs keep full canvas cells.</small>
+                </div>
+              </details>
+              <ExportPresets settings={{ layout: exportLayout, padding: exportPadding, trim: exportTrim, individualFrames: exportIndividualFrames, gifScale }} onApply={(settings) => {
+                setExportLayout(settings.layout);
+                setExportPadding(settings.padding);
+                setExportTrim(settings.trim);
+                setExportIndividualFrames(settings.individualFrames);
+                setGifScale(settings.gifScale);
+              }} />
             </div>
           </div>
         </div>
       </header>
 
-      <section className={`wall-stage ${reference ? "reference-live" : ""} ${projectorExpanded ? "projector-open" : "projector-closed"}`} aria-label="Pixel art canvas mounted in a projector beam">
+      <nav className="workspace-nav" aria-label="Studio navigation">
+        <div className="workspace-links">
+          <button type="button" onClick={() => navigateWorkspace("draw")}><Pencil size={16} /> DRAW</button>
+          <button type="button" onClick={() => navigateWorkspace("layers")}><Layers size={16} /> LAYERS</button>
+          <button type="button" onClick={() => navigateWorkspace("animate")}><Play size={16} /> ANIMATE</button>
+          <button type="button" onClick={() => navigateWorkspace("tilemap")}><MapIcon size={16} /> TILEMAP</button>
+          <button type="button" onClick={() => navigateWorkspace("reference")}><ImagePlus size={16} /> REFERENCE</button>
+        </div>
+        <div className="workspace-links">
+          <button type="button" disabled={!storageReady || exporting !== null} onClick={() => setNewProjectOpen(true)}><Plus size={16} /> NEW PROJECT</button>
+          <button type="button" onClick={() => { guideSource.current = "toolbar"; setGuideOpen(true); }}><span className="guide-nav-icon" aria-hidden="true">?</span> GUIDE</button>
+        </div>
+      </nav>
+
+      <section id="workspace-draw" tabIndex={-1} className={`wall-stage ${reference ? "reference-live" : ""} ${projectorExpanded ? "projector-open" : "projector-closed"}`} aria-label="Pixel art canvas mounted in a projector beam">
         <div className="projector-beam" />
 
         <aside className="tool-rail" aria-label="Drawing tools">
@@ -3505,7 +3623,7 @@ export default function Home() {
               </span>
             </div>
             <input ref={fileInputRef} hidden type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.avif,.bmp,image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp" onChange={handleReference} />
-            <div id="projector-controls" className="projection-controls" hidden={!projectorExpanded}>
+            <div id="projector-controls" tabIndex={-1} className="projection-controls" hidden={!projectorExpanded}>
               <button className="project-action" onClick={() => fileInputRef.current?.click()}><Upload size={15} /> {reference ? "CHANGE IMAGE" : "LOAD IMAGE"}</button>
 
               {referenceDimensions && (
@@ -3652,7 +3770,7 @@ export default function Home() {
       </section>
 
       <section className="control-deck">
-        <div className="layers-panel">
+        <div id="workspace-layers" tabIndex={-1} className="layers-panel">
           <div className="layers-heading">
             <span className="panel-label-with-help">
               <span className="panel-kicker">LAYERS <b>{String(layers.length).padStart(2, "0")}</b></span>
@@ -3768,7 +3886,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="frames-panel">
+        <div id="workspace-animate" tabIndex={-1} className="frames-panel">
           <div className="frames-heading">
             <span className="panel-label-with-help">
               <span className="panel-kicker">FRAMES <b>{String(frames.length).padStart(2, "0")}</b></span>
@@ -3840,7 +3958,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="tilemap-panel">
+        <div id="workspace-tilemap" tabIndex={-1} className="tilemap-panel">
           <div className="tilemap-heading">
             <span className="panel-label-with-help">
               <span className="panel-kicker">TILEMAP LAB</span>
@@ -3950,7 +4068,8 @@ export default function Home() {
           setGuideOpen(true);
         }} />
       </footer>
-      <OnboardingGuide open={guideOpen} onDismiss={dismissGuide} />
+      <OnboardingGuide open={guideOpen} onDismiss={dismissGuide} onExplore={(target) => { dismissGuide("got_it"); window.setTimeout(() => navigateWorkspace(target), 0); }} />
+      <NewProjectDialog open={newProjectOpen} sizes={GRID_SIZES} onClose={() => setNewProjectOpen(false)} onCreate={startBlankProject} />
     </>
   );
 }
