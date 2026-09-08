@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const GUIDE_ITEMS = [
   { target: "draw", title: "01 · Draw a sprite", text: "Choose a color and draw. P selects the pencil, E erases, and F fills. Use + / − to zoom, Hand (H) to drag the view, and Fit (0) to see the whole canvas. Undo lets you try things freely.", action: "Show canvas" },
@@ -22,16 +23,68 @@ export function HelpTip({ id, label, text }: HelpTipProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLSpanElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const button = buttonRef.current;
+    const popover = popoverRef.current;
+    if (!button || !popover) return;
+    const viewport = window.visualViewport;
+
+    function placeTip() {
+      if (!button || !popover) return;
+      const margin = 12;
+      const gap = 7;
+      const leftEdge = (viewport?.offsetLeft ?? 0) + margin;
+      const topEdge = (viewport?.offsetTop ?? 0) + margin;
+      const rightEdge = leftEdge + (viewport?.width ?? document.documentElement.clientWidth) - margin * 2;
+      const bottomEdge = topEdge + (viewport?.height ?? window.innerHeight) - margin * 2;
+      const anchor = button.getBoundingClientRect();
+
+      // The portal escapes the studio's clipped containers; these bounds also
+      // keep it inside the visible viewport during scrolling and pinch zoom.
+      popover.style.maxWidth = `${Math.max(1, rightEdge - leftEdge)}px`;
+      const below = Math.max(0, bottomEdge - anchor.bottom - gap);
+      const above = Math.max(0, anchor.top - gap - topEdge);
+      const fullHeight = popover.scrollHeight + popover.offsetHeight - popover.clientHeight;
+      const openAbove = fullHeight > below && above > below;
+      popover.style.maxHeight = `${Math.max(1, openAbove ? above : below)}px`;
+      const tip = popover.getBoundingClientRect();
+      const left = Math.max(leftEdge, Math.min(anchor.left, rightEdge - tip.width));
+      const preferredTop = openAbove ? anchor.top - gap - tip.height : anchor.bottom + gap;
+      const top = Math.max(topEdge, Math.min(preferredTop, bottomEdge - tip.height));
+      popover.style.left = `${left}px`;
+      popover.style.top = `${top}px`;
+      popover.style.visibility = anchor.bottom < topEdge || anchor.top > bottomEdge || anchor.right < leftEdge || anchor.left > rightEdge ? "hidden" : "visible";
+    }
+
+    placeTip();
+    const observer = new ResizeObserver(placeTip);
+    observer.observe(button);
+    observer.observe(popover);
+    window.addEventListener("resize", placeTip);
+    window.addEventListener("scroll", placeTip, true);
+    viewport?.addEventListener("resize", placeTip);
+    viewport?.addEventListener("scroll", placeTip);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", placeTip);
+      window.removeEventListener("scroll", placeTip, true);
+      viewport?.removeEventListener("resize", placeTip);
+      viewport?.removeEventListener("scroll", placeTip);
+    };
+  }, [open, text]);
 
   useEffect(() => {
     if (!open) return;
 
     function closeOnOutsidePointer(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(event.target as Node) && !popoverRef.current?.contains(event.target as Node)) setOpen(false);
     }
 
     function closeOnOutsideFocus(event: FocusEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(event.target as Node) && !popoverRef.current?.contains(event.target as Node)) setOpen(false);
     }
 
     function closeOnEscape(event: KeyboardEvent) {
@@ -58,14 +111,18 @@ export function HelpTip({ id, label, text }: HelpTipProps) {
         className="help-tip-button"
         aria-label={label}
         aria-expanded={open}
-        aria-controls={id}
+        aria-controls={open ? id : undefined}
+        aria-describedby={open ? id : undefined}
         onClick={() => setOpen((value) => !value)}
       >
         <span aria-hidden="true">?</span>
       </button>
-      <span id={id} className="help-tip-popover" role="tooltip" hidden={!open}>
-        {text}
-      </span>
+      {open && createPortal(
+        <span ref={popoverRef} id={id} className="help-tip-popover" role="tooltip">
+          {text}
+        </span>,
+        document.body,
+      )}
     </span>
   );
 }

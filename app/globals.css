@@ -165,11 +165,17 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 }
 .help-tip-button[aria-expanded="true"] { background: var(--mint); }
 .help-tip-popover {
-  position: absolute;
-  top: calc(100% + 7px);
+  position: fixed;
+  top: 0;
   left: 0;
   z-index: 90;
   width: 210px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+  visibility: hidden;
   padding: 9px 10px;
   border: 2px solid var(--ink);
   background: var(--yellow);
@@ -181,8 +187,6 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   text-transform: none;
   white-space: normal;
 }
-.help-tip-popover[hidden] { display: none; }
-.project-title .help-tip-popover { left: 50%; transform: translateX(-50%); }
 
 .header-actions {
   display: flex;
@@ -1582,7 +1586,6 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   .slice-list input, .pivot-controls input, .frame-settings label, .animation-bar input, .animation-bar select, .animation-bar button { min-height: 44px; }
   .size-select-wrap select, .scale-value-input input, .export-settings select, .export-settings .export-number input, .layer-row input, .slice-list input, .pivot-controls input, .frame-settings select, .frame-settings input, .animation-bar input, .animation-bar select { font-size: 16px; }
   .help-tip-button { width: 26px; height: 26px; }
-  .help-tip-popover { width: min(210px, calc(100vw - 40px)); }
   .quick-guide { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); box-shadow: 5px 5px 0 var(--coral); }
   .quick-guide-card { padding: 19px 16px 16px; }
   .quick-guide-list { margin-block: 16px; }
