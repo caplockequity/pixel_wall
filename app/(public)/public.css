@@ -50,10 +50,11 @@
 .document-header { max-width: 820px; padding: 48px 0 56px; }
 .document-header .site-button { margin-top: 16px; }
 .document-body { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 64px; }
-.contents { align-self: start; position: sticky; top: 24px; border-top: 2px solid #171628; padding-top: 16px; font-size: .85rem; }
-.contents nav { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
-.contents a { text-decoration: none; }
-.contents a:hover { text-decoration: underline; }
+.document-toc { display: block; min-width: 0; align-self: start; position: sticky; top: 24px; border-top: 2px solid #171628; padding-top: 16px; font-size: .85rem; }
+.document-toc nav { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.document-toc a { text-decoration: none; }
+.document-toc a:hover { text-decoration: underline; }
+.document-article { min-width: 0; }
 .article-section { margin-bottom: 48px; scroll-margin-top: 24px; max-width: 75ch; overflow-wrap: anywhere; }
 .article-section h2 { font-size: 1.7rem; }
 .article-section ul { padding-left: 1.4em; }
@@ -82,6 +83,6 @@
 .guide-card h2 { font-size: 1.65rem; }
 .skip-link { position: absolute; left: 16px; top: -100px; z-index: 100; padding: 12px 20px; background: #ffe66d; border: 2px solid #171628; }
 .skip-link:focus { top: 12px; }
-@media (max-width: 800px) { .home-hero { gap: 36px; } .document-body { grid-template-columns: 1fr; gap: 32px; } .contents { position: static; } .contents nav { flex-direction: row; flex-wrap: wrap; } .related-links { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 800px) { .home-hero { gap: 36px; } .document-body { grid-template-columns: 1fr; gap: 32px; } .document-toc { position: static; } .document-toc nav { flex-direction: row; flex-wrap: wrap; } .related-links { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) { .site-header { min-height: 78px; gap: 16px; flex-wrap: wrap; padding-block: 16px; } .site-header nav { gap: 16px; } .site-brand { font-size: 1.15rem; } .home-hero, .saving-section, .home-pricing, .price-grid, .workflow-grid, .guide-grid { grid-template-columns: 1fr; } .hero-art { max-width: 400px; } .home-section { padding-block: 40px; } .home-hero h1 { font-size: 3.7rem; } .document-header { padding-block: 36px; } .site-footer { grid-template-columns: 1fr 1fr; } .site-footer > div:first-child { grid-column: 1 / -1; } .related-links { grid-template-columns: 1fr; } .price-summary { justify-self: start; } }
 @media (prefers-reduced-motion: reduce) { .site-button { transition: none; } }

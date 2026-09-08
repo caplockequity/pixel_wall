@@ -15,8 +15,8 @@ export function DocumentPage({ page }: { page: ContentPage }) {
     <header className="document-header"><p className="eyebrow">{page.eyebrow}</p><h1>{page.title}</h1><p className="lede">{page.intro}</p>{!['privacy', 'terms'].includes(page.slug) && <a className="site-button" href="/editor">Open the editor <span aria-hidden="true">↗</span></a>}</header>
     {page.slug === "pricing" && <PricingTable />}
     <div className="document-body">
-      <aside className="contents"><strong>On this page</strong><nav aria-label="On this page">{page.sections.map((section) => <a key={section.heading} href={`#${sectionId(section.heading)}`}>{section.heading}</a>)}{page.faqs?.length ? <a href="#questions">Common questions</a> : null}</nav></aside>
-      <article>
+      <aside className="document-toc"><strong>On this page</strong><nav aria-label="On this page">{page.sections.map((section) => <a key={section.heading} href={`#${sectionId(section.heading)}`}>{section.heading}</a>)}{page.faqs?.length ? <a href="#questions">Common questions</a> : null}</nav></aside>
+      <article className="document-article">
         {page.sections.map((section) => <section className="article-section" key={section.heading} id={sectionId(section.heading)}>
           <h2>{section.heading}</h2>
           {section.paragraphs?.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
