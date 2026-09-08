@@ -45,8 +45,15 @@ export function billingConfig(env) {
     const url = new URL(env.PIXELWALL_SITE_URL ?? "");
     if (url.protocol === "https:" || (mode === "test" && url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) origin = url.origin;
   } catch { /* Incomplete setup is reported without exposing configuration. */ }
+  const origins = [origin];
+  for (const value of (env.PIXELWALL_ADDITIONAL_ORIGINS ?? "").split(",")) {
+    try {
+      const url = new URL(value.trim());
+      if (url.protocol === "https:") origins.push(url.origin);
+    } catch { /* Only explicitly configured HTTPS storefronts are accepted. */ }
+  }
   const ready = Boolean(origin && new RegExp(`^(?:sk|rk)_${mode}_`).test(secret) && /^price_[a-zA-Z0-9]+$/.test(price) && signingSecret.length >= 32);
-  return { mode, secret, price, signingSecret, webhookSecret, origin, ready, automaticTax: env.STRIPE_AUTOMATIC_TAX === "true" };
+  return { mode, secret, price, signingSecret, webhookSecret, origin, origins, ready, automaticTax: env.STRIPE_AUTOMATIC_TAX === "true" };
 }
 
 export function createBillingService({ env, fetch: fetcher = globalThis.fetch, crypto = globalThis.crypto, now = Date.now }) {
@@ -171,7 +178,8 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
       }
       if (request.method !== "POST") return response({ error: "Not found." }, 404);
       requireReady();
-      if (request.headers.get("origin") !== config.origin || (request.headers.get("sec-fetch-site") && !["same-origin", "none"].includes(request.headers.get("sec-fetch-site")))) throw new BillingError("Please open PixelWall directly to continue.", 403, "origin_mismatch");
+      const requestOrigin = request.headers.get("origin");
+      if (!config.origins.includes(requestOrigin) || (request.headers.get("sec-fetch-site") && !["same-origin", "none"].includes(request.headers.get("sec-fetch-site")))) throw new BillingError("Please open PixelWall directly to continue.", 403, "origin_mismatch");
       if (action === "authorize") {
         const code = cookie(request, COOKIE);
         if (!code) throw new BillingError("This export is included in PixelWall Pro.", 402, "pro_required");
@@ -203,8 +211,8 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
           mode: "payment", "line_items[0][price]": config.price, "line_items[0][quantity]": "1",
           "payment_method_types[0]": "card", customer_creation: "always", client_reference_id: reference,
           "metadata[app]": APP, "metadata[offer]": "pro-one-time", "payment_intent_data[metadata][app]": APP,
-          success_url: `${config.origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${config.origin}/?checkout=cancelled`,
+          success_url: `${requestOrigin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${requestOrigin}/?checkout=cancelled`,
           "automatic_tax[enabled]": String(config.automaticTax),
           "custom_text[after_submit][message]": "Return to PixelWall after payment to save your private Pro recovery code. Keep it to restore access on another device.",
         }, "POST", `pixelwall-checkout-${reference}`);

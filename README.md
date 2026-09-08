@@ -139,7 +139,12 @@ are retained. There are no ads or recurring charges.
    read, Charges read, and Disputes read. Never put keys in browser code or Git.
 3. Set `PIXELWALL_SITE_URL` to the exact canonical origin used by visitors (no path),
    such as `http://localhost:3000` or the site's HTTPS address. Checkout return URLs
-   and request-origin checks use this value. Use a separate configuration per host.
+   and request-origin checks use this value. If the same deployment also serves
+   other storefront domains, list their exact HTTPS origins in
+   `PIXELWALL_ADDITIONAL_ORIGINS`, separated by commas. Checkout returns to the
+   approved origin where it started, preserving the buyer's private claim cookie
+   and browser artwork. Unlisted origins remain blocked. Use separate test/live
+   configurations.
 4. Generate `PIXELWALL_LICENSE_SECRET` as at least 32 random characters. **Back up
    this secret and keep it stable** across redeploys. Changing it invalidates all
    issued recovery codes. Use separate secrets for test and live.

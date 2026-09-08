@@ -7,14 +7,14 @@ const env = { STRIPE_MODE: "test", STRIPE_SECRET_KEY: "sk_test_example", STRIPE_
 const id = "cs_test_example12345678";
 const claim = "a".repeat(64);
 const clock = 1788894000000;
-function setup() {
+function setup(overrides = {}) {
   const state = {
     calls: [], outage: false,
     price: { active: true, type: "one_time", currency: "usd", unit_amount: 1900, livemode: false },
     purchase: { id, mode: "payment", livemode: false, metadata: { app: "pixelwall-pro-v1" }, status: "complete", payment_status: "paid", client_reference_id: createHash("sha256").update(claim).digest("hex"), line_items: { has_more: false, data: [{ price: { id: env.STRIPE_PRICE_ID }, quantity: 1 }] }, payment_intent: { status: "succeeded", latest_charge: { id: "ch_example", status: "succeeded", paid: true, amount: 1900, amount_refunded: 0, refunded: false, disputed: false } } },
     dispute: "needs_response",
   };
-  const service = createBillingService({ env, crypto: webcrypto, now: () => clock, fetch: async (input, options) => {
+  const service = createBillingService({ env: { ...env, ...overrides }, crypto: webcrypto, now: () => clock, fetch: async (input, options) => {
     const url = new URL(input); state.calls.push({ url, options });
     if (state.outage) throw new Error("offline");
     if (url.pathname.includes("/prices/")) return Response.json(state.price);
@@ -66,6 +66,22 @@ test("an unexpected Stripe price cannot be charged", async () => {
   const { state, request } = setup(); state.price.unit_amount = 19000;
   assert.equal((await request("checkout")).status, 503);
   assert.equal(state.calls.length, 1);
+});
+test("configured storefront aliases retain checkout cookies and reject untrusted return origins", async () => {
+  const alias = "https://pixelwall-alias.example";
+  const { state, request } = setup({ PIXELWALL_ADDITIONAL_ORIGINS: `${alias},http://insecure.example,invalid` });
+  const checkout = await request("checkout", undefined, `pixelwall_checkout=${claim}`, { Origin: alias });
+  assert.equal(checkout.status, 200);
+  const params = state.calls.at(-1).options.body;
+  assert.equal(params.get("success_url"), `${alias}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
+  assert.equal(params.get("cancel_url"), `${alias}/?checkout=cancelled`);
+  const claimed = await request("claim", { sessionId: id }, checkout.headers.get("set-cookie").split(";")[0], { Origin: alias });
+  assert.equal(claimed.status, 200);
+  const calls = state.calls.length;
+  for (const origin of ["https://evil.example", "http://insecure.example"]) {
+    assert.equal((await request("checkout", undefined, "", { Origin: origin })).status, 403);
+  }
+  assert.equal(state.calls.length, calls);
 });
 test("successful purchase claims Pro and restores on another browser", async () => {
   const { request } = setup();
