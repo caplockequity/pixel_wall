@@ -292,7 +292,7 @@ test("keeps tracing visuals locked to logical pixels", async () => {
   assert.match(pageSource, /SPRITE SHEET &amp; PACKAGE SETTINGS/);
   assert.match(pageSource, /createTilemapExportPlan/);
   assert.match(pageSource, /SPRITE \{referenceTile \+ 1\}\/\{spriteSheet\.frameCount\}/);
-  assert.match(pageSource, /\{cellSize\} PX\/CELL/);
+  assert.match(pageSource, /\{cellSize\}× ZOOM/);
   assert.match(cssSource, /--font-geist-sans:\s*ui-sans-serif/);
   assert.match(cssSource, /--font-geist-mono:\s*ui-monospace/);
   assert.match(cssSource, /--text-micro:\s*11px/);

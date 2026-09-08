@@ -11,6 +11,7 @@ import { createBlankProject, parseProject, stringifyProject } from "./project-fo
 import { HelpTip, OnboardingGuide, type GuideTarget } from "./onboarding";
 import { NewProjectDialog } from "./new-project";
 import { ExportPresets } from "./export-presets";
+import { CELL_SIZES, useCanvasView } from "./use-canvas-view";
 import { captureAnalyticsEvent, getAnalyticsConsentStatus, isAnalyticsConfigured } from "./analytics";
 import { AnalyticsConsent } from "./analytics-consent";
 import type {
@@ -35,6 +36,7 @@ import {
   FlipVertical,
   FolderOpen,
   Grid2X2,
+  Hand,
   ImagePlus,
   Layers,
   Lock,
@@ -61,7 +63,7 @@ import {
 } from "lucide-react";
 
 type Pixel = string | null;
-type Tool = "pencil" | "eraser" | "fill" | "picker" | "select" | "pivot";
+type Tool = "pencil" | "eraser" | "fill" | "picker" | "select" | "pivot" | "hand";
 type ArtLayer = {
   id: number;
   name: string;
@@ -179,7 +181,6 @@ const STARTER_PALETTE = [
   "#f8f0df",
 ];
 const GRID_SIZES = [8, 16, 24, 32, 48, 64, 96, 128, 256];
-const CELL_SIZES = [1, 2, 4, 8, 12, 16, 24, 32, 48, 64];
 const REFERENCE_SCALE_MIN = 1;
 const REFERENCE_SCALE_MAX = 10_000;
 const REFERENCE_POSITION_MAX = 5_000;
@@ -928,6 +929,9 @@ export default function Home() {
   const projectorToggleRef = useRef<HTMLButtonElement>(null);
   const referenceLayerRef = useRef<HTMLButtonElement>(null);
   const activePointer = useRef<number | null>(null);
+  const { viewportRef, changeCellSize, fitCellSize, fitView, panning, panHandlers } = useCanvasView(
+    canvasRef, activePointer, size, cellSize, setCellSize, tool === "hand",
+  );
   const lastPainted = useRef<number | null>(null);
   const strokeRecorded = useRef(false);
   const activeFrameRef = useRef(activeFrame);
@@ -1553,6 +1557,7 @@ export default function Home() {
   }
 
   function applyTool(index: number, indices = [index]) {
+    if (tool === "hand") return;
     if (tool === "picker") {
       const x = index % size;
       const y = Math.floor(index / size);
@@ -1581,7 +1586,7 @@ export default function Home() {
   }
 
   function toolWouldChange(index: number, indices = [index]) {
-    if (tool === "picker" || tool === "select" || tool === "pivot") return false;
+    if (tool === "picker" || tool === "select" || tool === "pivot" || tool === "hand") return false;
     if (tool === "fill") return (currentPixels[index] ?? null) !== selectedColor;
     const color = tool === "eraser" ? null : selectedColor;
     const targetIndices = tileSettings.linkEdges ? linkedEdgeCells(indices, size) : indices;
@@ -1600,7 +1605,7 @@ export default function Home() {
   }
 
   function beginStroke(event: ReactPointerEvent<HTMLCanvasElement>) {
-    if (playing || adjustingReference || event.button !== 0 || !event.isPrimary || activePointer.current !== null) return;
+    if (playing || adjustingReference || tool === "hand" || event.button !== 0 || !event.isPrimary || activePointer.current !== null) return;
     const index = indexFromPointer(event.clientX, event.clientY);
     if (index === null) return;
     setCursorIndex(index);
@@ -1730,6 +1735,21 @@ export default function Home() {
     }
     const commandKey = event.metaKey || event.ctrlKey;
     const lowerKey = event.key.toLowerCase();
+    if (!commandKey && (event.key === "+" || event.key === "=" || event.key === "-" || event.key === "0")) {
+      event.preventDefault();
+      if (event.key === "0") fitView();
+      else changeCellSize(event.key === "-" ? -1 : 1);
+      return;
+    }
+    if (tool === "hand" && event.key.startsWith("Arrow")) {
+      event.preventDefault();
+      const distance = event.shiftKey ? 160 : 64;
+      viewportRef.current?.scrollBy({
+        left: event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0,
+        top: event.key === "ArrowUp" ? -distance : event.key === "ArrowDown" ? distance : 0,
+      });
+      return;
+    }
     if (commandKey && lowerKey === "a") {
       event.preventDefault();
       setTool("select");
@@ -1782,11 +1802,13 @@ export default function Home() {
       f: "fill",
       s: "select",
       o: "pivot",
+      h: "hand",
     };
-    const shortcutTool = toolShortcut[event.key.toLowerCase()];
+    const shortcutTool = !commandKey && !event.altKey ? toolShortcut[event.key.toLowerCase()] : undefined;
     if (shortcutTool) {
       event.preventDefault();
       setTool(shortcutTool);
+      stopReferenceAdjustment();
       return;
     }
     if (event.key.toLowerCase() === "g") {
@@ -1876,21 +1898,6 @@ export default function Home() {
     setCellSize(fitCellSize(nextSize));
     setNotice(`Canvas resized to ${nextSize} × ${nextSize}`);
     captureProjectStructure("canvas", "resize", size, nextSize);
-  }
-
-  function fitCellSize(targetSize = size) {
-    const viewportWidth = window.innerWidth;
-    const availableWidth = viewportWidth <= 560
-      ? viewportWidth - 115
-      : viewportWidth <= 800
-        ? viewportWidth - 270
-        : viewportWidth <= 1050
-          ? viewportWidth - 325
-          : viewportWidth - 370;
-    const availableHeight = viewportWidth <= 560 ? 350 : viewportWidth <= 800 ? 470 : 520;
-    const drawableSpace = Math.max(120, Math.min(availableWidth, availableHeight));
-    const ideal = Math.max(1, Math.floor(drawableSpace / targetSize));
-    return CELL_SIZES.filter((option) => option <= ideal).at(-1) ?? CELL_SIZES[0];
   }
 
   function addFrame() {
@@ -2914,13 +2921,6 @@ export default function Home() {
     }
   }
 
-  function changeCellSize(direction: -1 | 1) {
-    const currentIndex = CELL_SIZES.indexOf(cellSize);
-    const normalizedIndex = currentIndex >= 0 ? currentIndex : CELL_SIZES.findIndex((option) => option > cellSize) - 1;
-    const nextIndex = clamp(normalizedIndex + direction, 0, CELL_SIZES.length - 1);
-    setCellSize(CELL_SIZES[nextIndex]);
-  }
-
   function toggleExportMenu() {
     if (exporting) return;
     const nextOpen = !exportMenuOpen;
@@ -3447,6 +3447,7 @@ export default function Home() {
             ["picker", Pipette, "Sample color", "I"],
             ["select", MousePointer2, "Select and move", "S"],
             ["pivot", Crosshair, "Set export pivot", "O"],
+            ["hand", Hand, "Hand — drag to move canvas", "H"],
           ] as const).map(([value, Icon, label, shortcut]) => (
             <button
               key={value}
@@ -3457,7 +3458,9 @@ export default function Home() {
                   setTool(value);
                   stopReferenceAdjustment();
                 }
+                canvasRef.current?.focus({ preventScroll: true });
               }}
+              title={`${label} (${shortcut})`}
               aria-label={`${label} tool`}
               aria-pressed={tool === value || value === "picker" && samplingColor}
             >
@@ -3495,7 +3498,7 @@ export default function Home() {
             <div className="canvas-view-bar" role="group" aria-label="Canvas view controls">
               <span className="canvas-bar-label">
                 VIEW
-                <HelpTip id="canvas-help-tip" label="Canvas help" text="Pick a tool. Draw." />
+                <HelpTip id="canvas-help-tip" label="Canvas help" text="Use + and − to zoom. Select Hand (H) and drag to move around, then Pencil (P) to draw. You can also middle-drag or scroll to move, and Ctrl/⌘ + scroll to zoom at the pointer. Fit (0) shows the whole canvas. Zoom does not change your artwork’s size." />
               </span>
               <button className={showGrid ? "active" : ""} onClick={() => {
                 const enabled = !showGrid;
@@ -3511,72 +3514,76 @@ export default function Home() {
               }} aria-pressed={showOnion} aria-label="Toggle onion skin">
                 {showOnion ? <Eye size={15} /> : <EyeOff size={15} />}<span>ONION</span>
               </button>
-              <div className="view-zoom" aria-label="Workspace pixel size">
-                <button onClick={() => changeCellSize(-1)} disabled={cellSize === CELL_SIZES[0]} aria-label="Make workspace pixels smaller"><Minus size={14} /></button>
-                <strong>{cellSize} PX/CELL</strong>
-                <button onClick={() => changeCellSize(1)} disabled={cellSize === CELL_SIZES.at(-1)} aria-label="Make workspace pixels larger"><Plus size={14} /></button>
+              <div className="view-zoom" aria-label="Canvas zoom">
+                <button onClick={() => changeCellSize(-1)} disabled={cellSize === CELL_SIZES[0]} aria-label="Zoom out" title="Zoom out (−)"><Minus size={14} /></button>
+                <strong title={`Each artwork pixel is displayed ${cellSize} pixels wide`}>{cellSize}× ZOOM</strong>
+                <button onClick={() => changeCellSize(1)} disabled={cellSize === CELL_SIZES.at(-1)} aria-label="Zoom in" title="Zoom in (+)"><Plus size={14} /></button>
               </div>
-              <button className="view-fit" onClick={() => setCellSize(fitCellSize())}><LocateFixed size={14} /><span>FIT</span></button>
+              <button className="view-fit" onClick={fitView} title="Fit the whole canvas (0)"><LocateFixed size={14} /><span>FIT</span></button>
             </div>
           </div>
-          <div className="canvas-viewport">
-            <div className="frame-rig">
-              <span className="frame-screw screw-a" /><span className="frame-screw screw-b" />
-              <span className="frame-screw screw-c" /><span className="frame-screw screw-d" />
-              <div className="art-surface ph-no-capture" style={surfaceStyle}>
-                <div className="transparent-grid" />
-                {reference && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="projection-image ph-no-capture" src={reference} alt="Projected reference" style={referenceStyle} />
-                )}
-                {showOnion && frames.length > 1 && (
-                  <FrameBitmap frame={previousFrame} layers={layers} size={size} className="onion-layer" />
-                )}
-                <canvas
-                  ref={canvasRef}
-                  className={`pixel-canvas ph-no-capture ${tool === "picker" ? "picker-active" : ""} ${tool === "select" ? "select-active" : ""}`}
-                  width={size}
-                  height={size}
-                  aria-label={`${size} by ${size} pixel editor`}
-                  aria-describedby="canvas-keyboard-help canvas-cursor-status"
-                  tabIndex={0}
-                  onPointerDown={beginStroke}
-                  onPointerMove={continueStroke}
-                  onPointerUp={endStroke}
-                  onPointerCancel={endStroke}
-                  onLostPointerCapture={() => { activePointer.current = null; lastPainted.current = null; strokeRecorded.current = false; selectionDrag.current = null; }}
-                  onKeyDown={handleCanvasKey}
-                />
-                <span id="canvas-cursor-status" className="visually-hidden" aria-live="polite">
-                  Row {Math.floor(cursorIndex / size) + 1}, column {(cursorIndex % size) + 1}. {tool} tool. {currentPixels[cursorIndex] ?? "transparent"}.
-                </span>
-                {showGrid && <div className="grid-overlay" aria-hidden="true" />}
-                <div className="keyboard-cursor" style={keyboardCursorStyle} aria-hidden="true" />
-                {selection && <div className="selection-outline" style={selectionStyle} aria-hidden="true" />}
-                {tool === "pivot" && <div className="pivot-marker" style={pivotStyle} aria-label={`Export pivot at ${activePivot.x}, ${activePivot.y}`}><Crosshair size={15} /></div>}
-                {reference && adjustingReference && (
-                  <button
-                    type="button"
-                    ref={referenceLayerRef}
-                    className="projection-adjust-layer"
-                    aria-label={`Move projected image. Scale ${referenceTransform.scale} percent, X ${Math.round(referenceTransform.x)}, Y ${Math.round(referenceTransform.y)}.`}
-                    onPointerDown={beginReferenceDrag}
-                    onPointerMove={continueReferenceDrag}
-                    onPointerUp={endReferenceDrag}
-                    onPointerCancel={endReferenceDrag}
-                    onLostPointerCapture={() => { referenceDrag.current = null; }}
-                    onKeyDown={handleReferenceKey}
-                  >
-                    <span><Move size={14} /> DRAG IMAGE</span>
-                  </button>
-                )}
+          <div ref={viewportRef} className={`canvas-viewport ${tool === "hand" ? "hand-active" : ""} ${panning ? "is-panning" : ""}`} {...panHandlers}>
+            <div className="canvas-workspace">
+              <div className="frame-rig">
+                <span className="frame-screw screw-a" /><span className="frame-screw screw-b" />
+                <span className="frame-screw screw-c" /><span className="frame-screw screw-d" />
+                <div className="art-surface ph-no-capture" style={surfaceStyle}>
+                  <div className="transparent-grid" />
+                  {reference && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img className="projection-image ph-no-capture" src={reference} alt="Projected reference" style={referenceStyle} />
+                  )}
+                  {showOnion && frames.length > 1 && (
+                    <FrameBitmap frame={previousFrame} layers={layers} size={size} className="onion-layer" />
+                  )}
+                  <canvas
+                    ref={canvasRef}
+                    className={`pixel-canvas ph-no-capture ${tool === "picker" ? "picker-active" : ""} ${tool === "select" ? "select-active" : ""}`}
+                    width={size}
+                    height={size}
+                    aria-label={`${size} by ${size} pixel editor`}
+                    aria-describedby="canvas-keyboard-help canvas-cursor-status"
+                    tabIndex={0}
+                    onPointerDown={beginStroke}
+                    onPointerMove={continueStroke}
+                    onPointerUp={endStroke}
+                    onPointerCancel={endStroke}
+                    onLostPointerCapture={() => { activePointer.current = null; lastPainted.current = null; strokeRecorded.current = false; selectionDrag.current = null; }}
+                    onKeyDown={handleCanvasKey}
+                  />
+                  <span id="canvas-cursor-status" className="visually-hidden" aria-live="polite">
+                    Row {Math.floor(cursorIndex / size) + 1}, column {(cursorIndex % size) + 1}. {tool} tool. {currentPixels[cursorIndex] ?? "transparent"}.
+                  </span>
+                  {showGrid && <div className="grid-overlay" aria-hidden="true" />}
+                  <div className="keyboard-cursor" style={keyboardCursorStyle} aria-hidden="true" />
+                  {selection && <div className="selection-outline" style={selectionStyle} aria-hidden="true" />}
+                  {tool === "pivot" && <div className="pivot-marker" style={pivotStyle} aria-label={`Export pivot at ${activePivot.x}, ${activePivot.y}`}><Crosshair size={15} /></div>}
+                  {reference && adjustingReference && (
+                    <button
+                      type="button"
+                      ref={referenceLayerRef}
+                      className="projection-adjust-layer"
+                      aria-label={`Move projected image. Scale ${referenceTransform.scale} percent, X ${Math.round(referenceTransform.x)}, Y ${Math.round(referenceTransform.y)}.`}
+                      onPointerDown={beginReferenceDrag}
+                      onPointerMove={continueReferenceDrag}
+                      onPointerUp={endReferenceDrag}
+                      onPointerCancel={endReferenceDrag}
+                      onLostPointerCapture={() => { referenceDrag.current = null; }}
+                      onKeyDown={handleReferenceKey}
+                    >
+                      <span><Move size={14} /> DRAG IMAGE</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
           <p id="canvas-keyboard-help" className="canvas-hint">
             {adjustingReference
               ? referencePixelFit ? "PIXEL LOCK ON · DRAG OR ARROWS MOVE ONE CELL · ESC DONE" : "DRAG IMAGE · ARROWS NUDGE · + / − SCALE 1% · ESC DONE"
-              : "Paint: Drag or use Arrow Keys + Space"}
+              : tool === "hand" ? "Hand: Drag or use Arrow Keys to move · P to draw"
+                : "Paint: Drag or use Arrow Keys + Space"}
+            {!adjustingReference && <span>Zoom: + / − · Move: Hand (H) · Show all: Fit (0)</span>}
           </p>
           {selection && (
             <div className="selection-toolbar" aria-label="Selection actions">

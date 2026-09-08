@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 const GUIDE_ITEMS = [
-  { target: "draw", title: "01 · Draw a sprite", text: "Choose a color and draw on the canvas. P selects the pencil, E erases, and F fills an area. Undo lets you try things freely.", action: "Show canvas" },
+  { target: "draw", title: "01 · Draw a sprite", text: "Choose a color and draw. P selects the pencil, E erases, and F fills. Use + / − to zoom, Hand (H) to drag the view, and Fit (0) to see the whole canvas. Undo lets you try things freely.", action: "Show canvas" },
   { target: "reference", title: "02 · Trace a reference", text: "Open Reference and upload an image. Adjust its opacity, then draw over it. The reference stays out of your exported artwork.", action: "Open reference" },
   { target: "animate", title: "03 · Make it move", text: "Duplicate a frame, change a few pixels, and turn on Onion to see the previous frame. Press Play. Name clips to organize movements such as idle and walk.", action: "Show animation" },
   { target: "tilemap", title: "04 · Build a level", text: "Each frame can be a tile. Choose one in the timeline, then paint with it in Tilemap Lab. Seam Check helps you spot gaps between repeating tiles.", action: "Show tilemap" },
