@@ -1650,3 +1650,12 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .pro-restore label { display: grid; gap: 8px; font-size: 13px; }
 .pro-dialog textarea { box-sizing: border-box; width: 100%; padding: 10px; margin-bottom: 12px; resize: vertical; border: 1px solid var(--ink); border-radius: 0; font: 12px monospace; background: #fffaf0; color: var(--ink); overflow-wrap: anywhere; }
 @media (max-width: 520px) { .pro-dialog { padding: 24px 18px; } .pro-plans { grid-template-columns: 1fr; } }
+
+.download-ready { position: fixed; left: 22px; bottom: 22px; z-index: 90; width: min(310px, calc(100vw - 32px)); padding: 16px; border: 2px solid var(--ink); background: var(--cream); box-shadow: 3px 3px 0 var(--ink); }
+.download-ready p { margin: 0 24px 5px 0; font-size: 14px; font-weight: 700; }
+.download-ready small { display: block; overflow-wrap: anywhere; font-size: 12px; }
+.download-ready a { display: block; margin: 12px 0 8px; padding: 10px; border: 1px solid var(--ink); background: #ffe66d; color: var(--ink); text-align: center; text-decoration: none; font-size: 12px; font-weight: 700; }
+.download-ready span { display: block; font-size: 11px; }
+.download-ready button { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border: 0; background: transparent; color: var(--ink); font-size: 22px; cursor: pointer; }
+.pro-dialog a.pro-primary { text-decoration: none; }
+@media (max-width: 600px) { .download-ready { left: 16px; bottom: 80px; } }

@@ -119,6 +119,10 @@ After pushing it to GitHub, import the repository in Vercel; `vercel.json` selec
 
 The free studio includes all drawing, layers, references, animation and tilemap
 editing, individual frame PNGs, browser autosave, and portable project files.
+Generated exports and project backups keep a visible Download File link until
+dismissed or replaced, so they can be saved when a browser blocks the automatic
+download. Recovery codes use a direct download link.
+
 Pro is a **$19 USD one-time purchase** for animated GIFs, sprite-sheet PNGs,
 sprite and Tiled tilemap ZIP packages, and named export presets. Existing presets
 are retained. There are no ads or recurring charges.
@@ -160,7 +164,9 @@ it. A won dispute restores eligibility.
 After payment, returning to PixelWall issues a signed recovery code and an
 HttpOnly, SameSite cookie. A separate private checkout cookie ties the return to
 the browser that started the purchase; a Checkout Session ID alone cannot claim
-someone else's payment. Buyers download the code and can paste it into **Pro →
+someone else's payment. An unfinished checkout can be resumed; completed or
+expired sessions are replaced when the buyer starts a new purchase. Buyers
+download the code and can paste it into **Pro →
 Restore purchase** on another device. It is a bearer license: anyone given a
 valid code can restore it. Codes do not restore artwork and are never included
 in project or artwork exports. The app has no automatic email login/recovery.

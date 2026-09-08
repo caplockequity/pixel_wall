@@ -17,6 +17,10 @@ function response(body, status = 200, headers = {}) {
 function cookie(request, name) {
   return request.headers.get("cookie")?.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1) ?? "";
 }
+function checkoutClaim(request) {
+  const [secret, sessionId] = cookie(request, CLAIM_COOKIE).split(".");
+  return { secret: /^[a-f0-9]{64}$/.test(secret ?? "") ? secret : "", sessionId: SESSION_PATTERN.test(sessionId ?? "") ? sessionId : "" };
+}
 function hex(bytes) { return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join(""); }
 function equal(a, b) {
   if (a.length !== b.length) return false;
@@ -59,7 +63,9 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
     let result;
     try {
       result = await fetcher(url, {
-        method, redirect: "error", signal: AbortSignal.timeout(12000),
+        // Workers supports manual/follow redirects. Reject non-2xx below so the
+        // server key can never be forwarded to a redirected destination.
+        method, redirect: "manual", signal: AbortSignal.timeout(12000),
         headers: {
           Authorization: `Bearer ${config.secret}`,
           ...(method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
@@ -179,8 +185,19 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
           catch (error) { if (!(error instanceof BillingError) || ![403, 404].includes(error.status)) throw error; }
         }
         await priceDetails();
-        const existingClaim = cookie(request, CLAIM_COOKIE);
-        const claim = /^[a-f0-9]{64}$/.test(existingClaim) ? existingClaim : hex(crypto.getRandomValues(new Uint8Array(32)));
+        const existingClaim = checkoutClaim(request);
+        let claim = existingClaim.secret;
+        if (claim && existingClaim.sessionId) {
+          let previous;
+          try { previous = await stripe(`checkout/sessions/${existingClaim.sessionId}`, { "expand[0]": "line_items" }); }
+          catch (error) { if (!(error instanceof BillingError) || error.status !== 404) throw error; }
+          if (previous?.status === "open" && previous.livemode === (config.mode === "live") && previous.metadata?.app === APP && previous.line_items?.data?.[0]?.price?.id === config.price && previous.client_reference_id === await hash(claim, crypto) && previous.url && new URL(previous.url).origin === "https://checkout.stripe.com") {
+            return response({ url: previous.url });
+          }
+          // Completed, refunded, or expired checkout links cannot be reused.
+          claim = "";
+        }
+        claim ||= hex(crypto.getRandomValues(new Uint8Array(32)));
         const reference = await hash(claim, crypto);
         const session = await stripe("checkout/sessions", {
           mode: "payment", "line_items[0][price]": config.price, "line_items[0][quantity]": "1",
@@ -190,15 +207,17 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
           cancel_url: `${config.origin}/?checkout=cancelled`,
           "automatic_tax[enabled]": String(config.automaticTax),
           "custom_text[after_submit][message]": "Return to PixelWall after payment to save your private Pro recovery code. Keep it to restore access on another device.",
-        }, "POST", `pixelwall-${reference}-${Math.floor(now() / 1800000)}`);
-        if (!session.url || new URL(session.url).origin !== "https://checkout.stripe.com") throw new BillingError("Checkout is unavailable. Please try again.", 503);
-        return response({ url: session.url }, 200, { "Set-Cookie": setCookie(CLAIM_COOKIE, claim, 86400) });
+        }, "POST", `pixelwall-checkout-${reference}`);
+        if (!SESSION_PATTERN.test(session.id ?? "") || !session.id.startsWith(`cs_${config.mode}_`) || !session.url || new URL(session.url).origin !== "https://checkout.stripe.com") throw new BillingError("Checkout is unavailable. Please try again.", 503);
+        return response({ url: session.url }, 200, { "Set-Cookie": setCookie(CLAIM_COOKIE, `${claim}.${session.id}`, 86400) });
       }
       if (action === "claim") {
         const payload = await jsonBody(request);
         const id = typeof payload?.sessionId === "string" ? payload.sessionId : "";
-        const claim = cookie(request, CLAIM_COOKIE);
-        if (!/^[a-f0-9]{64}$/.test(claim)) throw new BillingError("Return in the browser where you started checkout, or restore with your recovery code. Contact support if you need help.", 403, "claim_missing");
+        const storedClaim = checkoutClaim(request);
+        const claim = storedClaim.secret;
+        if (!claim) throw new BillingError("Return in the browser where you started checkout, or restore with your recovery code. Contact support if you need help.", 403, "claim_missing");
+        if (storedClaim.sessionId && storedClaim.sessionId !== id) throw new BillingError("This checkout belongs to a different browser. Use your recovery code to restore Pro.", 403, "claim_mismatch");
         const session = await readPurchase(id);
         if (!equal(session.client_reference_id ?? "", await hash(claim, crypto))) throw new BillingError("This checkout belongs to a different browser. Use your recovery code to restore Pro.", 403, "claim_mismatch");
         const code = await licenseFor(id);

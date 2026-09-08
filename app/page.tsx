@@ -12,6 +12,7 @@ import { HelpTip, OnboardingGuide, type GuideTarget } from "./onboarding";
 import { NewProjectDialog } from "./new-project";
 import { ExportPresets } from "./export-presets";
 import { ProDialog, useProAccess } from "./pro-access";
+import { DownloadReady, useDownload } from "./use-download";
 import { CELL_SIZES, useCanvasView } from "./use-canvas-view";
 import { captureAnalyticsEvent, getAnalyticsConsentStatus, isAnalyticsConfigured } from "./analytics";
 import { AnalyticsConsent } from "./analytics-consent";
@@ -508,17 +509,6 @@ function canvasToPngBlob(canvas: HTMLCanvasElement) {
   });
 }
 
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.download = filename;
-  link.href = url;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 function yieldForPaint() {
   return new Promise<void>((resolve) => {
     let finished = false;
@@ -862,6 +852,7 @@ function clipPlaybackFrameIds(clip: AnimationClip | undefined, frames: ArtFrame[
 
 export default function Home() {
   const proAccess = useProAccess();
+  const { readyFile, downloadBlob, dismissDownload } = useDownload();
   const [size, setSize] = useState(16);
   const [frames, setFrames] = useState<ArtFrame[]>(() => [
     makeFrame(1, makeDemoPixels(16, 0)),
@@ -2839,7 +2830,7 @@ export default function Home() {
     try {
       const source = stringifyProject(portableProject(), portableEditor(), { includeReference: true, pretty: true });
       downloadBlob(new Blob([source], { type: "application/json" }), `${exportFileStem(projectName, "pixelwall-project")}.pixelwall`);
-      setNotice("Portable project saved · reference included");
+      setNotice("Portable project ready · reference included");
       captureAnalyticsEvent("project_file_operation", {
         ...analyticsProjectShape,
         operation: "save",
@@ -2951,7 +2942,7 @@ export default function Home() {
     try {
       const blob = await canvasToPngBlob(createFrameCanvas(frame, layerSnapshot, size));
       downloadBlob(blob, `pixelwall-${spriteFrameFilename(activeFrame, frames.length)}`);
-      setNotice(`Frame ${frameNumber} exported · ${size} × ${size}px PNG`);
+      setNotice(`Frame ${frameNumber} ready · ${size} × ${size}px PNG`);
       captureAnalyticsEvent("export_completed", {
         ...analyticsProjectShape,
         export_type: "frame_png",
@@ -3001,7 +2992,7 @@ export default function Home() {
       });
       const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
       downloadBlob(new Blob([buffer], { type: "image/gif" }), `${exportFileStem(projectName)}-${exportFileStem(clipSnapshot?.name, "animation")}.gif`);
-      setNotice(`GIF exported · ${plan.width} × ${plan.height}px · ${plan.sequence.length} frames`);
+      setNotice(`GIF ready · ${plan.width} × ${plan.height}px · ${plan.sequence.length} frames`);
       captureAnalyticsEvent("export_completed", { ...properties, exported_frame_count: plan.sequence.length, duration_ms: Math.round(performance.now() - startedAt) });
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "GIF export failed. Try a smaller scale.");
@@ -3089,7 +3080,7 @@ export default function Home() {
 
       if (format === "sheet") {
         downloadBlob(await canvasToPngBlob(sheet), plan.files.sheet);
-        setNotice(`Sprite sheet exported · ${plan.sheet.width} × ${plan.sheet.height}px PNG · ${plan.frames.length} frames`);
+        setNotice(`Sprite sheet ready · ${plan.sheet.width} × ${plan.sheet.height}px PNG · ${plan.frames.length} frames`);
         captureAnalyticsEvent("export_completed", { ...exportProperties, exported_frame_count: plan.frames.length, duration_ms: Math.round(performance.now() - startedAt) });
         return;
       }
@@ -3118,7 +3109,7 @@ export default function Home() {
         new Blob([archiveBytes], { type: "application/zip" }),
         plan.files.archive,
       );
-      setNotice(`Sprite package exported · ${plan.frames.length} frames + sheet + JSON${exportIndividualFrames ? " + PNGs" : ""}`);
+      setNotice(`Sprite package ready · ${plan.frames.length} frames + sheet + JSON${exportIndividualFrames ? " + PNGs" : ""}`);
       captureAnalyticsEvent("export_completed", {
         ...exportProperties,
         exported_frame_count: plan.frames.length,
@@ -3235,7 +3226,7 @@ export default function Home() {
       const archive = archiveTools.zipSync(archiveFiles, { level: 0 });
       const archiveBytes = archive.buffer.slice(archive.byteOffset, archive.byteOffset + archive.byteLength) as ArrayBuffer;
       downloadBlob(new Blob([archiveBytes], { type: "application/zip" }), plan.files.archive);
-      setNotice(`Tilemap package exported · ${tilemapSnapshot.width} × ${tilemapSnapshot.height} · ${tilemapPlacedCells} cells · ${tilemapTileTypes} used tiles`);
+      setNotice(`Tilemap package ready · ${tilemapSnapshot.width} × ${tilemapSnapshot.height} · ${tilemapPlacedCells} cells · ${tilemapTileTypes} used tiles`);
       captureAnalyticsEvent("export_completed", {
         ...exportProperties,
         duration_ms: Math.round(performance.now() - startedAt),
@@ -4065,6 +4056,7 @@ export default function Home() {
         </div>
       </section>
 
+        <DownloadReady file={readyFile} onDismiss={dismissDownload} />
         {notice && <div className="toast ph-no-capture" role="status">{notice}</div>}
       </main>
       <footer className="studio-footer">

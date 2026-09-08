@@ -122,11 +122,9 @@ export function ProDialog({ access, beforeCheckout }: { access: ProAccess; befor
     if (access.open && !dialog.current?.open) { dialog.current?.showModal(); heading.current?.focus(); }
     else if (!access.open && dialog.current?.open) dialog.current.close();
   }, [access.open]);
-  function downloadRecovery() {
+  function recoveryDownloadUrl() {
     const content = `PixelWall Pro — private recovery code\n\n${access.recoveryCode}\n\nKeep this file private. Anyone with this code can use your purchase.\nTo restore: open PixelWall, choose Pro, then Restore purchase.\nStore: ${window.location.origin}\nMode: ${access.mode ?? "unknown"}\nSupport: contact@caplock.ai\nThis code restores Pro access, not your artwork. Use Save Project to back up artwork.\n`;
-    const url = URL.createObjectURL(new Blob([content], { type: "text/plain" }));
-    const link = document.createElement("a"); link.href = url; link.download = "pixelwall-pro-recovery.txt"; link.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return `data:text/plain;charset=utf-8,${encodeURIComponent(content)}`;
   }
   return <dialog ref={dialog} className="pro-dialog ph-no-capture" aria-labelledby="pro-title" onCancel={access.close} onClose={access.close}>
     <button type="button" className="pro-close" aria-label="Close Pro details" onClick={access.close}><X size={20} /></button>
@@ -149,7 +147,7 @@ export function ProDialog({ access, beforeCheckout }: { access: ProAccess; befor
     </>}
     {access.message && <p className="pro-message" role="status">{access.message}</p>}
     {access.sessionId && <button type="button" className="pro-secondary" disabled={access.busy} onClick={access.retryClaim}>CHECK MY PAYMENT AGAIN</button>}
-    {access.recoveryCode && <div className="pro-recovery"><h3>Keep your Pro recovery code</h3><p>Use it on another browser or device. This private code restores your purchase; save your artwork separately.</p><textarea aria-label="Private Pro recovery code" readOnly value={access.recoveryCode} rows={3} /><button type="button" className="pro-primary" onClick={downloadRecovery}><Download size={16} /> SAVE RECOVERY CODE</button></div>}
+    {access.recoveryCode && <div className="pro-recovery"><h3>Keep your Pro recovery code</h3><p>Use it on another browser or device. This private code restores your purchase; save your artwork separately.</p><textarea aria-label="Private Pro recovery code" readOnly value={access.recoveryCode} rows={3} /><a className="pro-primary" href={recoveryDownloadUrl()} download="pixelwall-pro-recovery.txt"><Download size={16} /> SAVE RECOVERY CODE</a></div>}
     {!access.pro && <details className="pro-restore"><summary>Already paid? Restore purchase</summary><form onSubmit={(event) => { event.preventDefault(); void access.restore(code); }}><label>Private recovery code<textarea value={code} onChange={(event) => setCode(event.target.value)} placeholder="PW1.…" autoComplete="off" spellCheck={false} rows={3} maxLength={400} required /></label><button type="submit" className="pro-secondary" disabled={access.busy || !code.trim()}>RESTORE PRO</button></form></details>}
     <p className="pro-fine">Need help with a purchase or refund? <a href="mailto:contact@caplock.ai">contact@caplock.ai</a>. If you lost your code, include your Stripe receipt number. Never send card details.</p>
   </dialog>;

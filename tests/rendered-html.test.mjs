@@ -287,7 +287,7 @@ test("keeps tracing visuals locked to logical pixels", async () => {
   assert.match(pageSource, /aria-label="Canvas view controls"/);
   assert.match(pageSource, /ADD TRACE FRAME/);
   assert.match(pageSource, /IMPORT \{spriteSheet\.frameCount\} EDITABLE FRAMES/);
-  assert.match(pageSource, /Portable project saved/);
+  assert.match(pageSource, /Portable project ready/);
   assert.match(pageSource, /PHASER \/ PIXI \/ ASEPRITE JSON/);
   assert.match(pageSource, /SEAM CHECK/);
   assert.match(pageSource, /LINK EDGES/);

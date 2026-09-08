@@ -20,8 +20,10 @@ function setup() {
     if (url.pathname.includes("/prices/")) return Response.json(state.price);
     if (url.pathname === "/v1/checkout/sessions") return Response.json({ id, url: "https://checkout.stripe.com/c/pay/example" });
     if (url.pathname.includes("/checkout/sessions/")) {
-      assert.equal(url.searchParams.get("expand[0]"), "payment_intent.latest_charge");
-      assert.equal(url.searchParams.get("expand[1]"), "line_items");
+      if (url.searchParams.get("expand[0]") !== "line_items") {
+        assert.equal(url.searchParams.get("expand[0]"), "payment_intent.latest_charge");
+        assert.equal(url.searchParams.get("expand[1]"), "line_items");
+      }
       return Response.json(state.purchase);
     }
     if (url.pathname === "/v1/disputes") return Response.json({ data: [{ status: state.dispute }] });
@@ -55,9 +57,10 @@ test("checkout fixes price and return URLs on the server, with a private claim c
   assert.match(options.body.get("success_url"), /^https:\/\/pixelwall.example\//);
   assert.equal(options.body.get("client_reference_id"), state.purchase.client_reference_id);
   assert.equal(options.body.get("automatic_tax[enabled]"), "false");
-  const key = options.headers["Idempotency-Key"];
-  await request("checkout", undefined, `pixelwall_checkout=${claim}`);
-  assert.equal(state.calls.at(-1).options.headers["Idempotency-Key"], key);
+  state.purchase.status = "open"; state.purchase.url = "https://checkout.stripe.com/c/pay/example";
+  const retry = await request("checkout", undefined, response.headers.get("set-cookie").split(";")[0]);
+  assert.equal((await retry.json()).url, state.purchase.url);
+  assert.equal(state.calls.filter(call => call.options.method === "POST").length, 1);
 });
 test("an unexpected Stripe price cannot be charged", async () => {
   const { state, request } = setup(); state.price.unit_amount = 19000;
@@ -145,4 +148,37 @@ test("webhooks verify raw bytes, freshness and mode; retries are harmless", asyn
   const live = body.replace('"livemode":false', '"livemode":true');
   assert.equal((await notification(live, String(clock / 1000), live)).status, 400);
   assert.equal(state.calls.length, 0);
+});
+
+test("Stripe redirects are rejected without forwarding the server key", async () => {
+  let calls = 0;
+  const service = createBillingService({ env, crypto: webcrypto, fetch: async (url, options) => {
+    calls++;
+    assert.equal(new URL(url).origin, "https://api.stripe.com");
+    assert.equal(options.redirect, "manual");
+    return new Response(null, { status: 302, headers: { Location: "https://other.example" } });
+  } });
+  const response = await service.handle(new Request(`${env.PIXELWALL_SITE_URL}/api/billing/checkout`, { method: "POST", headers: { Origin: env.PIXELWALL_SITE_URL } }));
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).code, "stripe_unavailable");
+  assert.equal(calls, 1);
+});
+
+for (const status of ["complete", "expired"]) {
+  test(`a ${status} checkout is replaced so the buyer can try again`, async () => {
+    const { state, request } = setup();
+    state.purchase.status = status;
+    const response = await request("checkout", undefined, `pixelwall_checkout=${claim}.${id}`);
+    assert.equal(response.status, 200);
+    const created = state.calls.find(call => call.options.method === "POST");
+    assert.ok(created);
+    assert.notEqual(created.options.body.get("client_reference_id"), state.purchase.client_reference_id);
+    assert.match(response.headers.get("set-cookie"), /pixelwall_checkout=[a-f0-9]{64}\.cs_test_/);
+  });
+}
+
+test("claim cookies bind the browser to the current checkout session", async () => {
+  const { request } = setup();
+  assert.equal((await request("claim", { sessionId: id }, `pixelwall_checkout=${claim}.${id}`)).status, 200);
+  assert.equal((await request("claim", { sessionId: id }, `pixelwall_checkout=${claim}.cs_test_different12345`)).status, 403);
 });
