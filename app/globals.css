@@ -132,7 +132,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 }
 .status-dot.saving { background: var(--yellow); }
 .status-dot.save-failed { background: var(--coral); }
-.saved-label { color: #625d55; font-size: var(--text-label); }
+.saved-label { max-width: 150px; color: #625d55; font-size: var(--text-label); line-height: 1.35; letter-spacing: .02em; white-space: normal; }
 
 .panel-label-with-help, .canvas-bar-label {
   display: inline-flex;
@@ -1330,6 +1330,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .quick-guide-list button { grid-column: 2; grid-row: 1 / 3; align-self: center; padding: 10px; min-height: 44px; border: 1px solid var(--ink); background: var(--yellow); cursor: pointer; font-size: 14px; font-weight: 750; }
 .guide-intro, .guide-save-note { font-size: 16px; line-height: 1.5; }
 .guide-save-note { padding: 14px; border-left: 4px solid var(--violet); background: #e5dff0; }
+.guide-save-note p { margin: 8px 0 0; }
 .workspace-nav { position: sticky; top: 66px; z-index: 19; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; padding: 8px 26px; border-bottom: 2px solid var(--ink); background: var(--cream); }
 .workspace-links { display: flex; gap: 6px; flex-wrap: wrap; }
 .workspace-nav button { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 7px 10px; border: 1px solid transparent; background: transparent; font-size: 13px; font-weight: 850; cursor: pointer; }

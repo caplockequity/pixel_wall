@@ -116,7 +116,12 @@ export function OnboardingGuide({ open, onDismiss, onExplore }: OnboardingGuideP
             </li>
           ))}
         </ul>
-        <p className="guide-save-note"><strong>Keep a backup.</strong> Autosave lives in this browser. Save Project downloads a complete .pixelwall file, including your reference, that you can open again on another device.</p>
+        <div className="guide-save-note">
+          <strong>How saving works</strong>
+          <p><strong>Autosave</strong> keeps your edits in this browser as you work. Clearing browser data can remove them.</p>
+          <p><strong>Save Project</strong> downloads an editable .pixelwall backup, including your reference image. Open it again here or on another device.</p>
+          <p><strong>Export</strong> downloads your artwork as PNG, GIF, or a game package.</p>
+        </div>
         <button type="button" className="quick-guide-done" onClick={() => onDismiss("got_it")}>GOT IT</button>
       </div>
     </dialog>

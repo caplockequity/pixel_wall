@@ -3307,11 +3307,11 @@ export default function Home() {
             onChange={(event) => setProjectName(event.target.value)}
             aria-label="Project name"
           />
-          <span className="saved-label">{saved ? "SAVED LOCALLY" : saveFailed ? "NOT SAVED" : "SAVING…"}</span>
+          <span className="saved-label">{!storageReady ? "Loading project…" : saved ? "Autosaved in this browser" : saveFailed ? "Autosave failed" : "Autosaving…"}</span>
           <HelpTip
             id="local-save-tip"
             label="How saving works"
-            text="In this browser, not the cloud. Save Project makes a full backup."
+            text="Your edits autosave in this browser. Clearing browser data can remove them. Save Project downloads an editable .pixelwall backup, including your reference image. Export downloads artwork as PNG, GIF, or a game package."
           />
         </div>
 
