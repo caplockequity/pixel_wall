@@ -1,0 +1,879 @@
+[
+  {
+    "slug": "sprite-sheet-maker",
+    "title": "Make a sprite sheet from your pixel-art frames",
+    "description": "Draw and organize pixel-art frames in your browser. Export sprite sheets or PNG-and-JSON packages with PixelWall Pro, a $19 one-time purchase.",
+    "eyebrow": "SPRITE SHEETS",
+    "intro": "Draw a character, create its animation frames, and arrange them in a horizontal, vertical, or compact grid sheet. PixelWall Pro exports a PNG sheet or a ZIP with the sheet and animation metadata. Drawing and editing are free.",
+    "sections": [
+      {
+        "heading": "How it works",
+        "steps": [
+          {
+            "title": "Create your frames",
+            "text": "Open New Project, choose a canvas size, and draw your first sprite. In Animate, use Duplicate frame to make variations or New Frame to start another image."
+          },
+          {
+            "title": "Organize an animation",
+            "text": "Set a clip Name, choose its From and To frames, and adjust each frame's Duration. Select frames in the timeline to edit them."
+          },
+          {
+            "title": "Choose the sheet layout",
+            "text": "Open Export → Sprite Sheet & Package Settings. Choose an Animation, a Layout, and Padding px."
+          },
+          {
+            "title": "Download your sheet or package",
+            "text": "With Pro, choose Sprite Sheet for a PNG with full-size frame cells. Choose Sprite Package for a ZIP containing the sheet and JSON, with optional individual PNGs and transparent-edge trimming."
+          }
+        ]
+      },
+      {
+        "heading": "What is included",
+        "paragraphs": [
+          "Drawing, frame editing, individual frame PNGs, and editable .pixelwall backups are free. Sprite sheets, sprite packages, and named export presets require Pro: $19 USD once. The editor supports up to 64 frames and four layers. Trimming applies to the ZIP package; standalone sheet PNGs keep the full canvas size for every frame."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Can I edit an existing sprite sheet?",
+        "answer": "Yes, for supported strips. Open Reference → Load Image and load a horizontal or vertical strip of 2–64 square frames without spacing. If its frame size matches a supported canvas size, choose Import … Editable Frames. Save your current project first: importing replaces its artwork, layers, and clips. Multi-row atlases and padded sheets are not supported by automatic import."
+      },
+      {
+        "question": "Does the package include JSON?",
+        "answer": "Yes. Sprite Package includes a JSON manifest with frame rectangles, clips, pivots, and Phaser/Pixi/Aseprite-style metadata. Check the import requirements of your chosen engine. This is not a native .aseprite project file."
+      },
+      {
+        "question": "Can I download a single sprite for free?",
+        "answer": "Yes. Select a frame, then choose Export → Current Frame to download its PNG at the canvas's native size. The exported image combines the visible artwork layers."
+      }
+    ],
+    "related": [
+      "pixel-art-animation",
+      "pixel-art-tracing",
+      "tileset-maker",
+      "guides/getting-started"
+    ]
+  },
+  {
+    "slug": "pixel-art-animation",
+    "title": "Animate pixel art one frame at a time",
+    "description": "Animate pixel art with onion skin, named clips, and frame timing. Draw and preview free; export animated GIFs with PixelWall Pro for $19 once.",
+    "eyebrow": "ANIMATION",
+    "intro": "Turn a still sprite into a moving character in your browser. Duplicate frames, use onion skin to guide the next pose, and organize movements into named clips. Drawing and playback are free; animated GIF and sprite-sheet downloads are included in Pro.",
+    "sections": [
+      {
+        "heading": "How it works",
+        "steps": [
+          {
+            "title": "Draw a starting pose",
+            "text": "Create a project and draw a sprite. Open Animate to see its frame in the timeline."
+          },
+          {
+            "title": "Make the next pose",
+            "text": "Choose Duplicate frame, then change a few pixels. Turn on Onion above the canvas to see the previous frame as a guide."
+          },
+          {
+            "title": "Set the movement",
+            "text": "Give the clip a Name, choose its From and To frames, and set Duration per frame or an FPS preset for the clip."
+          },
+          {
+            "title": "Preview the loop",
+            "text": "Choose a Play direction, such as Forward or Ping-Pong, set Loop, and press the play button. Add or adjust frames until the movement reads clearly."
+          },
+          {
+            "title": "Save or export",
+            "text": "Use Save Project to keep an editable backup. With Pro, open Export, choose a GIF Size of 1×, 2×, 4×, or 8×, then choose Animated GIF."
+          }
+        ]
+      },
+      {
+        "heading": "What is included",
+        "paragraphs": [
+          "Creating animations, onion skin, clips, playback, and project backups are free. Animated GIFs, sprite sheets, and sprite packages require Pro: $19 USD once. The editor supports up to 64 frames and four layers. GIF uses up to 256 colors per frame and on/off transparency. Its timing is rounded to hundredths of a second, with a 20 ms minimum per frame."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Can one project contain an idle animation and a walk animation?",
+        "answer": "Yes. Use Add animation clip, give each clip a name, and choose its frame range. Select the clip you want to preview from Clip."
+      },
+      {
+        "question": "Which animation does the GIF export?",
+        "answer": "The active clip. GIF export follows that clip's frame timing, playback direction, and loop setting. The separate Animation choice in sprite-sheet settings controls sheet and package exports."
+      },
+      {
+        "question": "Can I export an animation for a game?",
+        "answer": "Yes. Pro offers Sprite Sheet for a PNG arranged in full-size cells and Sprite Package for a sheet plus JSON metadata. Choose the format your game's import workflow expects."
+      }
+    ],
+    "related": [
+      "sprite-sheet-maker",
+      "pixel-art-tracing",
+      "guides/getting-started"
+    ]
+  },
+  {
+    "slug": "pixel-art-tracing",
+    "title": "Trace your reference into pixel art",
+    "description": "Load a reference image, align it behind a pixel grid, and draw over it in your browser. Trace for free and download your finished sprite as a PNG.",
+    "eyebrow": "REFERENCE TRACING",
+    "intro": "Place a photo, sketch, or sprite behind the canvas, then draw the pixels yourself. PixelWall's reference projector lets you adjust the image's position, size, and opacity while your artwork stays on separate layers.",
+    "sections": [
+      {
+        "heading": "How it works",
+        "steps": [
+          {
+            "title": "Choose your grid",
+            "text": "Use New Project to create a blank canvas, such as 16 × 16 or 32 × 32. Keep a backup of existing work when prompted."
+          },
+          {
+            "title": "Load a reference",
+            "text": "Open Reference → Load Image and choose an image from your device."
+          },
+          {
+            "title": "Line it up",
+            "text": "Adjust Opacity and Image Scale. Use Move Image to position the reference, then finish adjusting. For a pixel reference, Match 1:1 Pixels aligns one source pixel with one canvas cell."
+          },
+          {
+            "title": "Draw your version",
+            "text": "Select Pencil and a color, then trace the shapes you want. Use Eraser, Fill, and additional Layers as needed. Add Trace Frame creates another blank frame over the same reference."
+          },
+          {
+            "title": "Save your work",
+            "text": "Choose Export → Current Frame for a PNG of your artwork. Use Save Project for an editable backup that also includes the reference."
+          }
+        ]
+      },
+      {
+        "heading": "What is included",
+        "paragraphs": [
+          "Reference loading, positioning, tracing, layers, PNG downloads, and project backups are free. Choose from square canvases of 8, 16, 24, 32, 48, 64, 96, 128, or 256 pixels per side. The reference stays on your device and is excluded from exported artwork, but it is included in your saved .pixelwall project."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Does PixelWall automatically convert a photo into pixel art?",
+        "answer": "No. The image is a drawing reference. You choose the colors and place the pixels yourself. Supported sprite strips can also be imported directly as editable frames."
+      },
+      {
+        "question": "Will the reference show up in my PNG?",
+        "answer": "No. Artwork exports include your visible drawing layers, not the projected reference. A saved .pixelwall project includes the reference so you can continue tracing later."
+      },
+      {
+        "question": "Can I trace one sprite at a time from a sheet?",
+        "answer": "Yes, when PixelWall detects a supported horizontal or vertical strip of square sprites. Choose Use … Grid if offered, then use Previous sprite and Next sprite to align each reference with the canvas. Use Add Trace Frame when you need another blank drawing frame."
+      }
+    ],
+    "related": [
+      "pixel-art-animation",
+      "sprite-sheet-maker",
+      "guides/getting-started"
+    ]
+  },
+  {
+    "slug": "tileset-maker",
+    "title": "Draw your tiles and build a map with them",
+    "description": "Draw pixel-art tiles, check repeating seams, and paint a tilemap in your browser. Tiled-compatible map packages are included in PixelWall Pro.",
+    "eyebrow": "TILESETS & MAPS",
+    "intro": "Make ground, wall, or background tiles as pixel-art frames, then paint with them in Tilemap Lab. Check a tile's repeat while drawing and keep its artwork and map together in one editable project.",
+    "sections": [
+      {
+        "heading": "How it works",
+        "steps": [
+          {
+            "title": "Draw a tile",
+            "text": "Start a project at your chosen tile size. Draw the first tile, then use New Frame or Duplicate frame in Animate for additional tiles."
+          },
+          {
+            "title": "Check the repeat",
+            "text": "Open Layers and turn on Seam Check to see the active tile repeated in a 3 × 3 preview. Link Edges links opposite border edits while you draw."
+          },
+          {
+            "title": "Set up the map",
+            "text": "Open Tilemap and choose the map's Width and Height in cells."
+          },
+          {
+            "title": "Paint with your frames",
+            "text": "Select a frame in the timeline, return to Tilemap Lab, choose Paint, and place that tile. Use Erase to remove map cells. Editing the source frame updates its placed copies."
+          },
+          {
+            "title": "Save or export",
+            "text": "Use Save Project to keep the editable tiles and map. With Pro, choose Export → Tilemap Package for a ZIP containing the Tiled-compatible map, tileset PNG, preview PNG, and frame-mapping JSON."
+          }
+        ]
+      },
+      {
+        "heading": "What is included",
+        "paragraphs": [
+          "Tile drawing, seam preview, linked edges, map painting, individual frame PNGs, and project backups are free. The Tiled-compatible tilemap ZIP requires Pro: $19 USD once. A map can be up to 64 × 64 cells. All tiles use the project's square canvas size, and the editor supports up to 64 frames. Paint at least one map cell before exporting a tilemap package."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Does Seam Check fix a tile automatically?",
+        "answer": "No. It repeats the active tile so you can spot visible joins. You edit the pixels; Link Edges helps keep opposite borders connected while drawing."
+      },
+      {
+        "question": "Which frames go into the exported tileset?",
+        "answer": "The tilemap package includes all project frames in a stable tileset, including frames not yet placed in the map. Its mapping file connects exported tiles to their source frames. For a sheet of animation frames, use Sprite Sheet or Sprite Package instead."
+      },
+      {
+        "question": "Does the map include collisions or animated tiles?",
+        "answer": "The current export is a static tile layer with its tileset and placement data. Add collision shapes, object layers, or animated-tile behavior in Tiled or your game engine."
+      }
+    ],
+    "related": [
+      "sprite-sheet-maker",
+      "pixel-art-animation",
+      "guides/getting-started"
+    ]
+  },
+  {
+    "slug": "guides/getting-started",
+    "title": "Draw and save your first PixelWall sprite",
+    "description": "Make your first pixel-art sprite in PixelWall. Learn the canvas, drawing tools, layers, PNG export, and editable project backups in five short steps.",
+    "eyebrow": "GETTING STARTED",
+    "intro": "Start with a small canvas and a simple shape, such as a coin or heart. You can draw, use layers, and download a PNG without an account or purchase. This guide takes you from a blank project to an image you can keep.",
+    "sections": [
+      {
+        "heading": "Your first sprite, step by step",
+        "steps": [
+          {
+            "title": "Start a blank project",
+            "text": "Choose New Project, enter a project name, select 16 × 16, and choose Create Project. Leave the backup option selected if you want to keep the project already open."
+          },
+          {
+            "title": "Place your first pixels",
+            "text": "Choose Pencil or press P, select a color, and draw an outline. Use Eraser (E) to remove pixels and Fill (F) to fill a connected area. Undo lets you revise a stroke."
+          },
+          {
+            "title": "Make the canvas comfortable",
+            "text": "Use + and − to zoom. Choose Hand (H) to move the view and Fit (0) to see the whole canvas. Zoom changes the view, not your artwork's pixel dimensions."
+          },
+          {
+            "title": "Add color and detail",
+            "text": "In Layers, choose Add layer if you want to separate details from the base artwork. The eye shows or hides a layer; the lock protects it from edits. You can create up to four layers."
+          },
+          {
+            "title": "Download both versions",
+            "text": "Choose Export → Current Frame for the finished PNG. Choose Save Project for a .pixelwall file that preserves editable frames, layers, and any reference. Later, use Open Project to continue working."
+          }
+        ]
+      },
+      {
+        "heading": "What is included",
+        "paragraphs": [
+          "Drawing, layers, reference tools, animation and tilemap editing, individual frame PNGs, autosave, and project files are free. Pro is $19 USD once for animated GIFs, sprite sheets, sprite and tilemap ZIP packages, and named export presets. The editor supports square canvas presets from 8 × 8 through 256 × 256, up to 64 frames, and four layers."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Where is my project saved?",
+        "answer": "Your current project autosaves in this browser. Browser storage is not an online account or cloud backup; clearing it can remove your work. Keep a downloaded Save Project backup for anything you want to preserve or move to another device."
+      },
+      {
+        "question": "What is the difference between Save Project and Export?",
+        "answer": "Save Project downloads editable .pixelwall data, including your reference image. Export downloads finished artwork: a PNG, GIF, sprite sheet, or game package. Exported artwork leaves out the projected reference."
+      },
+      {
+        "question": "How do I turn this sprite into an animation?",
+        "answer": "Open Animate, use Duplicate frame, and change a few pixels in the new frame. Turn on Onion for a guide, then press the play button. Animation editing and preview are free; GIF and sprite-sheet export require Pro."
+      }
+    ],
+    "related": [
+      "pixel-art-tracing",
+      "pixel-art-animation",
+      "sprite-sheet-maker",
+      "tileset-maker",
+      "guides/desert-signal"
+    ]
+  },
+  {
+    "slug": "guides/export-formats",
+    "title": "Pixel art export formats",
+    "description": "Choose the right PixelWall export: transparent PNG, sprite sheet, animated GIF, sprite atlas package, Tiled tilemap package, or editable project backup.",
+    "eyebrow": "Export reference",
+    "intro": "Choose a format for the next step in your project. Current-frame PNGs and editable project backups are free. GIFs, sprite sheets, sprite packages, tilemap packages, and saved export presets require Pro.",
+    "sections": [
+      {
+        "heading": "Choose your export",
+        "items": [
+          "Current Frame: one transparent PNG at the canvas dimensions, ready to share or import into another tool.",
+          "Sprite Sheet: one PNG with full canvas cells in horizontal, vertical, or compact-grid layout.",
+          "Sprite Package: a ZIP with a sheet PNG, JSON atlas metadata, and optional individual PNGs. Use it for named animations, trimming, pivots, and per-frame timing.",
+          "Animated GIF: the active clip at 1×, 2×, 4×, or 8× size, following its timing, direction, and loop setting.",
+          "Tilemap Package: a ZIP with Tiled map JSON, a tileset PNG, a flattened preview PNG, and PixelWall mapping JSON.",
+          "Save Project: an editable .pixelwall file, including the reference image, for backups and moving artwork between browsers."
+        ]
+      },
+      {
+        "heading": "What is inside a sprite package?",
+        "paragraphs": [
+          "For a project named Hero with only its Walk clip selected, the download is hero-walk-sprites.zip. It contains hero-walk-sheet.png, hero-walk.json, and optionally hero-walk-001.png, hero-walk-002.png, and so on. Exporting all clips omits the clip name: hero-sprites.zip, hero-sheet.png, and hero.json.",
+          "The JSON includes named frames with atlas rectangles, original dimensions, trimmed offsets, duration in milliseconds, and normalized pivot and anchor positions. Its animations section maps clip names to playback sequences. The phaser section adds animation recipes, and the pixelwall section preserves source frame IDs, layout, pivots, clips, and slice data. Sprite metadata uses pixelwall.sprite-atlas schema version 2.",
+          "Padding adds transparent space around and between entries. Trimming applies only to the sprite package sheet. Standalone sheet PNGs and optional individual PNGs keep their full canvas dimensions. The JSON records the offsets needed to place trimmed sprites within their original frames.",
+          "The package uses Aseprite-style JSON fields, not a native .aseprite file. Aseprite-style frame tags describe contiguous ranges; other frame sequences remain represented in the animations, phaser, and pixelwall sections."
+        ]
+      },
+      {
+        "heading": "GIF color and timing limits",
+        "paragraphs": [
+          "GIF uses at most 256 colors per frame and on/off transparency. Alpha below 128 becomes transparent; other pixels become opaque. Durations are rounded to GIF centiseconds with a 20 ms minimum, balancing rounding across the animation.",
+          "GIF exports are limited to 64 million output pixels across the full playback sequence. Large canvases, long clips, and higher scaling increase that total. PNGs and .pixelwall project files preserve the original artwork."
+        ]
+      },
+      {
+        "heading": "What is inside a tilemap package?",
+        "paragraphs": [
+          "For a project called Hero, hero-tilemap.zip contains four files. Keep them together after extracting the ZIP."
+        ],
+        "items": [
+          "hero-tilemap.json: the map to open in Tiled.",
+          "hero-tiles.png: all project frames arranged into a tileset at native tile size.",
+          "hero-tilemap-preview.png: a flattened preview capped to 2048 pixels per dimension by the editor.",
+          "hero-tilemap.pixelwall.json: source frame IDs, tile IDs, map cells, and preview information."
+        ]
+      },
+      {
+        "heading": "Tilemap format and limits",
+        "paragraphs": [
+          "The map contains one finite orthogonal tile layer, square tiles, an embedded tileset definition, and zero tile margin or spacing. It does not export collision objects or animated-tile definitions. Each project frame becomes an available tile.",
+          "The mapping file uses pixelwall.tilemap-package schema version 1. The emitted Tiled JSON format declaration is 1.10, with tiledversion set to 1.10.2. These declarations describe the output format; they do not identify a desktop application version used to test the export."
+        ],
+        "links": [
+          {
+            "href": "https://docs.mapeditor.org/en/stable/reference/json-map-format/",
+            "label": "Tiled JSON format reference"
+          }
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Can I export a transparent PNG for free?",
+        "answer": "Yes. Export → Current Frame downloads the active frame as a transparent PNG at the canvas dimensions. Save Project backups are also free."
+      },
+      {
+        "question": "Does a sprite sheet PNG include animation timing?",
+        "answer": "No. A standalone sheet contains only the image. Choose Sprite Package to include JSON with clip names, frame order, timing, and other metadata."
+      },
+      {
+        "question": "Can exported images replace my project backup?",
+        "answer": "Use Save Project to keep an editable .pixelwall backup. Artwork exports flatten the rendered frames and are intended for sharing or integration."
+      }
+    ],
+    "related": [
+      "sprite-sheet-maker",
+      "pixel-art-animation",
+      "tileset-maker",
+      "guides/phaser-sprite-sheets",
+      "guides/pixijs-animated-sprites",
+      "guides/tiled-tilemaps",
+      "pricing"
+    ]
+  },
+  {
+    "slug": "guides/phaser-sprite-sheets",
+    "title": "Load pixel art sprites in Phaser",
+    "description": "Load PixelWall sprite packages into Phaser with named atlas frames, animation recipes, per-frame timing, and the exported playback order.",
+    "eyebrow": "Phaser guide",
+    "intro": "Export a Sprite Package to bring PixelWall's named frames and animation timing into a Phaser scene. This example follows the linked Phaser 3 APIs; check your installed version.",
+    "sections": [
+      {
+        "heading": "Prepare the sprite package",
+        "steps": [
+          {
+            "title": "Name the project and clip",
+            "text": "Use Hero as the project name and Walk as the animation clip name for this example."
+          },
+          {
+            "title": "Select the clip",
+            "text": "Open Export → Sprite Sheet & Package Settings and select Walk under Animation."
+          },
+          {
+            "title": "Download the package",
+            "text": "Choose Sprite Package. This requires Pro. Extract hero-walk-sprites.zip into your game's assets/hero/ folder."
+          },
+          {
+            "title": "Keep the atlas files together",
+            "text": "The example uses hero-walk-sheet.png and hero-walk.json. Optional individual PNG files are not required for atlas playback."
+          }
+        ]
+      },
+      {
+        "heading": "Load the atlas and create its animations",
+        "paragraphs": [
+          "Add these methods to your Phaser scene. The atlas loader reads the image and frame rectangles. Loading the JSON separately also makes PixelWall's animation recipes available to the scene."
+        ],
+        "code": "preload() {\n  this.load.atlas(\n    'hero-walk',\n    'assets/hero/hero-walk-sheet.png',\n    'assets/hero/hero-walk.json'\n  );\n  this.load.json('hero-walk-data', 'assets/hero/hero-walk.json');\n}\n\ncreate() {\n  const data = this.cache.json.get('hero-walk-data');\n  for (const recipe of data.phaser.animations) {\n    this.anims.create({ ...recipe, sortFrames: false });\n  }\n  const firstFrame = data.animations.Walk[0];\n  this.add.sprite(160, 120, 'hero-walk', firstFrame)\n    .setScale(4)\n    .play('Walk');\n}",
+        "links": [
+          {
+            "href": "https://docs.phaser.io/api-documentation/class/loader-loaderplugin#atlas",
+            "label": "Phaser atlas loader"
+          }
+        ]
+      },
+      {
+        "heading": "Preserve timing and playback order",
+        "paragraphs": [
+          "PixelWall expands reverse and ping-pong clips into their intended frame order. Do not add another yoyo pass. The animation recipes use per-frame milliseconds with a 1 ms base animation duration, following Phaser's documented timing approach. This adds approximately 1 ms per complete sequence.",
+          "Keep the atlas key consistent with the keys in the exported animation recipes. Use unique animation names if several assets contain a clip called Walk. Clip names are case-sensitive."
+        ],
+        "links": [
+          {
+            "href": "https://docs.phaser.io/phaser/concepts/animations#frame-timing",
+            "label": "Phaser frame timing and animation configuration"
+          }
+        ]
+      },
+      {
+        "heading": "Check the result in your game",
+        "items": [
+          "Missing image: check the image and JSON paths, then confirm the atlas key.",
+          "Missing animation: match the exported clip name exactly and confirm the animation frames reference the loaded atlas.",
+          "Wrong frame order: preserve the explicit exported sequence and do not add yoyo behavior to an already expanded ping-pong clip.",
+          "Standalone PNG sheet: use a regular spritesheet loader with your frame dimensions and padding. That image does not contain JSON animation timing."
+        ]
+      }
+    ],
+    "related": [
+      "sprite-sheet-maker",
+      "guides/export-formats",
+      "pixel-art-animation",
+      "guides/pixijs-animated-sprites"
+    ]
+  },
+  {
+    "slug": "guides/pixijs-animated-sprites",
+    "title": "Animate pixel art sprites in PixiJS",
+    "description": "Use a PixelWall sprite package in PixiJS with named textures, per-frame durations, exported anchors, and looping or play-once animation.",
+    "eyebrow": "PixiJS guide",
+    "intro": "A PixelWall Sprite Package contains JSON that PixiJS Assets can load as a spritesheet. This example follows the linked PixiJS 8 APIs; check your installed version.",
+    "sections": [
+      {
+        "heading": "Prepare the files",
+        "steps": [
+          {
+            "title": "Create the clip",
+            "text": "Name your PixelWall project Hero and create an animation clip named Walk."
+          },
+          {
+            "title": "Export the selected animation",
+            "text": "Select Walk in Sprite Sheet & Package Settings, then download Sprite Package with Pro."
+          },
+          {
+            "title": "Extract the package",
+            "text": "Place hero-walk.json beside hero-walk-sheet.png in assets/hero/. The JSON meta.image field points to that PNG."
+          }
+        ]
+      },
+      {
+        "heading": "Create an animation with the exported timing",
+        "paragraphs": [
+          "This JavaScript example assumes you already have an initialized PixiJS application named app. It pairs each atlas texture with the frame duration saved by PixelWall."
+        ],
+        "code": "import { AnimatedSprite, Assets } from 'pixi.js';\n\nconst sheet = await Assets.load('assets/hero/hero-walk.json');\nconst data = sheet.data;\nconst clip = data.pixelwall.clips.find((item) => item.name === 'Walk');\nconst frames = data.animations.Walk.map((name) => ({\n  texture: sheet.textures[name],\n  time: data.frames[name].duration,\n}));\n\nconst sprite = new AnimatedSprite(frames);\nsprite.animationSpeed = 1;\nsprite.loop = clip.repeat === -1;\nsprite.updateAnchor = true;\nsprite.position.set(160, 120);\nsprite.scale.set(4);\napp.stage.addChild(sprite);\nsprite.play();",
+        "links": [
+          {
+            "href": "https://pixijs.download/release/docs/assets.Spritesheet.html",
+            "label": "PixiJS Spritesheet reference"
+          },
+          {
+            "href": "https://pixijs.download/release/docs/scene.AnimatedSprite.html",
+            "label": "PixiJS AnimatedSprite reference"
+          }
+        ]
+      },
+      {
+        "heading": "Keep frame timing, anchors, and direction",
+        "paragraphs": [
+          "The parsed sheet exposes both textures and the original JSON. PixelWall's animation list already contains the forward, reverse, or ping-pong playback order.",
+          "Passing only sheet.animations.Walk would provide the texture sequence without its individual frame durations. The example uses texture/time objects to retain unequal timing. updateAnchor applies the exported anchor when the frame changes.",
+          "The snippet supports the editor's looping and play-once settings. Custom finite repeat counts would need additional playback logic."
+        ]
+      },
+      {
+        "heading": "Check the result in your project",
+        "items": [
+          "Missing PNG: verify meta.image and keep the referenced image beside the JSON, or update that relative path.",
+          "Undefined Walk animation: use the exact capitalization of the exported clip name.",
+          "Unexpected speed: keep animationSpeed at 1 when using the exported millisecond timings.",
+          "Blurry pixels: use nearest-neighbor texture sampling in your PixiJS setup and integer display scaling."
+        ]
+      }
+    ],
+    "related": [
+      "pixel-art-animation",
+      "sprite-sheet-maker",
+      "guides/export-formats",
+      "guides/phaser-sprite-sheets"
+    ]
+  },
+  {
+    "slug": "guides/tiled-tilemaps",
+    "title": "Open a pixel art tilemap in Tiled",
+    "description": "Move a PixelWall Tilemap Lab project into Tiled using its map JSON, tileset PNG, preview image, and stable source-frame mapping.",
+    "eyebrow": "Tiled guide",
+    "intro": "Tilemap Lab treats project frames as reusable tiles. Its dedicated Tilemap Package exports the map and tileset together for a Tiled workflow. The format follows the linked Tiled reference; check your installed version.",
+    "sections": [
+      {
+        "heading": "Export and open the map",
+        "steps": [
+          {
+            "title": "Draw tiles and paint the map",
+            "text": "Create your tiles as project frames, then paint at least one cell in Tilemap Lab."
+          },
+          {
+            "title": "Download Tilemap Package",
+            "text": "Choose Export → Tilemap Package. This requires Pro and is separate from Sprite Package."
+          },
+          {
+            "title": "Extract the ZIP",
+            "text": "For a project called Hero, open hero-tilemap.json in Tiled. Keep hero-tiles.png beside it so the relative image reference resolves."
+          },
+          {
+            "title": "Preserve the source artwork",
+            "text": "Save further Tiled edits as a separate map file, and keep a .pixelwall project backup for editing your original artwork."
+          }
+        ]
+      },
+      {
+        "heading": "Understand the package",
+        "items": [
+          "hero-tilemap.json contains the map and an embedded tileset definition; no external TSX file is required.",
+          "hero-tiles.png contains all project frames at native tile size.",
+          "hero-tilemap-preview.png is a flattened preview, capped to 2048 pixels per dimension by the editor.",
+          "hero-tilemap.pixelwall.json records the source frame IDs, tile IDs, and original map cells."
+        ],
+        "paragraphs": [
+          "The exported map has one finite orthogonal tile layer called Tile Layer 1. Its square cells match the PixelWall canvas size, and the tileset has zero margin and spacing. Tiled's JSON format describes map dimensions, layers, tilesets, and image references."
+        ],
+        "links": [
+          {
+            "href": "https://docs.mapeditor.org/en/stable/reference/json-map-format/",
+            "label": "Tiled JSON map format"
+          }
+        ]
+      },
+      {
+        "heading": "Keep tile IDs consistent across exports",
+        "paragraphs": [
+          "A map cell with tile ID zero is empty. PixelWall sorts all project frames by stable frame ID and assigns tile IDs in that order. Reordering the timeline does not change the mapping.",
+          "Adding or deleting frames can change numeric tile IDs. Keep the PixelWall mapping JSON if your pipeline needs to match source frames across exports. Do not assume that IDs in a Sprite Package match IDs in a Tilemap Package."
+        ]
+      },
+      {
+        "heading": "Continue map work in Tiled",
+        "paragraphs": [
+          "The preview PNG is a picture of the map, not the editable map file. A reduced preview does not reduce the native tileset resolution.",
+          "The export does not create collision objects or animated-tile definitions. Named selection slices are not converted to collision objects; add the object or collision data your game needs in Tiled.",
+          "The generated JSON declares format version 1.10 and tiledversion 1.10.2. These are format declarations, not evidence of a desktop runtime test. PixelWall does not promise round-trip import of Tiled maps."
+        ]
+      }
+    ],
+    "related": [
+      "tileset-maker",
+      "guides/export-formats",
+      "sprite-sheet-maker"
+    ]
+  },
+  {
+    "slug": "pricing",
+    "title": "Free studio. Pro exports for $19 once.",
+    "description": "Compare PixelWall Free and Pro. Drawing, animation editing, PNGs and project files are free. Pro export tools cost $19 USD once, with no subscription.",
+    "eyebrow": "PRICING",
+    "intro": "Start drawing without an account or purchase. Pro adds the exports for sharing animations and taking sprites and maps into a game.",
+    "sections": [
+      {
+        "heading": "One purchase, no subscription",
+        "paragraphs": [
+          "PixelWall Pro costs $19 USD once. Taxes may apply. It includes the Pro features listed here for as long as PixelWall is available. Open the editor and choose Pro to check availability and purchase securely through Stripe."
+        ]
+      },
+      {
+        "heading": "Keep your artwork and purchase recoverable",
+        "paragraphs": [
+          "Your artwork autosaves in this browser. Save Project downloads an editable .pixelwall backup; a purchase does not create cloud storage.",
+          "After checkout, save your private Pro recovery code. Use Pro → Restore Pro on another browser or device. The code restores access, not artwork. Keep it private: anyone with the code can restore Pro."
+        ]
+      },
+      {
+        "heading": "Purchase help and refunds",
+        "paragraphs": [
+          "Contact contact@caplock.ai for purchase support or a refund request. If your recovery code is lost, include your Stripe receipt number so support can locate the payment and verify ownership. Do not send card details."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Can I make an animation for free?",
+        "answer": "Yes. Frame editing, onion skin, named clips, and playback are free. Animated GIF, sprite-sheet and sprite-package exports require Pro."
+      },
+      {
+        "question": "Do I need an account?",
+        "answer": "The editor does not require an account. Projects stay in your browser or downloaded .pixelwall files. Pro access uses a browser cookie and a private recovery code."
+      },
+      {
+        "question": "Can I move my project to another device?",
+        "answer": "Download it with Save Project, transfer the .pixelwall file, then use Open Project on the other device. Restore Pro separately with your recovery code if needed."
+      }
+    ],
+    "related": [
+      "guides/getting-started",
+      "guides/export-formats",
+      "support"
+    ]
+  },
+  {
+    "slug": "about",
+    "title": "About PixelWall",
+    "description": "PixelWall is a browser pixel-art studio by CapLock. Draw from references, animate sprites, build tilemaps, and keep editable projects on your device.",
+    "eyebrow": "ABOUT",
+    "intro": "PixelWall is a pixel-art studio by CapLock, built around a simple idea: place a reference behind a crisp pixel canvas and draw your own version, one frame at a time.",
+    "sections": [
+      {
+        "heading": "From a reference to an animation",
+        "paragraphs": [
+          "The studio brings drawing, four layers, reference alignment, animation clips, and a small tilemap workspace together. You can export a single PNG for free or use Pro for GIFs, sprite sheets, and game packages."
+        ]
+      },
+      {
+        "heading": "Your project stays close",
+        "paragraphs": [
+          "Artwork and references are edited on your device. The current project autosaves in this browser, and portable .pixelwall files let you keep backups and move work between devices. PixelWall does not provide cloud project sync."
+        ]
+      },
+      {
+        "heading": "Talk to CapLock",
+        "paragraphs": [
+          "Questions, feedback, and purchase support are welcome at contact@caplock.ai."
+        ],
+        "links": [
+          {
+            "href": "mailto:contact@caplock.ai",
+            "label": "Email CapLock"
+          }
+        ]
+      }
+    ],
+    "related": [
+      "pricing",
+      "privacy",
+      "guides/getting-started"
+    ]
+  },
+  {
+    "slug": "support",
+    "title": "Help with projects, downloads, and Pro",
+    "description": "Find help with PixelWall project backups, blocked downloads, local storage, and restoring a Pro purchase. Contact CapLock for support.",
+    "eyebrow": "SUPPORT",
+    "intro": "Keep a downloaded .pixelwall backup of work you want to preserve. Your current project autosaves in this browser; it is not stored in an online account.",
+    "sections": [
+      {
+        "heading": "A download did not start",
+        "paragraphs": [
+          "Look for the Download File link after exporting or saving. The generated file stays available there until dismissed or replaced, so you can save it if your browser blocks the automatic download."
+        ]
+      },
+      {
+        "heading": "Move or recover a project",
+        "paragraphs": [
+          "Use Save Project on the original device, then Open Project on the destination device. PNGs and GIFs are finished images; they do not preserve the editable layers and clips.",
+          "If browser data has been cleared, use your downloaded project backup. Pro recovery codes do not restore artwork."
+        ]
+      },
+      {
+        "heading": "Restore Pro",
+        "paragraphs": [
+          "Open the editor, choose Pro, then Restore Pro. Paste your private recovery code. If you lost it, email support with your Stripe receipt number. Support will verify ownership before helping restore access."
+        ]
+      },
+      {
+        "heading": "Contact support",
+        "paragraphs": [
+          "Email contact@caplock.ai with what happened, your browser, and the steps that caused the problem. Do not send card details or your private Pro recovery code."
+        ],
+        "links": [
+          {
+            "href": "mailto:contact@caplock.ai",
+            "label": "Email support"
+          }
+        ]
+      }
+    ],
+    "related": [
+      "guides/getting-started",
+      "pricing",
+      "privacy"
+    ]
+  },
+  {
+    "slug": "privacy",
+    "title": "Privacy and local projects",
+    "description": "How PixelWall handles local artwork, browser storage, optional analytics, and Stripe payments. Usage analytics and enhanced diagnostics are opt-in.",
+    "eyebrow": "PRIVACY",
+    "intro": "Your artwork and reference images are edited on your device. PixelWall uses browser storage for the current project and preferences. Optional analytics start only after you choose to allow them.",
+    "sections": [
+      {
+        "heading": "Artwork and browser storage",
+        "paragraphs": [
+          "The studio keeps the current project in local browser storage. Save Project downloads an editable .pixelwall file, including any reference image. Artwork exports leave out the projected reference.",
+          "Clearing browser data or changing browsers can remove access to a local project. Keep downloaded backups. PixelWall does not upload your artwork to a cloud project account."
+        ]
+      },
+      {
+        "heading": "Your analytics choices",
+        "paragraphs": [
+          "Required only is the default. It uses storage needed for the editor and preferences without loading optional analytics.",
+          "Usage analytics permits page visits, coarse referral categories (such as search engine or an internal guide), and limited product events, such as feature usage and successful exports. It does not store raw referrer URLs or campaign values, and does not enable recordings or automatic interaction and diagnostic tracking.",
+          "Enhanced diagnostics additionally permits masked session replay, interaction tracking, and performance/error diagnostics. Artwork, references, project and layer names, and other sensitive editor content are excluded or masked. Optional analytics use a stored browser identifier and are not fully anonymous.",
+          "The public information pages do not load optional analytics. In the editor, reopen Privacy Preferences to change your choice. Withdrawal stops optional capture; earlier events are not replayed after consent. Do Not Track or Global Privacy Control overrides optional choices."
+        ]
+      },
+      {
+        "heading": "Payments and service providers",
+        "paragraphs": [
+          "Stripe handles checkout and payment information. PixelWall uses purchase-related records to verify Pro access. A browser cookie remembers access, and a private recovery code can restore it on another device.",
+          "The website host processes requests to deliver the service. When enabled by your choice, PostHog processes optional usage analytics or diagnostics. Contact CapLock with privacy questions about this service."
+        ]
+      },
+      {
+        "heading": "Contact",
+        "links": [
+          {
+            "href": "mailto:contact@caplock.ai",
+            "label": "contact@caplock.ai"
+          }
+        ]
+      }
+    ],
+    "related": [
+      "support",
+      "pricing",
+      "terms"
+    ]
+  },
+  {
+    "slug": "terms",
+    "title": "PixelWall usage and purchase terms",
+    "description": "PixelWall terms covering local project storage, Pro purchases, recovery codes, availability, and support.",
+    "eyebrow": "TERMS",
+    "intro": "PixelWall is provided by CapLock. These terms describe the studio and its current Pro offer. For questions about using the service or a purchase, contact contact@caplock.ai.",
+    "sections": [
+      {
+        "heading": "Your artwork and references",
+        "paragraphs": [
+          "You retain ownership of the artwork you create. Use reference images and other materials you have permission to use, and respect the rights of their creators. A reference included in a .pixelwall file remains subject to its original rights."
+        ]
+      },
+      {
+        "heading": "Local saving",
+        "paragraphs": [
+          "Projects are stored in your browser and downloaded project files. You are responsible for keeping backups of artwork you want to preserve. Clearing browser data, changing devices, or losing a project file can make work unavailable. Pro does not include cloud storage or automatic artwork recovery."
+        ]
+      },
+      {
+        "heading": "Pro purchase",
+        "paragraphs": [
+          "Pro is a one-time purchase of $19 USD, plus applicable taxes. It covers the listed GIF, sprite-sheet, sprite/tilemap package, and export-preset features for as long as PixelWall is available. It is not a subscription or a promise that the service will operate indefinitely.",
+          "Keep your recovery code private. It restores Pro access on another browser or device, not your artwork. Purchase verification requires a network connection; temporary payment-service outages can affect Pro operations."
+        ]
+      },
+      {
+        "heading": "Support and refund requests",
+        "paragraphs": [
+          "Email contact@caplock.ai for support or a refund request. Support may need to verify purchase ownership. A full refund removes Pro access. Nothing on this page limits rights that apply to your purchase under applicable law."
+        ]
+      },
+      {
+        "heading": "Availability and changes",
+        "paragraphs": [
+          "Features and browser compatibility may change as the service develops. Check the current pricing and export-format pages before purchasing for a particular workflow. Keep independent backups of your projects."
+        ]
+      }
+    ],
+    "related": [
+      "pricing",
+      "privacy",
+      "support"
+    ]
+  },
+  {
+    "slug": "guides/desert-signal",
+    "title": "Try the Desert Signal starter project",
+    "description": "Download an editable 16×16 PixelWall project with three animation frames, PNGs, an animated GIF, and a sprite atlas with JSON metadata.",
+    "eyebrow": "EDITABLE EXAMPLE",
+    "intro": "Desert Signal is the small sunset animation that starts in a fresh PixelWall studio. Download its editable project and example exports to see how the same three frames work in different formats.",
+    "sections": [
+      {
+        "heading": "Download the example",
+        "paragraphs": [
+          "The ZIP includes a .pixelwall project, three native 16 × 16 frame PNGs, a horizontal sprite sheet, JSON atlas metadata, a 4× animated GIF, and a README with reuse permission."
+        ],
+        "links": [
+          {
+            "href": "/examples/desert-signal-example.zip",
+            "label": "Download the complete example ZIP"
+          },
+          {
+            "href": "/examples/desert-signal.pixelwall",
+            "label": "Download the editable .pixelwall project"
+          },
+          {
+            "href": "/examples/desert-signal-sheet.png",
+            "label": "View the sprite sheet"
+          },
+          {
+            "href": "/examples/desert-signal.gif",
+            "label": "View the animated GIF"
+          }
+        ]
+      },
+      {
+        "heading": "Make it your own",
+        "steps": [
+          {
+            "title": "Back up your current work",
+            "text": "Use Save Project before opening the example. Opening another project replaces the current workspace."
+          },
+          {
+            "title": "Open the example",
+            "text": "Download desert-signal.pixelwall, open the editor, and choose Open Project. Select the downloaded file."
+          },
+          {
+            "title": "Change a frame",
+            "text": "Select one of the three frames in Animate. Change colors or a few mountain pixels, then press Play to preview the movement."
+          },
+          {
+            "title": "Keep your version",
+            "text": "Choose Save Project for your editable version and Export → Current Frame for a free PNG. Exporting your own GIF or sprite package requires Pro."
+          }
+        ]
+      },
+      {
+        "heading": "What the files demonstrate",
+        "paragraphs": [
+          "Each of the three frames is 16 × 16 pixels with one artwork layer. The default clip uses 125 ms per frame and loops forward. The PNG sheet has three full-size cells in a horizontal row without padding.",
+          "The GIF uses PixelWall’s normal GIF encoder. Its frame times round to centiseconds, while the JSON keeps the original per-frame durations. The project file preserves editable data rather than flattening the image."
+        ]
+      },
+      {
+        "heading": "Reuse the artwork",
+        "paragraphs": [
+          "You may use and modify this sample artwork in personal and commercial projects. Attribution to PixelWall is appreciated but not required. This permission covers the included example artwork, not the application source."
+        ]
+      }
+    ],
+    "related": [
+      "guides/getting-started",
+      "pixel-art-animation",
+      "guides/export-formats",
+      "sprite-sheet-maker"
+    ]
+  }
+]

@@ -244,3 +244,23 @@ PaymentIntent. An open checkout or an unpaid balance never grants access.
 Stripe reference: [hosted Checkout](https://docs.stripe.com/payments/checkout),
 [webhook signatures](https://docs.stripe.com/webhooks/signature), and
 [test payments](https://docs.stripe.com/testing).
+
+## Public pages and search
+
+The public production domain is **https://www.pixelwall.dev** on Vercel. The
+OpenAI Sites copy is private. The homepage and guides are static server components;
+public links do not prefetch the editor. The studio lives at `/editor`, retains
+its existing browser storage keys, and opens help pages in another tab so a live
+reference is not discarded. Old checkout return URLs continue to work.
+
+Optional analytics is scoped to the editor. The PostHog SDK is downloaded only
+after consent, with consent checked again when loading completes. The public
+pages load neither the editor nor its analytics package. After consent, editor
+events include only coarse immediate-referral and internal entry-page categories;
+raw referrer URLs and campaign values are removed. This does not reconstruct
+external acquisition across a visit to a public page.
+
+See [the search launch notes](docs/search-launch.md) for verification, production
+checks, and the remaining account setup. Regenerate the downloadable starter
+example with `node scripts/export-demo.mjs`. After a production build, audit a
+running server with `node scripts/audit-search.mjs http://localhost:3100`.

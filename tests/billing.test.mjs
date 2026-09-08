@@ -76,8 +76,8 @@ test("configured storefront aliases retain checkout cookies and reject untrusted
   const checkout = await request("checkout", undefined, `pixelwall_checkout=${claim}`, { Origin: alias });
   assert.equal(checkout.status, 200);
   const params = state.calls.at(-1).options.body;
-  assert.equal(params.get("success_url"), `${alias}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
-  assert.equal(params.get("cancel_url"), `${alias}/?checkout=cancelled`);
+  assert.equal(params.get("success_url"), `${alias}/editor?checkout=success&session_id={CHECKOUT_SESSION_ID}`);
+  assert.equal(params.get("cancel_url"), `${alias}/editor?checkout=cancelled`);
   const claimed = await request("claim", { sessionId: id }, checkout.headers.get("set-cookie").split(";")[0], { Origin: alias });
   assert.equal(claimed.status, 200);
   const calls = state.calls.length;

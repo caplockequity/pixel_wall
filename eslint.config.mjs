@@ -23,6 +23,20 @@ const eslintConfig = defineConfig([
   jsxA11y.flatConfigs.recommended,
   next.configs["core-web-vitals"],
   {
+    files: ["app/(public)/**/*.tsx", "app/studio.tsx"],
+    rules: {
+      // Document navigation prevents editor prefetch and unloads its optional recorder.
+      "@next/next/no-html-link-for-pages": "off",
+    },
+  },
+  {
+    files: ["app/(public)/document.tsx"],
+    rules: {
+      // Code samples can overflow horizontally and must be keyboard-scrollable.
+      "jsx-a11y/no-noninteractive-tabindex": ["error", { tags: ["pre"] }],
+    },
+  },
+  {
     languageOptions: {
       globals: {
         ...globals.browser,

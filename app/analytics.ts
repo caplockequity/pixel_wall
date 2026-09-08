@@ -1,9 +1,10 @@
 "use client";
 
-import posthog, {
-  type CapturedNetworkRequest,
-  type CaptureResult,
-  type PostHogConfig,
+import { classifyAcquisition } from "./acquisition.mjs";
+import type {
+  CapturedNetworkRequest,
+  CaptureResult,
+  PostHogConfig,
 } from "posthog-js";
 
 type AnalyticsPrimitive = string | number | boolean;
@@ -309,7 +310,11 @@ type QueuedAnalyticsEvent = {
   properties: Record<string, AnalyticsPrimitive>;
 };
 
+type PostHogSdk = typeof import("posthog-js")["default"];
+
 const pendingEvents: QueuedAnalyticsEvent[] = [];
+let posthog: PostHogSdk | null = null;
+let sdkLoading: Promise<void> | null = null;
 let sessionLevel: AnalyticsLevel | null = null;
 let appliedLevel: AnalyticsLevel | null = null;
 let consentListenersRegistered = false;
@@ -437,6 +442,15 @@ function sanitizeBeforeSend(capture: CaptureResult | null) {
     && capture.event !== "$pageleave"
   ) return null;
   const properties = sanitizeNestedUrls(capture.properties) as CaptureResult["properties"];
+  // Keep attribution coarse even if the SDK supplies automatic referral fields.
+  for (const key of Object.keys(properties)) {
+    if (/referrer|referring_domain|campaign/i.test(key) || /^(?:\$initial_)?(?:utm_|gclid$|dclid$|fbclid$|msclkid$|ttclid$|twclid$)/i.test(key)) delete properties[key];
+  }
+  delete properties.referral_source;
+  delete properties.entry_page;
+  if (typeof document !== "undefined") {
+    Object.assign(properties, classifyAcquisition(document.referrer, window.location.origin));
+  }
   if (capture.event !== "$exception") return { ...capture, properties };
 
   const exceptionProperties = { ...properties };
@@ -514,12 +528,13 @@ function persistAnalyticsConsent(choice: AnalyticsLevel) {
 }
 
 function analyticsIsInitialized() {
-  return Boolean(browserGlobal()[ANALYTICS_INITIALIZED_KEY]);
+  return Boolean(posthog && browserGlobal()[ANALYTICS_INITIALIZED_KEY]);
 }
 
 function flushPendingEvents() {
   if (
-    storedAnalyticsConsent() !== "granted"
+    !posthog
+    || storedAnalyticsConsent() !== "granted"
     || isAnalyticsBlockedByBrowserPrivacySignal()
     || !analyticsIsInitialized()
     || !posthog.is_capturing()
@@ -529,6 +544,7 @@ function flushPendingEvents() {
 }
 
 function optInInitializedAnalytics() {
+  if (!posthog) return;
   applyAnalyticsLevel();
   posthog.opt_in_capturing({ captureEventName: false });
   flushPendingEvents();
@@ -561,6 +577,7 @@ function analyticsFeatureConfig(level: AnalyticsLevel): Partial<PostHogConfig> {
 }
 
 function applyAnalyticsLevel() {
+  if (!posthog) return;
   const level = getAnalyticsLevel();
   if (level === appliedLevel) return;
   if (level !== "enhanced") posthog.stopSessionRecording();
@@ -570,7 +587,7 @@ function applyAnalyticsLevel() {
 
 function stopAnalytics() {
   clearPendingEvents();
-  if (!analyticsIsInitialized()) return;
+  if (!posthog || !analyticsIsInitialized()) return;
   appliedLevel = null;
   try {
     posthog.stopSessionRecording();
@@ -602,7 +619,26 @@ export function initializeAnalytics() {
     || !hasBrowserEnvironment()
     || storedAnalyticsConsent() !== "granted"
     || isAnalyticsBlockedByBrowserPrivacySignal()
-  ) return;
+  ) {
+    clearPendingEvents();
+    return;
+  }
+  if (!posthog) {
+    if (!sdkLoading) {
+      sdkLoading = import("posthog-js")
+        .then(({ default: sdk }) => {
+          posthog = sdk;
+          // Consent or browser privacy signals may change while the chunk loads.
+          initializeAnalytics();
+        })
+        .catch(() => {
+          // An unavailable analytics chunk must never interrupt the studio.
+          clearPendingEvents();
+        })
+        .finally(() => { sdkLoading = null; });
+    }
+    return;
+  }
   const global = browserGlobal();
   if (global[ANALYTICS_INITIALIZED_KEY]) {
     try {
@@ -738,7 +774,7 @@ export function captureAnalyticsEvent<E extends AnalyticsEventName>(
     return;
   }
   initializeAnalytics();
-  if (!analyticsIsInitialized() || !posthog.is_capturing()) {
+  if (!posthog || !analyticsIsInitialized() || !posthog.is_capturing()) {
     if (pendingEvents.length < MAX_PENDING_EVENTS) {
       pendingEvents.push({ event, properties: sanitizedProperties });
     }

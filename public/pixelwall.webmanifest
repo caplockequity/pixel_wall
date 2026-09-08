@@ -1,8 +1,8 @@
 {
-  "name": "PixelWall — Pixel Art Maker",
+  "name": "PixelWall \u2014 Pixel Art Maker",
   "short_name": "PixelWall",
   "description": "Draw layered pixel art, animate frames, and export game-ready sprite packages.",
-  "start_url": "/",
+  "start_url": "/editor",
   "display": "standalone",
   "background_color": "#F8F0DF",
   "theme_color": "#171628",
@@ -22,5 +22,6 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "id": "/"
 }

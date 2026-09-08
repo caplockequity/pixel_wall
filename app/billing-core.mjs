@@ -224,8 +224,8 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
           // Payment-mode Checkout automatically skips card collection at $0.
           allow_promotion_codes: "true",
           "metadata[app]": APP, "metadata[offer]": "pro-lifetime", "payment_intent_data[metadata][app]": APP,
-          success_url: `${requestOrigin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${requestOrigin}/?checkout=cancelled`,
+          success_url: `${requestOrigin}/editor?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${requestOrigin}/editor?checkout=cancelled`,
           "automatic_tax[enabled]": String(config.automaticTax),
           "custom_text[after_submit][message]": "Return to PixelWall after checkout to save your private lifetime Pro recovery code. Keep it to restore access on another device.",
         }, "POST", `pixelwall-checkout-${reference}`);

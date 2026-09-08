@@ -9,7 +9,7 @@ import {
 
 const projectRoot = new URL("../", import.meta.url);
 
-async function render(path = "/") {
+async function render(path = "/editor") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
@@ -43,7 +43,7 @@ test("server-renders the PixelWall studio", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>PixelWall — Pixel Art Maker<\/title>/i);
+  assert.match(html, /<title>Pixel Art Editor \| PixelWall<\/title>/i);
   assert.match(html, /pixelwall-mark\.svg[^>]*rel="shortcut icon"|rel="shortcut icon"[^>]*pixelwall-mark\.svg/i);
   assert.match(html, /pixelwall\.webmanifest/i);
   assert.doesNotMatch(html, /\[object Object\]/i);
@@ -110,21 +110,18 @@ test("keeps optional analytics private and content-safe", async () => {
     /class="(?=[^"]*\bart-surface\b)(?=[^"]*\bph-no-capture\b)[^"]*"/i,
   );
 
-  const [envExample, instrumentationSource, analyticsSource, pageSource, proxyCoreSource, proxyRouteSource, nextConfigSource] = await Promise.all([
+  const [envExample, layoutSource, analyticsSource, pageSource, proxyCoreSource, proxyRouteSource, nextConfigSource] = await Promise.all([
     readFile(new URL(".env.example", projectRoot), "utf8"),
-    readFile(new URL("instrumentation-client.ts", projectRoot), "utf8"),
+    readFile(new URL("app/layout.tsx", projectRoot), "utf8"),
     readFile(new URL("app/analytics.ts", projectRoot), "utf8"),
-    readFile(new URL("app/page.tsx", projectRoot), "utf8"),
+    readFile(new URL("app/studio.tsx", projectRoot), "utf8"),
     readFile(new URL("app/posthog-proxy-core.mjs", projectRoot), "utf8"),
     readFile(new URL("app/beam/[...path]/route.ts", projectRoot), "utf8"),
     readFile(new URL("next.config.ts", projectRoot), "utf8"),
   ]);
 
   assert.match(envExample, /^NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=\s*$/m);
-  assert.match(
-    instrumentationSource,
-    /if\s*\(\s*isAnalyticsConfigured\(\)\s*\)\s*\{\s*initializeAnalytics\(\);?\s*\}/s,
-  );
+  assert.doesNotMatch(layoutSource, /(?:posthog|initializeAnalytics|\.\/analytics)/);
   const initializationSource = analyticsSource.slice(
     analyticsSource.indexOf("export function initializeAnalytics"),
     analyticsSource.indexOf("export function getAnalyticsConsentStatus"),
@@ -277,8 +274,8 @@ test("ships cache-busted PixelWall icon assets", async () => {
 
 test("keeps tracing visuals locked to logical pixels", async () => {
   const [pageSource, cssSource] = await Promise.all([
-    readFile(new URL("app/page.tsx", projectRoot), "utf8"),
-    readFile(new URL("app/globals.css", projectRoot), "utf8"),
+    readFile(new URL("app/studio.tsx", projectRoot), "utf8"),
+    Promise.all(["app/globals.css", "app/editor/studio.css"].map((path) => readFile(new URL(path, projectRoot), "utf8"))).then((parts) => parts.join("\n")),
   ]);
 
   assert.match(pageSource, /MATCH 1:1 PIXELS/);
@@ -485,4 +482,71 @@ test("round-trips portable layered PixelWall projects and upgrades legacy drafts
   assert.equal(legacy.migratedFrom, 1);
   assert.equal(legacy.project.frames[0].cels[0].layerId, 1);
   assert.deepEqual(legacy.project.clips[0].frameIds, [7]);
+});
+
+test("public pages expose canonical content and a connected crawlable site", async () => {
+  const documents = JSON.parse(await readFile(new URL("app/public-content.json", projectRoot), "utf8"));
+  const paths = ["/", "/guides", ...documents.map((page) => `/${page.slug}`)];
+  const allowed = new Set([...paths, "/editor"]);
+  const titles = new Set();
+  for (const path of paths) {
+    const response = await render(path);
+    assert.equal(response.status, 200, path);
+    const html = await response.text();
+    assert.equal((html.match(/<h1\b/g) ?? []).length, 1, `${path} has one main heading`);
+    const canonical = /<link[^>]*rel="canonical"[^>]*href="([^"]+)"|<link[^>]*href="([^"]+)"[^>]*rel="canonical"/.exec(html);
+    assert.equal(canonical?.[1] ?? canonical?.[2], `https://www.pixelwall.dev${path === "/" ? "" : path}`, path);
+    const title = /<title>(.*?)<\/title>/.exec(html)?.[1];
+    assert.ok(title && !titles.has(title), `${path} has a unique title`);
+    titles.add(title);
+    assert.doesNotMatch(html, /aria-label="Drawing tools"/, `${path} does not render the editor`);
+    for (const match of html.matchAll(/<a\b[^>]*href="(\/[^"#?]*)/g)) {
+      const href = match[1];
+      if (href.startsWith("/examples/")) await access(new URL(`public${href}`, projectRoot));
+      else assert.ok(allowed.has(href), `${path} links to known page ${href}`);
+    }
+    for (const match of html.matchAll(/<script\b[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/gs)) {
+      const data = JSON.parse(match[1]);
+      assert.equal(data["@context"] ?? data[0]?.["@context"], "https://schema.org");
+    }
+  }
+  const sitemapResponse = await render("/sitemap.xml");
+  assert.equal(sitemapResponse.status, 200);
+  const sitemap = await sitemapResponse.text();
+  for (const path of [...paths, "/editor"]) assert.ok(sitemap.includes(`<loc>https://www.pixelwall.dev${path === "/" ? "" : path}</loc>`), path);
+  assert.doesNotMatch(sitemap, /chatgpt\.site|vercel\.app|checkout|\/api\//);
+  const robotsResponse = await render("/robots.txt");
+  assert.equal(robotsResponse.status, 200);
+  const robots = await robotsResponse.text();
+  assert.match(robots, /User-Agent: \*/i);
+  assert.match(robots, /Allow: \/\s/);
+  assert.match(robots, /Sitemap: https:\/\/www\.pixelwall\.dev\/sitemap.xml/);
+});
+
+test("legacy checkout links preserve payment state while moving to the editor", async () => {
+  const response = await render("/?checkout=success&session_id=cs_test_example");
+  assert.ok([307, 308].includes(response.status));
+  const location = new URL(response.headers.get("location"), "http://localhost");
+  assert.equal(location.pathname, "/editor");
+  assert.equal(location.searchParams.get("checkout"), "success");
+  assert.equal(location.searchParams.get("session_id"), "cs_test_example");
+});
+
+test("the downloadable example preserves the studio starter pixels and frame timing", async () => {
+  const { parseProject } = await import("../app/project-format.mjs");
+  const { makeDemoPixels } = await import("../app/demo-art.mjs");
+  const { unzipSync, strFromU8 } = await import("fflate");
+  const bytes = await readFile(new URL("public/examples/desert-signal-example.zip", projectRoot));
+  const files = unzipSync(bytes);
+  const { project } = parseProject(strFromU8(files["desert-signal.pixelwall"]));
+  assert.equal(project.size, 16);
+  assert.equal(project.frames.length, 3);
+  for (let index = 0; index < 3; index++) {
+    assert.deepEqual(project.frames[index].cels[0].pixels, makeDemoPixels(16, index * .45));
+    assert.equal(project.frames[index].durationMs, 125);
+  }
+  const atlas = JSON.parse(strFromU8(files["desert-signal.json"]));
+  assert.deepEqual(atlas.meta.size, { w: 48, h: 16 });
+  assert.equal(Object.keys(atlas.frames).length, 3);
+  for (const frame of Object.values(atlas.frames)) assert.equal(frame.duration, 125);
 });

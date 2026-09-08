@@ -1,0 +1,301 @@
+{
+  "frames": {
+    "desert-signal-001.png": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 16,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 16,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 16,
+        "h": 16
+      },
+      "duration": 125,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "desert-signal-002.png": {
+      "frame": {
+        "x": 16,
+        "y": 0,
+        "w": 16,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 16,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 16,
+        "h": 16
+      },
+      "duration": 125,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "desert-signal-003.png": {
+      "frame": {
+        "x": 32,
+        "y": 0,
+        "w": 16,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 16,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 16,
+        "h": 16
+      },
+      "duration": 125,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    }
+  },
+  "animations": {
+    "default": [
+      "desert-signal-001.png",
+      "desert-signal-002.png",
+      "desert-signal-003.png"
+    ]
+  },
+  "meta": {
+    "app": "https://www.pixelwall.dev",
+    "version": "2",
+    "image": "desert-signal-sheet.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 48,
+      "h": 16
+    },
+    "scale": "1",
+    "frameTags": [
+      {
+        "name": "default",
+        "from": 0,
+        "to": 2,
+        "direction": "forward",
+        "repeat": 0
+      }
+    ],
+    "slices": [
+      {
+        "name": "origin",
+        "color": "#00ff00ff",
+        "keys": [
+          {
+            "frame": 0,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 16,
+              "h": 16
+            },
+            "pivot": {
+              "x": 8,
+              "y": 8
+            }
+          },
+          {
+            "frame": 1,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 16,
+              "h": 16
+            },
+            "pivot": {
+              "x": 8,
+              "y": 8
+            }
+          },
+          {
+            "frame": 2,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 16,
+              "h": 16
+            },
+            "pivot": {
+              "x": 8,
+              "y": 8
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "phaser": {
+    "atlasKey": "desert-signal",
+    "animations": [
+      {
+        "key": "default",
+        "frames": [
+          {
+            "key": "desert-signal",
+            "frame": "desert-signal-001.png",
+            "duration": 125
+          },
+          {
+            "key": "desert-signal",
+            "frame": "desert-signal-002.png",
+            "duration": 125
+          },
+          {
+            "key": "desert-signal",
+            "frame": "desert-signal-003.png",
+            "duration": 125
+          }
+        ],
+        "duration": 1,
+        "repeat": -1
+      }
+    ]
+  },
+  "pixelwall": {
+    "schema": "pixelwall.sprite-atlas",
+    "version": 2,
+    "selectedClip": null,
+    "layout": {
+      "type": "horizontal",
+      "columns": 3,
+      "rows": 1,
+      "width": 48,
+      "height": 16
+    },
+    "padding": 0,
+    "trimmed": false,
+    "frame": {
+      "width": 16,
+      "height": 16
+    },
+    "files": {
+      "sheet": "desert-signal-sheet.png",
+      "frames": [
+        "desert-signal-001.png",
+        "desert-signal-002.png",
+        "desert-signal-003.png"
+      ]
+    },
+    "frames": [
+      {
+        "filename": "desert-signal-001.png",
+        "sourceIndex": 0,
+        "sourceId": 1,
+        "durationMs": 125,
+        "sourceRect": {
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        "pivot": {
+          "pixels": {
+            "x": 8,
+            "y": 8
+          },
+          "normalized": {
+            "x": 0.5,
+            "y": 0.5
+          }
+        }
+      },
+      {
+        "filename": "desert-signal-002.png",
+        "sourceIndex": 1,
+        "sourceId": 2,
+        "durationMs": 125,
+        "sourceRect": {
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        "pivot": {
+          "pixels": {
+            "x": 8,
+            "y": 8
+          },
+          "normalized": {
+            "x": 0.5,
+            "y": 0.5
+          }
+        }
+      },
+      {
+        "filename": "desert-signal-003.png",
+        "sourceIndex": 2,
+        "sourceId": 3,
+        "durationMs": 125,
+        "sourceRect": {
+          "x": 0,
+          "y": 0,
+          "w": 16,
+          "h": 16
+        },
+        "pivot": {
+          "pixels": {
+            "x": 8,
+            "y": 8
+          },
+          "normalized": {
+            "x": 0.5,
+            "y": 0.5
+          }
+        }
+      }
+    ],
+    "slices": [],
+    "clips": [
+      {
+        "name": "default",
+        "from": 0,
+        "to": 2,
+        "frameIds": [
+          1,
+          2,
+          3
+        ],
+        "direction": "forward",
+        "repeat": -1
+      }
+    ]
+  }
+}

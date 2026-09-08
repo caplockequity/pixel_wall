@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { makeDemoPixels } from "./demo-art.mjs";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   spriteFrameFilename,
@@ -220,28 +220,6 @@ function pivotInPixels(value: PortablePivot | undefined, size: number, fallback:
     : { x: value.x, y: value.y };
 }
 
-function makeDemoPixels(size: number, shift = 0): Pixel[] {
-  return Array.from({ length: size * size }, (_, index) => {
-    const x = index % size;
-    const y = Math.floor(index / size);
-    const scale = size / 16;
-    const px = x / scale;
-    const py = y / scale + shift;
-    const sun = Math.hypot(px - 11.5, py - 4.5);
-    if (sun < 2.4) return sun < 1.55 ? "#ffe66d" : "#ffb34b";
-    if (py >= 11 + Math.abs(px - 4) * 0.42) return "#218c89";
-    if (py >= 9 + Math.abs(px - 4) * 0.56) return "#ff6b57";
-    if (py >= 10 + Math.abs(px - 11) * 0.48) return "#7059c7";
-    if (
-      (Math.round(px) === 2 && Math.round(py) === 3) ||
-      (Math.round(px) === 5 && Math.round(py) === 2) ||
-      (Math.round(px) === 8 && Math.round(py) === 5)
-    ) {
-      return "#f8f0df";
-    }
-    return py < 7 ? "#262447" : "#3c315f";
-  });
-}
 
 function makeFrame(id: number, pixels: Pixel[], layerId = 1, durationMs = 125): ArtFrame {
   return { id, durationMs, cels: { [String(layerId)]: [...pixels] } };
@@ -850,7 +828,7 @@ function clipPlaybackFrameIds(clip: AnimationClip | undefined, frames: ArtFrame[
   return forward;
 }
 
-export default function Home() {
+export default function Studio() {
   const proAccess = useProAccess();
   const { readyFile, downloadBlob, dismissDownload } = useDownload();
   const [size, setSize] = useState(16);
@@ -3287,11 +3265,12 @@ export default function Home() {
   return (
     <>
       <main className="studio-shell">
+      <h1 className="visually-hidden">PixelWall pixel art editor</h1>
       <header className="topbar">
-        <Link className="brand" href="/" aria-label="PixelWall home">
+        <a className="brand" href="/" target="_blank" rel="noopener" aria-label="PixelWall home (opens in a new tab)">
           <span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>
           <span>PIXELWALL</span>
-        </Link>
+        </a>
 
         <div className="project-title ph-no-capture" aria-live="polite">
           <span className={`status-dot ${saved ? "" : saveFailed ? "save-failed" : "saving"}`} />
@@ -4061,6 +4040,9 @@ export default function Home() {
       </main>
       <footer className="studio-footer">
         <span>© 2026 CapLock</span>
+        <a href="/guides/getting-started" target="_blank" rel="noopener">GUIDES<span className="visually-hidden"> (opens in a new tab)</span></a>
+        <a href="/pricing" target="_blank" rel="noopener">PRICING<span className="visually-hidden"> (opens in a new tab)</span></a>
+        <a href="/privacy" target="_blank" rel="noopener">PRIVACY<span className="visually-hidden"> (opens in a new tab)</span></a>
         <a href="mailto:contact@caplock.ai">contact@caplock.ai</a>
         <button type="button" onClick={() => { guideSource.current = "footer"; setGuideOpen(true); }}>QUICK GUIDE</button>
       </footer>

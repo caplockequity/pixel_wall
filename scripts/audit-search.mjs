@@ -1,0 +1,48 @@
+import assert from "node:assert/strict";
+import { readFile, writeFile } from "node:fs/promises";
+import { gzipSync } from "node:zlib";
+
+const base = new URL(process.argv[2] ?? "http://localhost:3100");
+const site = "https://www.pixelwall.dev";
+const pages = JSON.parse(await readFile(new URL("../app/public-content.json", import.meta.url), "utf8"));
+const paths = ["/", "/editor", "/guides", ...pages.map((page) => `/${page.slug}`)];
+const metrics = [];
+for (const path of paths) {
+  const response = await fetch(new URL(path, base));
+  assert.equal(response.status, 200, path);
+  const html = await response.text();
+  assert.equal((html.match(/<h1\b/g) ?? []).length, 1, `${path}: main heading`);
+  assert.ok(html.includes(`href="${site}${path === "/" ? "" : path}"`), `${path}: canonical origin`);
+  if (!["/", "/editor", "/guides"].includes(path)) continue;
+  const scripts = [...new Set([...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((match) => match[1]))];
+  const sizes = await Promise.all(scripts.map(async (script) => {
+    const response = await fetch(new URL(script, base));
+    assert.equal(response.status, 200, script);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    const source = bytes.toString();
+    assert.doesNotMatch(source, /\$session_recording_remote_config|class PostHog/, `${path}: no eagerly loaded PostHog SDK`);
+    if (path !== "/editor") assert.doesNotMatch(source, /pixelwall-project-v3|pixelwall-analytics-consent-v2|DRAWING TOOLS/, `${path}: no studio code`);
+    return { raw: bytes.length, gzip: gzipSync(bytes).length };
+  }));
+  metrics.push({ path, htmlBytes: Buffer.byteLength(html), initialScriptBytes: sizes.reduce((sum, item) => sum + item.raw, 0), initialScriptGzipBytes: sizes.reduce((sum, item) => sum + item.gzip, 0) });
+}
+const legacy = await fetch(new URL("/?checkout=success&session_id=cs_test_example", base), { redirect: "manual" });
+assert.equal(legacy.status, 307);
+const returnUrl = new URL(legacy.headers.get("location"), base);
+assert.equal(returnUrl.pathname, "/editor");
+assert.equal(returnUrl.searchParams.get("checkout"), "success");
+assert.equal(returnUrl.searchParams.get("session_id"), "cs_test_example");
+const missing = await fetch(new URL("/this-page-does-not-exist", base));
+assert.equal(missing.status, 404);
+const sitemapResponse = await fetch(new URL("/sitemap.xml", base));
+assert.equal(sitemapResponse.status, 200);
+const sitemap = await sitemapResponse.text();
+for (const path of paths) assert.ok(sitemap.includes(`<loc>${site}${path === "/" ? "" : path}</loc>`), path);
+const robotsResponse = await fetch(new URL("/robots.txt", base));
+assert.equal(robotsResponse.status, 200);
+assert.match(await robotsResponse.text(), /Sitemap: https:\/\/www\.pixelwall\.dev\/sitemap.xml/);
+const manifest = await (await fetch(new URL("/pixelwall.webmanifest", base))).json();
+assert.equal(manifest.id, "/");
+assert.equal(manifest.start_url, "/editor");
+console.log(JSON.stringify({ checkedPages: paths.length, metrics }, null, 2));
+if (process.argv[3]) await writeFile(process.argv[3], JSON.stringify({ checkedPages: paths.length, metrics }, null, 2));
