@@ -11,6 +11,7 @@ import { createBlankProject, parseProject, stringifyProject } from "./project-fo
 import { HelpTip, OnboardingGuide, type GuideTarget } from "./onboarding";
 import { NewProjectDialog } from "./new-project";
 import { ExportPresets } from "./export-presets";
+import { ProDialog, useProAccess } from "./pro-access";
 import { CELL_SIZES, useCanvasView } from "./use-canvas-view";
 import { captureAnalyticsEvent, getAnalyticsConsentStatus, isAnalyticsConfigured } from "./analytics";
 import { AnalyticsConsent } from "./analytics-consent";
@@ -860,6 +861,7 @@ function clipPlaybackFrameIds(clip: AnimationClip | undefined, frames: ArtFrame[
 }
 
 export default function Home() {
+  const proAccess = useProAccess();
   const [size, setSize] = useState(16);
   const [frames, setFrames] = useState<ArtFrame[]>(() => [
     makeFrame(1, makeDemoPixels(16, 0)),
@@ -2971,6 +2973,7 @@ export default function Home() {
 
   async function exportAnimatedGif() {
     if (exporting) return;
+    if (!await proAccess.requestAccess()) { setExportMenuOpen(false); return; }
     const startedAt = performance.now();
     const frameSnapshot = cloneFrames(frames);
     const layerSnapshot = cloneLayers(layers);
@@ -3008,6 +3011,7 @@ export default function Home() {
 
   async function exportSpritePackage(format: "package" | "sheet" = "package") {
     if (exporting) return;
+    if (!await proAccess.requestAccess()) { setExportMenuOpen(false); return; }
     const startedAt = performance.now();
     shouldRestoreExportFocus.current = true;
     setExportMenuOpen(false);
@@ -3147,6 +3151,7 @@ export default function Home() {
       });
       return;
     }
+    if (!await proAccess.requestAccess()) { setExportMenuOpen(false); return; }
     const startedAt = performance.now();
     shouldRestoreExportFocus.current = true;
     setExportMenuOpen(false);
@@ -3347,15 +3352,15 @@ export default function Home() {
               </button>
               <button onClick={exportAnimatedGif} disabled={exporting !== null}>
                 <Play size={19} />
-                <span className="ph-no-capture"><strong>ANIMATED GIF</strong><small>{activeClip?.name ?? "Animation"} · {size * gifScale} × {size * gifScale} PX</small></span>
+                <span className="ph-no-capture"><strong>ANIMATED GIF <em className="pro-badge">PRO</em></strong><small>{activeClip?.name ?? "Animation"} · {size * gifScale} × {size * gifScale} PX</small></span>
               </button>
               <button onClick={() => exportSpritePackage("sheet")} disabled={exporting !== null}>
                 <Grid2X2 size={19} />
-                <span><strong>SPRITE SHEET</strong><small>PNG · FULL-SIZE FRAME CELLS</small></span>
+                <span><strong>SPRITE SHEET <em className="pro-badge">PRO</em></strong><small>PNG · FULL-SIZE FRAME CELLS</small></span>
               </button>
               <button onClick={() => exportSpritePackage("package")} disabled={exporting !== null}>
                 <PackageOpen size={19} />
-                <span><strong>SPRITE PACKAGE</strong><small>ZIP · SHEET + JSON{exportIndividualFrames ? " + PNGS" : ""}</small></span>
+                <span><strong>SPRITE PACKAGE <em className="pro-badge">PRO</em></strong><small>ZIP · SHEET + JSON{exportIndividualFrames ? " + PNGS" : ""}</small></span>
               </button>
               <button
                 onClick={exportTilemapPackage}
@@ -3365,7 +3370,7 @@ export default function Home() {
               >
                 <MapIcon size={19} />
                 <span>
-                  <strong>TILEMAP PACKAGE</strong>
+                  <strong>TILEMAP PACKAGE <em className="pro-badge">PRO</em></strong>
                   <small>ZIP · TILED MAP + TILESET + PREVIEW</small>
                   {!tilemapPlacedCells && <small className="export-disabled-reason">PAINT IN TILEMAP LAB TO ENABLE</small>}
                 </span>
@@ -3410,7 +3415,7 @@ export default function Home() {
                 <small>Trimming and individual PNGs apply to the ZIP. Sheet PNGs keep full canvas cells.</small>
                 </div>
               </details>
-              <ExportPresets settings={{ layout: exportLayout, padding: exportPadding, trim: exportTrim, individualFrames: exportIndividualFrames, gifScale }} onApply={(settings) => {
+              <ExportPresets authorize={async () => { const allowed = await proAccess.requestAccess(); if (!allowed) setExportMenuOpen(false); return allowed; }} settings={{ layout: exportLayout, padding: exportPadding, trim: exportTrim, individualFrames: exportIndividualFrames, gifScale }} onApply={(settings) => {
                 setExportLayout(settings.layout);
                 setExportPadding(settings.padding);
                 setExportTrim(settings.trim);
@@ -3431,6 +3436,7 @@ export default function Home() {
           <button type="button" onClick={() => navigateWorkspace("reference")}><ImagePlus size={16} /> REFERENCE</button>
         </div>
         <div className="workspace-links">
+          <button type="button" className="pro-nav" onClick={proAccess.show}>{proAccess.pro ? "PRO ACTIVE" : "GET PRO"}</button>
           <button type="button" disabled={!storageReady || exporting !== null} onClick={() => setNewProjectOpen(true)}><Plus size={16} /> NEW PROJECT</button>
           <button type="button" onClick={() => { guideSource.current = "toolbar"; setGuideOpen(true); }}><span className="guide-nav-icon" aria-hidden="true">?</span> GUIDE</button>
         </div>
@@ -4066,6 +4072,17 @@ export default function Home() {
         <a href="mailto:contact@caplock.ai">contact@caplock.ai</a>
         <button type="button" onClick={() => { guideSource.current = "footer"; setGuideOpen(true); }}>QUICK GUIDE</button>
       </footer>
+      <ProDialog access={proAccess} beforeCheckout={() => {
+        try {
+          if (!storageReady) throw new Error("Project still loading");
+          // Flush the latest artwork and reference immediately before leaving.
+          window.localStorage.setItem(STORAGE_KEY, stringifyProject(portableProject(), portableEditor(), { includeReference: true }));
+        } catch {
+          const error = new Error("Your project could not be saved before checkout. Use Save Project to make a backup, then free some browser storage and try again. You haven’t been charged.");
+          error.name = "ProjectSaveError";
+          throw error;
+        }
+      }} />
       <AnalyticsConsent onInitialPromptClosed={() => {
         try {
           if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === "done") return;

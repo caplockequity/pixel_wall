@@ -1615,3 +1615,38 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   @keyframes lens-pulse { 50% { box-shadow: inset 5px 0 rgba(255,255,255,.55), 0 0 15px rgba(255,230,109,.8); } }
   @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } }
 }
+
+/* Pro purchase details share the studio's ink, paper, and mint palette. */
+.pro-badge { display: inline-block; margin-left: 4px; padding: 2px 4px; border: 1px solid currentColor; font-size: 9px; font-style: normal; line-height: 1; vertical-align: middle; letter-spacing: .04em; }
+.workspace-links .pro-nav { background: var(--yellow, #ffe66d); border: 1px solid var(--ink); }
+.pro-dialog { width: min(640px, calc(100vw - 28px)); max-height: calc(100dvh - 32px); margin: auto; padding: 30px; overflow-y: auto; border: 2px solid var(--ink); background: var(--cream); color: var(--ink); box-shadow: 6px 6px 0 #17162866; }
+.pro-dialog::backdrop { background: #171628b3; }
+.pro-dialog p { margin: 12px 0; line-height: 1.6; }
+.pro-dialog h2 { margin: 14px 28px 16px 0; font-size: clamp(25px, 4vw, 34px); line-height: 1.12; letter-spacing: -.04em; }
+.pro-dialog h2:focus { outline: none; }
+.pro-dialog h3 { margin: 0 0 14px; font-size: 16px; }
+.pro-dialog a { color: inherit; text-underline-offset: 3px; }
+.pro-dialog button { cursor: pointer; font: inherit; }
+.pro-dialog button:disabled { opacity: .55; cursor: wait; }
+.pro-dialog .pro-close { position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--ink); background: transparent; }
+.pro-eyebrow { display: flex; gap: 8px; align-items: center; margin: 0; font: 11px var(--font-mono), monospace; letter-spacing: .1em; }
+.pro-test { padding: 9px 12px; border: 1px dashed var(--ink); background: #ffe66d66; font-size: 12px; }
+.pro-plans { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+.pro-plans section { padding: 16px; border: 1px solid #17162866; }
+.pro-plans .pro-plan-paid { background: #c8e3d3; border: 2px solid var(--ink); }
+.pro-plans h3 span { display: block; margin-top: 8px; font-size: 28px; }
+.pro-plans h3 small { font-size: 12px; font-weight: 400; }
+.pro-plans ul { padding-left: 17px; margin: 0; font-size: 13px; line-height: 1.55; }
+.pro-plans li + li { margin-top: 8px; }
+.pro-dialog .pro-fine { font-size: 12px; line-height: 1.6; }
+.pro-dialog .pro-primary, .pro-dialog .pro-secondary { min-height: 44px; padding: 11px 14px; border: 2px solid var(--ink); font-size: 12px; font-weight: 700; letter-spacing: .04em; display: flex; justify-content: center; align-items: center; gap: 8px; }
+.pro-dialog .pro-primary { width: 100%; background: #ffe66d; box-shadow: 2px 2px 0 var(--ink); }
+.pro-dialog .pro-secondary { background: transparent; }
+.pro-active { display: flex; align-items: center; gap: 8px; padding: 12px; background: #c8e3d3; font-weight: 600; }
+.pro-message { padding: 12px; border-left: 3px solid var(--ink); background: #ffffff66; font-size: 14px; }
+.pro-recovery, .pro-restore { margin: 22px 0; padding-top: 20px; border-top: 1px solid #17162866; }
+.pro-restore summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+.pro-restore form { margin-top: 16px; }
+.pro-restore label { display: grid; gap: 8px; font-size: 13px; }
+.pro-dialog textarea { box-sizing: border-box; width: 100%; padding: 10px; margin-bottom: 12px; resize: vertical; border: 1px solid var(--ink); border-radius: 0; font: 12px monospace; background: #fffaf0; color: var(--ink); overflow-wrap: anywhere; }
+@media (max-width: 520px) { .pro-dialog { padding: 24px 18px; } .pro-plans { grid-template-columns: 1fr; } }

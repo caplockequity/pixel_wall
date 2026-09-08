@@ -26,7 +26,7 @@ function readPresets(source: string | null): Preset[] {
   }).slice(0, 8);
 }
 
-export function ExportPresets({ settings, onApply }: { settings: ExportPreferences; onApply: (settings: ExportPreferences) => void }) {
+export function ExportPresets({ settings, onApply, authorize }: { authorize: () => Promise<boolean>; settings: ExportPreferences; onApply: (settings: ExportPreferences) => void }) {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [name, setName] = useState("");
   const [selected, setSelected] = useState("");
@@ -51,15 +51,16 @@ export function ExportPresets({ settings, onApply }: { settings: ExportPreferenc
   }
 
   return <details className="export-presets ph-no-capture">
-    <summary>SAVED EXPORT PRESETS</summary>
+    <summary>SAVED EXPORT PRESETS <em className="pro-badge">PRO</em></summary>
     <p>Reuse layout, padding, trim, individual PNGs, and GIF scale. Presets stay in this browser.</p>
-    <label>Load preset<select value={selected} disabled={!ready || !presets.length} onChange={(event) => {
+    <label>Load preset<select value={selected} disabled={!ready || !presets.length} onChange={async (event) => {
       const preset = presets.find((item) => item.name === event.target.value);
-      if (preset) { onApply(preset.settings); setSelected(preset.name); setName(preset.name); setMessage(`Loaded ${preset.name}`); }
+      if (preset && await authorize()) { onApply(preset.settings); setSelected(preset.name); setName(preset.name); setMessage(`Loaded ${preset.name}`); }
     }}><option value="">Choose a preset</option>{presets.map((preset) => <option key={preset.name} value={preset.name}>{preset.name}</option>)}</select></label>
     <label>Preset name<input value={name} maxLength={32} placeholder="My game exports" onChange={(event) => setName(event.target.value)} /></label>
     <div className="preset-actions">
-      <button type="button" disabled={!ready || !name.trim()} onClick={() => {
+      <button type="button" disabled={!ready || !name.trim()} onClick={async () => {
+        if (!await authorize()) return;
         const cleanName = name.trim();
         const existing = presets.some((preset) => preset.name === cleanName);
         if (!existing && presets.length >= 8) { setMessage("You have 8 presets. Remove one or reuse its name to update it."); return; }
