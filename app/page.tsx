@@ -4065,16 +4065,16 @@ export default function Home() {
         <span>© 2026 CapLock</span>
         <a href="mailto:contact@caplock.ai">contact@caplock.ai</a>
         <button type="button" onClick={() => { guideSource.current = "footer"; setGuideOpen(true); }}>QUICK GUIDE</button>
-        <AnalyticsConsent onInitialPromptClosed={() => {
-          try {
-            if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === "done") return;
-          } catch {
-            // The guide remains available when browser storage is unavailable.
-          }
-          guideSource.current = "automatic";
-          setGuideOpen(true);
-        }} />
       </footer>
+      <AnalyticsConsent onInitialPromptClosed={() => {
+        try {
+          if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === "done") return;
+        } catch {
+          // The guide remains available when browser storage is unavailable.
+        }
+        guideSource.current = "automatic";
+        setGuideOpen(true);
+      }} />
       <OnboardingGuide open={guideOpen} onDismiss={dismissGuide} onExplore={(target) => { dismissGuide("got_it"); window.setTimeout(() => navigateWorkspace(target), 0); }} />
       <NewProjectDialog open={newProjectOpen} sizes={GRID_SIZES} onClose={() => setNewProjectOpen(false)} onCreate={startBlankProject} />
     </>

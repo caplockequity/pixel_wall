@@ -3,6 +3,7 @@
 import posthog, {
   type CapturedNetworkRequest,
   type CaptureResult,
+  type PostHogConfig,
 } from "posthog-js";
 
 type AnalyticsPrimitive = string | number | boolean;
@@ -290,11 +291,14 @@ export const EVENT_PROPERTY_ALLOWLIST = {
 } as const satisfies Record<AnalyticsEventName, readonly string[]>;
 
 export type AnalyticsConsentStatus = "pending" | "granted" | "denied" | "blocked" | "unavailable";
+export type AnalyticsLevel = "required" | "usage" | "enhanced";
+export const ANALYTICS_CONSENT_CHANGED_EVENT = "pixelwall:analytics-consent-changed";
 
 const POSTHOG_PROJECT_TOKEN = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim() ?? "";
 const POSTHOG_CONFIGURED_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() ?? "";
 const POSTHOG_PROXY_PATH = "/beam";
-const ANALYTICS_CONSENT_STORAGE_KEY = "pixelwall-analytics-consent-v1";
+const ANALYTICS_CONSENT_STORAGE_KEY = "pixelwall-analytics-consent-v2";
+const LEGACY_ANALYTICS_CONSENT_STORAGE_KEY = "pixelwall-analytics-consent-v1";
 const MAX_PENDING_EVENTS = 50;
 const MAX_ANALYTICS_STRING_LENGTH = 96;
 const SAFE_ANALYTICS_STRING = /^[a-z0-9]+(?:[._:+/-][a-z0-9]+)*$/i;
@@ -306,6 +310,9 @@ type QueuedAnalyticsEvent = {
 };
 
 const pendingEvents: QueuedAnalyticsEvent[] = [];
+let sessionLevel: AnalyticsLevel | null = null;
+let appliedLevel: AnalyticsLevel | null = null;
+let consentListenersRegistered = false;
 
 function browserGlobal() {
   return globalThis as typeof globalThis & {
@@ -422,6 +429,13 @@ function sanitizeException(value: unknown) {
 
 function sanitizeBeforeSend(capture: CaptureResult | null) {
   if (!capture) return null;
+  if (storedAnalyticsConsent() !== "granted" || isAnalyticsBlockedByBrowserPrivacySignal()) return null;
+  if (
+    getAnalyticsLevel() !== "enhanced"
+    && !Object.hasOwn(EVENT_PROPERTY_ALLOWLIST, capture.event)
+    && capture.event !== "$pageview"
+    && capture.event !== "$pageleave"
+  ) return null;
   const properties = sanitizeNestedUrls(capture.properties) as CaptureResult["properties"];
   if (capture.event !== "$exception") return { ...capture, properties };
 
@@ -454,24 +468,49 @@ function clearPendingEvents() {
   pendingEvents.length = 0;
 }
 
-function storedAnalyticsConsent(): "granted" | "denied" | "pending" | "unavailable" {
+function storedAnalyticsLevel(): AnalyticsLevel | "pending" | "unavailable" {
   if (!hasBrowserEnvironment()) return "unavailable";
+  if (sessionLevel) return sessionLevel;
   try {
     const stored = window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY);
-    if (stored === "granted" || stored === "denied") return stored;
+    if (stored === "required" || stored === "usage" || stored === "enhanced") return stored;
+    if (stored !== null) return "pending";
+    const legacy = window.localStorage.getItem(LEGACY_ANALYTICS_CONSENT_STORAGE_KEY);
+    // Existing permission allows usage only; recordings need an explicit enhanced choice.
+    if (legacy === "granted") return "usage";
+    if (legacy === "denied") return "required";
     return "pending";
   } catch {
     return "unavailable";
   }
 }
 
-function persistAnalyticsConsent(choice: "granted" | "denied") {
+function storedAnalyticsConsent(): "granted" | "denied" | "pending" | "unavailable" {
+  const level = storedAnalyticsLevel();
+  if (level === "usage" || level === "enhanced") return "granted";
+  return level === "required" ? "denied" : level;
+}
+
+export function getAnalyticsLevel(): AnalyticsLevel {
+  if (isAnalyticsBlockedByBrowserPrivacySignal()) return "required";
+  const level = storedAnalyticsLevel();
+  return level === "usage" || level === "enhanced" ? level : "required";
+}
+
+function persistAnalyticsConsent(choice: AnalyticsLevel) {
   try {
     window.localStorage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, choice);
-    return true;
   } catch {
+    // A failed withdrawal must not fall back to an older, more permissive choice.
+    sessionLevel = "required";
     return false;
   }
+  sessionLevel = null;
+  try {
+    // Also stop any still-open tab running the old all-or-nothing consent code.
+    window.localStorage.setItem(LEGACY_ANALYTICS_CONSENT_STORAGE_KEY, "denied");
+  } catch { /* The new preference is already saved. */ }
+  return true;
 }
 
 function analyticsIsInitialized() {
@@ -490,11 +529,74 @@ function flushPendingEvents() {
 }
 
 function optInInitializedAnalytics() {
+  applyAnalyticsLevel();
   posthog.opt_in_capturing({ captureEventName: false });
   flushPendingEvents();
 }
 
+function analyticsFeatureConfig(level: AnalyticsLevel): Partial<PostHogConfig> {
+  const enhanced = level === "enhanced";
+  return {
+    autocapture: enhanced ? {
+      capture_copied_text: false,
+      css_selector_ignorelist: [".ph-no-capture", "[data-ph-no-capture]", ".ph-no-autocapture", "[data-ph-no-autocapture]"],
+    } : false,
+    rageclick: enhanced,
+    capture_dead_clicks: enhanced ? {
+      css_selector_ignorelist: [".ph-no-capture", "[data-ph-no-capture]", ".ph-no-deadclick"],
+    } : false,
+    capture_heatmaps: enhanced,
+    capture_exceptions: enhanced ? {
+      capture_unhandled_errors: true,
+      capture_unhandled_rejections: true,
+      capture_console_errors: false,
+    } : false,
+    capture_performance: enhanced ? {
+      network_timing: false,
+      web_vitals: true,
+      web_vitals_attribution: false,
+    } : false,
+    disable_session_recording: !enhanced,
+  };
+}
+
+function applyAnalyticsLevel() {
+  const level = getAnalyticsLevel();
+  if (level === appliedLevel) return;
+  if (level !== "enhanced") posthog.stopSessionRecording();
+  posthog.set_config({ ...analyticsFeatureConfig(level), before_send: sanitizeBeforeSend });
+  appliedLevel = level;
+}
+
+function stopAnalytics() {
+  clearPendingEvents();
+  if (!analyticsIsInitialized()) return;
+  appliedLevel = null;
+  try {
+    posthog.stopSessionRecording();
+  } catch { /* Consent checks also block capture if the recorder is unavailable. */ }
+  try {
+    posthog.opt_out_capturing();
+  } catch { /* Wrapper-level consent remains authoritative. */ }
+}
+
+function registerConsentListeners() {
+  if (!hasBrowserEnvironment() || consentListenersRegistered) return;
+  consentListenersRegistered = true;
+  const sync = () => {
+    getAnalyticsConsentStatus();
+    window.dispatchEvent(new Event(ANALYTICS_CONSENT_CHANGED_EVENT));
+  };
+  window.addEventListener("storage", (event) => {
+    if (event.key !== null && event.key !== ANALYTICS_CONSENT_STORAGE_KEY && event.key !== LEGACY_ANALYTICS_CONSENT_STORAGE_KEY) return;
+    sessionLevel = null;
+    sync();
+  });
+  window.addEventListener("focus", sync);
+}
+
 export function initializeAnalytics() {
+  registerConsentListeners();
   if (
     !isAnalyticsConfigured()
     || !hasBrowserEnvironment()
@@ -504,6 +606,7 @@ export function initializeAnalytics() {
   const global = browserGlobal();
   if (global[ANALYTICS_INITIALIZED_KEY]) {
     try {
+      applyAnalyticsLevel();
       if (!posthog.is_capturing()) optInInitializedAnalytics();
     } catch {
       // A stale or unavailable SDK instance stays safely disabled.
@@ -525,16 +628,7 @@ export function initializeAnalytics() {
       opt_out_persistence_by_default: true,
       opt_out_capturing_persistence_type: "localStorage",
       respect_dnt: true,
-      autocapture: {
-        capture_copied_text: false,
-        css_selector_ignorelist: [
-          ".ph-no-capture",
-          "[data-ph-no-capture]",
-          ".ph-no-autocapture",
-          "[data-ph-no-autocapture]",
-        ],
-      },
-      rageclick: true,
+      ...analyticsFeatureConfig(getAnalyticsLevel()),
       capture_pageview: { path: true, search: false, hash: false },
       capture_pageleave: true,
       disable_capture_url_hashes: true,
@@ -543,29 +637,10 @@ export function initializeAnalytics() {
       mask_personal_data_properties: true,
       mask_all_text: true,
       mask_all_element_attributes: true,
-      capture_dead_clicks: {
-        css_selector_ignorelist: [
-          ".ph-no-capture",
-          "[data-ph-no-capture]",
-          ".ph-no-deadclick",
-        ],
-      },
-      capture_heatmaps: true,
-      capture_exceptions: {
-        capture_unhandled_errors: true,
-        capture_unhandled_rejections: true,
-        capture_console_errors: false,
-      },
       error_tracking: {
         captureExtensionExceptions: false,
         exception_steps: { enabled: false },
       },
-      capture_performance: {
-        network_timing: false,
-        web_vitals: true,
-        web_vitals_attribution: false,
-      },
-      disable_session_recording: false,
       enable_recording_console_log: false,
       session_recording: {
         blockClass: "ph-no-capture",
@@ -587,6 +662,7 @@ export function initializeAnalytics() {
           || isAnalyticsBlockedByBrowserPrivacySignal()
         ) {
           clearPendingEvents();
+          instance.stopSessionRecording();
           instance.opt_out_capturing();
           return;
         }
@@ -595,33 +671,21 @@ export function initializeAnalytics() {
     });
   } catch {
     global[ANALYTICS_INITIALIZED_KEY] = false;
+    appliedLevel = null;
   }
 }
 
 export function getAnalyticsConsentStatus(): AnalyticsConsentStatus {
   if (!isAnalyticsConfigured() || !hasBrowserEnvironment()) return "unavailable";
+  registerConsentListeners();
   if (isAnalyticsBlockedByBrowserPrivacySignal()) {
-    clearPendingEvents();
-    if (analyticsIsInitialized()) {
-      try {
-        posthog.opt_out_capturing();
-      } catch {
-        // Browser privacy signals still block wrapper-level capture.
-      }
-    }
+    stopAnalytics();
     return "blocked";
   }
   const status = storedAnalyticsConsent();
   if (status === "granted") initializeAnalytics();
   if (status !== "granted") {
-    clearPendingEvents();
-    if (analyticsIsInitialized()) {
-      try {
-        posthog.opt_out_capturing();
-      } catch {
-        // Wrapper-level consent remains authoritative if the SDK is unavailable.
-      }
-    }
+    stopAnalytics();
   }
   return status;
 }
@@ -648,27 +712,18 @@ export function sanitizeEventProperties<E extends AnalyticsEventName>(
   return sanitized;
 }
 
-export function grantAnalyticsConsent() {
-  if (!isAnalyticsConfigured() || !hasBrowserEnvironment()) return;
-  if (isAnalyticsBlockedByBrowserPrivacySignal()) {
-    clearPendingEvents();
-    if (analyticsIsInitialized()) posthog.opt_out_capturing();
-    return;
-  }
-  if (!persistAnalyticsConsent("granted")) return;
-  initializeAnalytics();
-}
-
-export function denyAnalyticsConsent() {
+export function setAnalyticsLevel(level: AnalyticsLevel) {
   clearPendingEvents();
-  if (!isAnalyticsConfigured() || !hasBrowserEnvironment()) return;
-  persistAnalyticsConsent("denied");
-  if (!analyticsIsInitialized()) return;
-  try {
-    posthog.opt_out_capturing();
-  } catch {
-    // Consent helpers are deliberately safe when storage or analytics is unavailable.
+  if (!isAnalyticsConfigured() || !hasBrowserEnvironment()) return false;
+  if (isAnalyticsBlockedByBrowserPrivacySignal() && level !== "required") {
+    stopAnalytics();
+    return false;
   }
+  const saved = persistAnalyticsConsent(level);
+  if (!saved || level === "required") stopAnalytics();
+  else initializeAnalytics();
+  window.dispatchEvent(new Event(ANALYTICS_CONSENT_CHANGED_EVENT));
+  return saved;
 }
 
 export function captureAnalyticsEvent<E extends AnalyticsEventName>(
@@ -678,12 +733,6 @@ export function captureAnalyticsEvent<E extends AnalyticsEventName>(
   if (!isAnalyticsConfigured() || !hasBrowserEnvironment()) return;
   const sanitizedProperties = sanitizeEventProperties(event, properties);
   const consentStatus = getAnalyticsConsentStatus();
-  if (consentStatus === "pending") {
-    if (pendingEvents.length < MAX_PENDING_EVENTS) {
-      pendingEvents.push({ event, properties: sanitizedProperties });
-    }
-    return;
-  }
   if (consentStatus !== "granted") {
     clearPendingEvents();
     return;

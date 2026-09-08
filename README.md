@@ -71,8 +71,22 @@ or Vercel deployment, add both variables in that project's environment-variable
 settings for each environment where analytics should run, then redeploy. Leaving
 the token unset is supported and keeps PostHog disabled.
 
-Analytics and session replay require an explicit visitor opt-in. A saved opt-out,
-Do Not Track, or Global Privacy Control keeps capture disabled. Pixel artwork,
+Privacy preferences offer three levels. **Required only** is the default and uses
+browser storage for the editor and preferences without initializing PostHog.
+**Usage analytics** opts into page visits and the allowlisted product events below;
+automatic interaction tracking, recordings, and performance/error diagnostics stay
+disabled. **Enhanced diagnostics** also opts into those masked diagnostics and
+session replay, subject to the project's recording settings. Optional modes use
+a stored browser identifier; they are not described as fully anonymous.
+
+The v2 preference preserves existing refusals and maps legacy analytics permission
+to usage only. Enhanced diagnostics need a new explicit choice. Changes apply
+immediately and synchronize across tabs; withdrawal stops recording and capture.
+Events before a choice are discarded, never replayed after permission. If saving
+fails, optional analytics stay disabled for the current visit and the UI explains
+the failure. Do Not Track or Global Privacy Control overrides optional choices.
+
+Pixel artwork,
 uploaded references, project and layer names, animation and slice names, and
 notices are excluded from replay/autocapture. Custom event properties use strict
 per-event allowlists containing only coarse counts, dimensions, timings,
