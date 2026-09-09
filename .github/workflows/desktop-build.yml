@@ -66,7 +66,13 @@ jobs:
         working-directory: desktop
         run: npm run dist -- ${{ matrix.builder-args }} --publish never
       - name: Validate the packaged application and write checksums
+        if: matrix.platform != 'linux'
         run: node scripts/verify-desktop-release.mjs --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --version ${{ steps.release.outputs.version }}
+      - name: Normalize the Linux filename and validate the package
+        if: matrix.platform == 'linux'
+        run: |
+          mv "desktop/release/PixelWall-${{ steps.release.outputs.version }}-linux-x86_64.AppImage" "desktop/release/PixelWall-${{ steps.release.outputs.version }}-linux-x64.AppImage"
+          node scripts/verify-desktop-release.mjs --platform linux --arch x64 --version ${{ steps.release.outputs.version }}
       - name: Upload the desktop candidate and validation report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
