@@ -1,0 +1,1722 @@
+{
+  "schema_version": 2,
+  "status": "draft_not_applied",
+  "api_host": "https://us.posthog.com",
+  "project_id": null,
+  "cutover_date": null,
+  "instructions": [
+    "Read existing dashboards and match keys/titles before creating. Preserve legacy insights and data; update or clearly label old coverage instead of deleting.",
+    "Resolve the project from authenticated PostHog UI/API and verify it matches the public capture token without printing the token.",
+    "Resolve each dashboard ID, then POST/PATCH insight bodies with name, description, tags, query, and dashboards=[resolved_id]. Never send the local key field to the API.",
+    "Use existing account defaults for visibility. Do not enable public dashboard sharing or email subscriptions.",
+    "Validate query nodes through the authenticated query endpoint, inspect rendered insights, and record resulting dashboard URLs. Empty results at cutover are expected; do not fabricate historic events.",
+    "Set cutover_date to the actual production release date after verification."
+  ],
+  "sources": [
+    "https://posthog.com/docs/api/insights",
+    "https://posthog.com/docs/api/dashboards",
+    "https://github.com/PostHog/posthog/blob/master/frontend/src/queries/schema/schema-assistant-queries.ts"
+  ],
+  "dashboards": [
+    {
+      "key": "public-acquisition",
+      "name": "PixelWall \u2014 Website & downloads",
+      "description": "Only consenting browsers on the public site, after the schema 2 launch. No historical backfill, private preview traffic, desktop usage, or visitors who decline analytics. Pseudonymous browser counts are not people. Download clicks do not establish completed downloads or installs. Referral sources describe the immediate referrer; they are not persistent marketing attribution.",
+      "tags": [
+        "pixelwall",
+        "analytics-v2"
+      ],
+      "insights": [
+        {
+          "key": "public-browser-reach",
+          "name": "Consenting browsers visiting PixelWall",
+          "description": "Only consenting browsers on the public site, after the schema 2 launch. No historical backfill, private preview traffic, desktop usage, or visitors who decline analytics. Pseudonymous browser counts are not people.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "site_page_viewed",
+                  "custom_name": "Browsers visiting public pages",
+                  "math": "dau"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "public-pages",
+          "name": "Page views by area",
+          "description": "Page view totals, split into fixed page groups; no raw path or query reporting.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "site_page_viewed",
+                  "custom_name": "Page views",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "page_group",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "immediate-referrals",
+          "name": "Page views by immediate referral source",
+          "description": "Immediate referrer classification only. A later internal page can replace the external source. direct_or_unknown combines direct visits and unavailable referrers.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "site_page_viewed",
+                  "custom_name": "Page views",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "referral_source",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "site-cta-destinations",
+          "name": "Navigation clicks by destination",
+          "description": "Fixed link destinations only; repeated clicks count as repeated events.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "site_cta_clicked",
+                  "custom_name": "Navigation clicks",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "destination",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "desktop-download-platforms",
+          "name": "Desktop download clicks by platform",
+          "description": "Clicks on versioned download links. This does not measure download completion, installation, or app use.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "desktop_download_clicked",
+                  "custom_name": "Download clicks",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "platform",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "desktop-download-versions",
+          "name": "Desktop download clicks by release",
+          "description": "Useful during release rollout; click totals can include retries.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "desktop_download_clicked",
+                  "custom_name": "Download clicks",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "version",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "downloads-page-funnel",
+          "name": "Downloads page \u2192 desktop download click",
+          "description": "Ordered anonymous-browser funnel, within 1 day. Does not include a completed-download or installation step.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "FunnelsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "site_page_viewed",
+                  "custom_name": "View downloads page",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "page_group",
+                      "operator": "exact",
+                      "value": [
+                        "downloads"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "desktop_download_clicked",
+                  "custom_name": "Click desktop download"
+                }
+              ],
+              "funnelsFilter": {
+                "funnelOrderType": "ordered",
+                "funnelVizType": "steps",
+                "funnelWindowInterval": 1,
+                "funnelWindowIntervalUnit": "day"
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "editor-value",
+      "name": "PixelWall \u2014 Editor & exports",
+      "description": "Only consenting browsers on the public site, after the schema 2 launch. No historical backfill, private preview traffic, desktop usage, or visitors who decline analytics. Pseudonymous browser counts are not people. Generated exports indicate files prepared by the editor; they do not prove the user saved a file to disk. Activation funnel is scoped to the current workbench.",
+      "tags": [
+        "pixelwall",
+        "analytics-v2"
+      ],
+      "insights": [
+        {
+          "key": "editor-browser-loads",
+          "name": "Editor browsers by version",
+          "description": "Anonymous browser counts by workbench/classic. A load is not a meaningful edit.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "editor_loaded",
+                  "custom_name": "Browsers loading editor",
+                  "math": "dau"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "editor_variant",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "workbench-activation",
+          "name": "Workbench \u2192 meaningful edit \u2192 generated export",
+          "description": "Ordered within 1 day. Activation is measured only after consent; existing artwork does not produce historical activation. Export completion is editor generation, not disk-save confirmation.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "FunnelsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "editor_loaded",
+                  "custom_name": "Workbench loaded",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "editor_variant",
+                      "operator": "exact",
+                      "value": [
+                        "workbench"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "editor_activated",
+                  "custom_name": "Meaningful edit",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "editor_variant",
+                      "operator": "exact",
+                      "value": [
+                        "workbench"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "export_completed",
+                  "custom_name": "Export generated",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "editor_variant",
+                      "operator": "exact",
+                      "value": [
+                        "workbench"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "funnelsFilter": {
+                "funnelOrderType": "ordered",
+                "funnelVizType": "steps",
+                "funnelWindowInterval": 1,
+                "funnelWindowIntervalUnit": "day"
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "editor-activation-type",
+          "name": "First meaningful editor actions",
+          "description": "First meaningful edit recorded by the current consented editor lifecycle; fixed action classes only.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "editor_activated",
+                  "custom_name": "Activation events",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "activation_type",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "editor-tools",
+          "name": "Workbench tool adoption",
+          "description": "Counts anonymous browsers using each tool family; no pointer paths, artwork, or stroke contents.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "editor_tool_used",
+                  "custom_name": "Browsers using tool family",
+                  "math": "dau",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "editor_variant",
+                      "operator": "exact",
+                      "value": [
+                        "workbench"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "tool_family",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "exports-by-type",
+          "name": "Generated exports by format",
+          "description": "Files generated by the editor. The browser/OS may cancel or decline the subsequent save.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "export_completed",
+                  "custom_name": "Generated exports",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "export_type",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "export-results",
+          "name": "Export starts, completions, failures, and blocks",
+          "description": "Independent counts, not a success-rate formula: starts can complete in another time bucket and repeated export attempts are separate.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "export_started",
+                  "custom_name": "Started",
+                  "math": "total"
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "export_completed",
+                  "custom_name": "Generated",
+                  "math": "total"
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "export_failed",
+                  "custom_name": "Failed",
+                  "math": "total"
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "export_blocked",
+                  "custom_name": "Blocked",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "import-formats",
+          "name": "Completed imports by format",
+          "description": "Fixed format categories; no filenames or imported content.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "import_completed",
+                  "custom_name": "Completed imports",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "format",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "automation-use",
+          "name": "External automation operations",
+          "description": "Coarse successful external-control operation counts. This measures the free scripting interface, not embedded AI, and sends no script or command arguments.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "automation_used",
+                  "custom_name": "Operations",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "operation",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "pro-reliability",
+      "name": "PixelWall \u2014 Pro & reliability",
+      "description": "Only consenting browsers on the public site, after the schema 2 launch. No historical backfill, private preview traffic, desktop usage, or visitors who decline analytics. Pseudonymous browser counts are not people. Live checkout outcomes only where a billing mode applies. Verified ownership claims are browser-observed entitlement events, not authoritative payments or revenue; discounts, gifts, retries, refunds, taxes, and unconsented purchases are not revenue accounting.",
+      "tags": [
+        "pixelwall",
+        "analytics-v2"
+      ],
+      "insights": [
+        {
+          "key": "pro-purchase-funnel",
+          "name": "Pro details \u2192 checkout \u2192 verified ownership",
+          "description": "Ordered within 7 days. Billing-mode filters are on payment steps only because dialog events do not carry billing mode. Return URL success is deliberately not the paid/verified conversion step. Browser identifiers may change across devices or after storage resets.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "FunnelsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "pro_dialog_viewed",
+                  "custom_name": "View Pro details"
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "checkout_started",
+                  "custom_name": "Start live checkout",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "billing_mode",
+                      "operator": "exact",
+                      "value": [
+                        "live"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "checkout_redirected",
+                  "custom_name": "Continue to Stripe",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "billing_mode",
+                      "operator": "exact",
+                      "value": [
+                        "live"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "entitlement_claimed",
+                  "custom_name": "Verify ownership",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "billing_mode",
+                      "operator": "exact",
+                      "value": [
+                        "live"
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "outcome",
+                      "operator": "exact",
+                      "value": [
+                        "success"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "funnelsFilter": {
+                "funnelOrderType": "ordered",
+                "funnelVizType": "steps",
+                "funnelWindowInterval": 7,
+                "funnelWindowIntervalUnit": "day"
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "checkout-operation-funnel",
+          "name": "Checkout start \u2192 Stripe \u2192 verified ownership",
+          "description": "Operational conversion among consented live-checkout attempts. Entitlement success requires a verified owned license; online-only legacy access is shown separately.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "FunnelsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "checkout_started",
+                  "custom_name": "Start live checkout",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "billing_mode",
+                      "operator": "exact",
+                      "value": [
+                        "live"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "checkout_redirected",
+                  "custom_name": "Continue to Stripe",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "billing_mode",
+                      "operator": "exact",
+                      "value": [
+                        "live"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "entitlement_claimed",
+                  "custom_name": "Verify ownership",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "billing_mode",
+                      "operator": "exact",
+                      "value": [
+                        "live"
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "outcome",
+                      "operator": "exact",
+                      "value": [
+                        "success"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "funnelsFilter": {
+                "funnelOrderType": "ordered",
+                "funnelVizType": "steps",
+                "funnelWindowInterval": 7,
+                "funnelWindowIntervalUnit": "day"
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "pro-dialog-sources",
+          "name": "Pro views by opening source",
+          "description": "Dialog opening source is menu, export gate, or checkout return. Already-visible dialogs do not add another view.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "pro_dialog_viewed",
+                  "custom_name": "Pro views",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "source",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "verified-entitlements",
+          "name": "Live ownership claims and restores",
+          "description": "Not revenue or unique purchases. A retry or browser/device change can emit another entitlement event, and restoration is not a sale.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "entitlement_claimed",
+                  "custom_name": "Verified claims",
+                  "math": "total",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "billing_mode",
+                      "operator": "exact",
+                      "value": [
+                        "live"
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "outcome",
+                      "operator": "exact",
+                      "value": [
+                        "success"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "entitlement_restored",
+                  "custom_name": "Verified restores",
+                  "math": "total",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "billing_mode",
+                      "operator": "exact",
+                      "value": [
+                        "live"
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "outcome",
+                      "operator": "exact",
+                      "value": [
+                        "success"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "claim-outcomes",
+          "name": "Live claim outcomes",
+          "description": "success means signed ownership verified; online_only means server-accepted access without a verified portable license; failure means the operation failed.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "entitlement_claimed",
+                  "custom_name": "Claim outcomes",
+                  "math": "total",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "billing_mode",
+                      "operator": "exact",
+                      "value": [
+                        "live"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "outcome",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "checkout-failure-reasons",
+          "name": "Live checkout failures by reason",
+          "description": "Finite reason categories only. No Stripe messages, checkout IDs, recovery codes, or project names.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "checkout_failed",
+                  "custom_name": "Checkout failures",
+                  "math": "total",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "billing_mode",
+                      "operator": "exact",
+                      "value": [
+                        "live"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "reason",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "export-failure-reasons",
+          "name": "Export failures by reason",
+          "description": "Fixed failure categories only; generated artwork and document contents remain private.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "export_failed",
+                  "custom_name": "Export failures",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "reason",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "import-failure-reasons",
+          "name": "Import failures by reason",
+          "description": "Fixed failure categories only; filenames and source content remain private.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "import_failed",
+                  "custom_name": "Import failures",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "reason",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "autosave-health",
+          "name": "Autosave failures and recoveries",
+          "description": "Reported only while analytics consent is active; missed offline/declined visits are not evidence of no failures.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "autosave_failed",
+                  "custom_name": "Autosave failed",
+                  "math": "total"
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "autosave_recovered",
+                  "custom_name": "Autosave recovered",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2"
+          ]
+        },
+        {
+          "key": "performance-lcp",
+          "name": "LCP \u2014 75th percentile",
+          "description": "Enhanced diagnostics only. Page-lifetime performance metrics from consenting browsers; not a score for all visitors. LCP and INP are milliseconds; CLS is unitless.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "$web_vitals",
+                  "custom_name": "LCP (75th percentile)",
+                  "math": "hogql",
+                  "math_hogql": "quantile(0.75)(toFloat(properties.$web_vitals_LCP_value))"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              }
+            }
+          }
+        },
+        {
+          "key": "performance-inp",
+          "name": "INP \u2014 75th percentile",
+          "description": "Enhanced diagnostics only. Page-lifetime performance metrics from consenting browsers; not a score for all visitors. LCP and INP are milliseconds; CLS is unitless.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "$web_vitals",
+                  "custom_name": "INP (75th percentile)",
+                  "math": "hogql",
+                  "math_hogql": "quantile(0.75)(toFloat(properties.$web_vitals_INP_value))"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              }
+            }
+          }
+        },
+        {
+          "key": "performance-cls",
+          "name": "CLS \u2014 75th percentile",
+          "description": "Enhanced diagnostics only. Page-lifetime performance metrics from consenting browsers; not a score for all visitors. LCP and INP are milliseconds; CLS is unitless.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "$web_vitals",
+                  "custom_name": "CLS (75th percentile)",
+                  "math": "hogql",
+                  "math_hogql": "quantile(0.75)(toFloat(properties.$web_vitals_CLS_value))"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              }
+            }
+          }
+        },
+        {
+          "key": "diagnostic-errors",
+          "name": "Scrubbed browser error reports",
+          "description": "Enhanced diagnostics only. Messages, stack traces, private URLs and document content are removed. Counts are reports, not distinct root causes.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "$exception",
+                  "custom_name": "Scrubbed error reports",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -14,8 +14,7 @@ import { ExportPresets } from "./export-presets";
 import { ProDialog, useProAccess } from "./pro-access";
 import { DownloadReady, useDownload } from "./use-download";
 import { CELL_SIZES, useCanvasView } from "./use-canvas-view";
-import { captureAnalyticsEvent, getAnalyticsConsentStatus, isAnalyticsConfigured } from "./analytics";
-import { AnalyticsConsent } from "./analytics-consent";
+import { captureAnalyticsEvent, getAnalyticsConsentStatus, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
 import type {
   ChangeEvent,
   CSSProperties,
@@ -910,6 +909,7 @@ export default function Studio() {
   const autosaveFailureActive = useRef(false);
   const editorSource = useRef<"fresh_demo" | "restored_v3" | "upgraded_v2" | "upgraded_v1">("fresh_demo");
   const editorLoadedCaptured = useRef(false);
+  const editorActivatedCaptured = useRef(false);
   const guideSource = useRef<"automatic" | "footer" | "toolbar">("automatic");
   const shouldRestoreExportFocus = useRef(false);
   const referenceDrag = useRef<null | {
@@ -975,7 +975,17 @@ export default function Studio() {
     tilemap_placed_cells: tilemapPlacedCells,
   };
 
+  const analyticsProjectShapeRef = useRef(analyticsProjectShape);
+  useEffect(() => { analyticsProjectShapeRef.current = analyticsProjectShape; });
+
+  function captureActivation(activation_type: "drawing" | "structure") {
+    if (editorActivatedCaptured.current || getAnalyticsConsentStatus() !== "granted") return;
+    editorActivatedCaptured.current = true;
+    captureAnalyticsEvent("editor_activated", { ...analyticsProjectShape, activation_type });
+  }
+
   function captureCanvasEdit(editType: string, inputMethod: AnalyticsInputMethod, changedCells?: number) {
+    captureActivation("drawing");
     captureAnalyticsEvent("canvas_edit_committed", {
       ...analyticsProjectShape,
       edit_type: editType,
@@ -993,6 +1003,7 @@ export default function Studio() {
     toValue?: string | number | boolean,
     shapeOverrides: Partial<typeof analyticsProjectShape> = {},
   ) {
+    captureActivation("structure");
     const resultingShape = { ...analyticsProjectShape, ...shapeOverrides };
     if (resource === "canvas" && action === "resize" && typeof toValue === "number") resultingShape.canvas_size = toValue;
     if (resource === "frame" && ["add", "duplicate", "delete"].includes(action) && typeof toValue === "number") resultingShape.frame_count = toValue;
@@ -1118,7 +1129,6 @@ export default function Studio() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (isAnalyticsConfigured() && getAnalyticsConsentStatus() === "pending") return;
       try {
         if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY) !== "done") {
           guideSource.current = "automatic";
@@ -1189,14 +1199,19 @@ export default function Studio() {
   }, []);
 
   useEffect(() => {
-    if (!storageReady || editorLoadedCaptured.current) return;
-    editorLoadedCaptured.current = true;
-    captureAnalyticsEvent("editor_loaded", {
-      ...analyticsProjectShape,
-      project_source: editorSource.current,
-    });
-    // The initial editor state is captured once after local restoration completes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!storageReady) return;
+    const captureReady = () => {
+      if (editorLoadedCaptured.current || getAnalyticsConsentStatus() !== "granted") return;
+      editorLoadedCaptured.current = true;
+      captureAnalyticsEvent("editor_loaded", {
+        ...analyticsProjectShapeRef.current,
+        project_source: editorSource.current,
+      });
+    };
+    captureReady();
+    window.addEventListener(ANALYTICS_CONSENT_CHANGED_EVENT, captureReady);
+    return () => window.removeEventListener(ANALYTICS_CONSENT_CHANGED_EVENT, captureReady);
+    // A later grant describes the currently ready editor, not earlier activity.
   }, [storageReady]);
 
   useEffect(() => {
@@ -4056,15 +4071,6 @@ export default function Studio() {
           error.name = "ProjectSaveError";
           throw error;
         }
-      }} />
-      <AnalyticsConsent onInitialPromptClosed={() => {
-        try {
-          if (window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === "done") return;
-        } catch {
-          // The guide remains available when browser storage is unavailable.
-        }
-        guideSource.current = "automatic";
-        setGuideOpen(true);
       }} />
       <OnboardingGuide open={guideOpen} onDismiss={dismissGuide} onExplore={(target) => { dismissGuide("got_it"); window.setTimeout(() => navigateWorkspace(target), 0); }} />
       <NewProjectDialog open={newProjectOpen} sizes={GRID_SIZES} onClose={() => setNewProjectOpen(false)} onCreate={startBlankProject} />

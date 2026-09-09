@@ -41,6 +41,8 @@ import TilePixelEditor from "./tile-pixel-editor";
 import { registerOffline } from "./offline-client.mjs";
 import { sameFrameRender } from "./frame-render-equality.mjs";
 import SheetImportPreview from "./sheet-import-preview.jsx";
+import { captureAnalyticsEvent, getAnalyticsConsentStatus, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
+import { createWorkbenchAnalytics, analyticsFormat } from "./workbench-analytics.mjs";
 import {
   Pencil,
   Eraser,
@@ -408,6 +410,20 @@ export default function Workbench() {
     saveQueueRef = useRef(Promise.resolve()),
     hostRef = useRef(null),
     loadGeneration = useRef(0);
+  const analyticsRef = useRef(null);
+  if (analyticsRef.current === null) {
+    analyticsRef.current = createWorkbenchAnalytics({
+      capture: captureAnalyticsEvent,
+      consented: () => getAnalyticsConsentStatus() === "granted",
+      getDocument: () => docRef.current,
+    });
+  }
+  const pendingImportFormatRef = useRef("image");
+  useEffect(() => {
+    const sync = () => analyticsRef.current.consentChanged();
+    window.addEventListener(ANALYTICS_CONSENT_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(ANALYTICS_CONSENT_CHANGED_EVENT, sync);
+  }, []);
   const access = useProAccess();
   const downloads = useDownload();
   const report = useCallback((error) => {
@@ -508,6 +524,7 @@ export default function Workbench() {
       setSaveStatus("Unsaved changes");
       docRef.current = next;
       revisionRef.current++;
+      analyticsRef.current.committed(commands, historyRef.current.lastChange?.changed);
       reconcile(next);
       setDoc(next);
       setHistoryVersion((v) => v + 1);
@@ -578,8 +595,11 @@ export default function Workbench() {
     const run = saveQueueRef.current.catch(() => {}).then(task);
     saveQueueRef.current = run;
     try {
-      return await run;
+      const result = await run;
+      analyticsRef.current.saveResult();
+      return result;
     } catch (error) {
+      analyticsRef.current.saveResult(error);
       setSaveStatus("Save needs attention");
       report(error);
       throw error;
@@ -628,11 +648,17 @@ export default function Workbench() {
         throw Error(
           "Finish the current edit or recovery before opening another document.",
         );
-      await save();
-      const next = createDocument({ ...options, id: crypto.randomUUID() });
-      await activate(next);
-      setModal(null);
-      return next;
+      try {
+        await save();
+        const next = createDocument({ ...options, id: crypto.randomUUID() });
+        await activate(next);
+        analyticsRef.current.project("new", "completed");
+        setModal(null);
+        return next;
+      } catch (error) {
+        analyticsRef.current.project("new", "failed");
+        throw error;
+      }
     },
     [save, activate],
   );
@@ -693,6 +719,9 @@ export default function Workbench() {
           loaded?.revision,
         );
         setSaveStatus(loaded ? "Saved on this device" : "Ready");
+        analyticsRef.current.loaded(loaded
+          ? migrations.some((result) => result.status === "imported") ? "legacy_migration" : "library"
+          : "new");
       }
       void store.requestPersistence?.();
     })().catch(async (error) => {
@@ -706,6 +735,8 @@ export default function Workbench() {
         createDocument({ name: "Untitled", width: 64, height: 64 }),
       );
       setSaveStatus("Portable backups only");
+      analyticsRef.current.loaded("storage_unavailable");
+      analyticsRef.current.saveResult(error);
     });
     return () => {
       mounted = false;
@@ -1208,6 +1239,7 @@ export default function Workbench() {
         setSaveStatus("Unsaved changes");
         docRef.current = next;
         revisionRef.current++;
+        analyticsRef.current.committed(command, historyRef.current.lastChange?.changed);
         setDoc(next);
         setHistoryVersion((v) => v + 1);
         setHistoryState({
@@ -1463,7 +1495,9 @@ export default function Workbench() {
       const loaded = await storeRef.current.loadDocument(id);
       if (!loaded) throw Error("Project could not be found.");
       await activate(loaded.document, loaded.revision);
+      analyticsRef.current.project("open", "completed");
     } catch (error) {
+      analyticsRef.current.project("open", "failed");
       report(error);
     }
   }
@@ -1495,9 +1529,10 @@ export default function Workbench() {
   async function importFiles(files, kind = importKind) {
     if (!files.length) return;
     setBusy(true);
+    const file = files[0],
+      ext = file.name.toLowerCase().split(".").pop(),
+      importFormat = analyticsFormat(ext);
     try {
-      const file = files[0],
-        ext = file.name.toLowerCase().split(".").pop();
       let next,
         warnings = [];
       if (kind === "extension") {
@@ -1508,16 +1543,18 @@ export default function Workbench() {
         ];
         await storeRef.current.setSetting("extensions", updated);
         setExtensions(updated);
+        analyticsRef.current.imported(kind, importFormat, files.length);
         setNotice(
           extension.name + " installed. Choose Run in Scripts to apply it.",
         );
         return;
       }
       if (kind === "palette") {
-        run(
+        const imported = run(
           { type: "palette.update", palette: parsePalette(await file.text()) },
           "Import palette",
         );
+        analyticsRef.current.imported(kind, importFormat, files.length, 0, !imported);
         return;
       }
       if (kind === "sequence") {
@@ -1550,7 +1587,7 @@ export default function Workbench() {
         const image = await decodeImage(file);
         warnings.push(...(image.warnings || []));
         const id = "reference-" + Date.now();
-        run(
+        const imported = run(
           [
             {
               type: "layer.add",
@@ -1569,6 +1606,7 @@ export default function Workbench() {
           ],
           "Import reference",
         );
+        analyticsRef.current.imported(kind, importFormat, files.length, warnings.length, !imported);
         setActiveLayer(id);
         setNotice("Reference imported. Unlock it to move or transform.");
         if (warnings.length) {
@@ -1579,6 +1617,7 @@ export default function Workbench() {
       } else if (kind === "sheet") {
         const image = await decodeImage(file);
         warnings.push(...(image.warnings || []));
+        pendingImportFormatRef.current = importFormat;
         setPendingImage({ ...image, name: stem(file.name) });
         setImportWarnings(warnings);
         setModal("sheet");
@@ -1618,6 +1657,7 @@ export default function Workbench() {
       }
       await save();
       await activate({ ...next, id: crypto.randomUUID() });
+      analyticsRef.current.imported(kind, importFormat, files.length, warnings.length);
       setImportWarnings(warnings);
       setNotice(
         warnings.length
@@ -1626,6 +1666,7 @@ export default function Workbench() {
       );
       if (warnings.length) setModal("warnings");
     } catch (error) {
+      analyticsRef.current.imported(kind, importFormat, files.length, 0, true);
       report(error);
     } finally {
       setBusy(false);
@@ -1650,7 +1691,18 @@ export default function Workbench() {
       ids = [...ids, ...ids.slice(1, -1).reverse()];
     return { ids, loop: clip?.loop !== false };
   }
-  async function exportArtwork(options = {}) {
+  async function exportArtwork(options = {}, source = "ui") {
+    const attempt = analyticsRef.current.exportStarted(options.format || "png", source);
+    try {
+      const result = await generateArtwork(options);
+      analyticsRef.current.exportFinished(attempt);
+      return result;
+    } catch (error) {
+      analyticsRef.current.exportFinished(attempt, error);
+      throw error;
+    }
+  }
+  async function generateArtwork(options = {}) {
     const source = docRef.current;
     if (!source) throw Error("Open a project first.");
     let current = source;
@@ -1692,8 +1744,11 @@ export default function Workbench() {
       };
     const format = options.format || "png",
       scale = clamp(Math.floor(Number(options.scale) || 1), 1, 8);
-    if (PAID_FORMATS.has(format) && !(await access.requestAccess()))
-      throw Error("Pro access is required for this export.");
+    if (PAID_FORMATS.has(format) && !(await access.requestAccess())) {
+      const error = Error("Pro access is required for this export.");
+      error.name = "ProExportRequired";
+      throw error;
+    }
     let bytes,
       companion,
       mime = "application/octet-stream",
@@ -1823,7 +1878,7 @@ export default function Workbench() {
   async function doExport(options) {
     setBusy(true);
     try {
-      const result = await exportArtwork(options);
+      const result = await exportArtwork(options, "automation");
       setModal(null);
       return result;
     } catch (error) {
@@ -1840,9 +1895,14 @@ export default function Workbench() {
       commands: () => COMMANDS,
       apply: async (commands, label) => {
         commit(commands, label);
+        analyticsRef.current.automation("apply", commands.length);
         await deferred();
       },
-      newDocument,
+      newDocument: async (options) => {
+        const result = await newDocument(options);
+        analyticsRef.current.automation("new_document");
+        return result;
+      },
       preview: async ({ frameId, scale = 1 } = {}) => {
         const current = docRef.current,
           s = clamp(scale, 1, 8);
@@ -1859,10 +1919,26 @@ export default function Workbench() {
           dataUrl: c.toDataURL("image/png"),
         };
       },
-      save,
-      export: exportArtwork,
-      undo,
-      redo,
+      save: async () => {
+        const result = await save();
+        if (result) analyticsRef.current.automation("save");
+        return result;
+      },
+      export: async (options) => {
+        const result = await exportArtwork(options, "automation");
+        analyticsRef.current.automation("export");
+        return result;
+      },
+      undo: () => {
+        const before = revisionRef.current;
+        undo();
+        if (revisionRef.current !== before) analyticsRef.current.automation("undo");
+      },
+      redo: () => {
+        const before = revisionRef.current;
+        redo();
+        if (revisionRef.current !== before) analyticsRef.current.automation("redo");
+      },
     };
   });
   useEffect(() => {
@@ -1909,7 +1985,9 @@ export default function Workbench() {
       await save();
       setRevisions(await storeRef.current.listRevisions(doc.id));
       setModal("recovery");
+      analyticsRef.current.recovery("view", "completed");
     } catch (error) {
+      analyticsRef.current.recovery("view", "failed", error);
       report(error);
     } finally {
       setBusy(false);
@@ -4199,9 +4277,11 @@ export default function Workbench() {
                 });
                 await save();
                 await activate(next);
+                analyticsRef.current.imported("sheet", pendingImportFormatRef.current, 1, importWarnings.length);
                 setModal(null);
                 setPendingImage(null);
               } catch (error) {
+                analyticsRef.current.imported("sheet", pendingImportFormatRef.current, 1, 0, true);
                 report(error);
               }
             }}
@@ -4253,8 +4333,10 @@ export default function Workbench() {
                       });
                       saveQueueRef.current = restore;
                       await restore;
+                      analyticsRef.current.recovery("restore", "completed");
                       setModal(null);
                     } catch (error) {
+                      analyticsRef.current.recovery("restore", "failed", error);
                       report(error);
                     } finally {
                       restoringRef.current = false;

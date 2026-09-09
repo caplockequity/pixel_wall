@@ -2,8 +2,14 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
+import { createRequire } from "node:module";
 import ts from "typescript";
 import * as acquisition from "../app/acquisition.mjs";
+import { createWorkbenchAnalytics } from "../app/workbench-analytics.mjs";
+
+// Exercise the real installed SDK transport validation without creating an instance
+// or allowing any network calls. The app consent module still uses the isolated SDK.
+const { PostHog } = createRequire(import.meta.url)("../node_modules/posthog-js/lib/src/posthog-core.js");
 
 const source = await readFile(new URL("../app/analytics.ts", import.meta.url), "utf8");
 // Replace only the SDK import boundary so tests can control chunk delivery/failure.
@@ -17,7 +23,7 @@ const preferenceKey = "pixelwall-analytics-consent-v2";
 const legacyKey = "pixelwall-analytics-consent-v1";
 
 // Run the real consent module against an isolated SDK boundary. No telemetry is sent.
-function setup({ stored = {}, privacy = {}, deferLoaded = false, deferImport = false, importFails = false, readFails = false, configured = true, referrer } = {}) {
+function setup({ stored = {}, privacy = {}, deferLoaded = false, deferImport = false, importFails = false, readFails = false, configured = true, referrer, origin = "https://www.pixelwall.dev", standalone = false } = {}) {
   const storage = new Map(Object.entries(stored));
   const window = new EventTarget();
   let writeFails = false;
@@ -25,11 +31,12 @@ function setup({ stored = {}, privacy = {}, deferLoaded = false, deferImport = f
     getItem(key) { if (readFails) throw new Error("Storage blocked"); return storage.get(key) ?? null; },
     setItem(key, value) { if (writeFails) throw new Error("Storage full"); storage.set(key, value); },
   };
-  window.location = { protocol: "https:", origin: "https://www.pixelwall.dev" };
+  window.location = { protocol: "https:", origin, pathname: "/editor" };
   const navigator = { ...privacy };
-  const calls = { imports: 0, init: 0, stop: 0, optOut: 0, referrerReads: 0, events: [] };
+  const calls = { imports: 0, init: 0, stop: 0, optOut: 0, referrerReads: 0, vitalsStarts: 0, events: [] };
   const sdk = {
     config: {}, capturing: false, recording: false,
+    webVitalsAutocapture: { startIfEnabled() { calls.vitalsStarts++; } },
     init(_token, config) {
       calls.init++;
       this.config = config;
@@ -53,9 +60,9 @@ function setup({ stored = {}, privacy = {}, deferLoaded = false, deferImport = f
   let shouldFailImport = importFails;
   const exports = {};
   const context = vm.createContext({
-    exports, window, navigator, Event,
+    exports, window, navigator, Event, Date,
     ...(referrer === undefined ? {} : { document: { get referrer() { calls.referrerReads++; return referrer; } } }),
-    process: { env: { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: configured ? "test-project" : "", NEXT_PUBLIC_POSTHOG_HOST: "https://us.i.posthog.com" } },
+    process: { env: { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: configured ? "test-project" : "", NEXT_PUBLIC_POSTHOG_HOST: "https://us.i.posthog.com", NEXT_PUBLIC_PIXELWALL_STANDALONE: String(standalone) } },
     URL,
     require(name) { assert.equal(name, "./acquisition.mjs", `Unexpected eager dependency: ${name}`); return acquisition; },
     __loadPostHog() {
@@ -81,6 +88,7 @@ function setup({ stored = {}, privacy = {}, deferLoaded = false, deferImport = f
   };
 }
 
+const common = { token: "test-project", $process_person_profile: false, $geoip_disable: true, $is_identified: false, analytics_schema_version: 2, environment: "production", page_group: "editor", editor_variant: "workbench" };
 const edited = { tool: "pencil", edit_type: "stroke", input_method: "pointer", linked_edges: false };
 const settleSdk = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -120,18 +128,18 @@ test("usage permits sanitized product events and page visits without replay or a
   assert.equal(sdk.config.disable_session_recording, true);
   assert.equal(sdk.recording, false);
   api.captureAnalyticsEvent("canvas_edit_committed", { ...edited, pixels: "secret", project_name: "private-project", changed_cells: Infinity });
-  assert.deepEqual(calls.events[0].properties, edited);
-  sdk.capture("$pageview", { $current_url: "https://pixelwall.example/?private=1#secret" });
-  assert.equal(calls.events[1].properties.$current_url, "https://pixelwall.example/");
+  assert.deepEqual(calls.events[0].properties, { ...edited, ...common });
+  sdk.capture("site_page_viewed", { page_group: "editor", $current_url: "https://pixelwall.example/?private=1#secret" });
+  assert.equal(calls.events[1].properties.$current_url, undefined);
   for (const event of ["$snapshot", "$autocapture", "$exception", "$web_vitals", "$rageclick", "unexpected_event"]) sdk.capture(event);
   assert.equal(calls.events.length, 2);
 });
 
-test("enhanced diagnostics enable masked replay and redact error contents; downgrades stop them immediately", async () => {
+test("enhanced diagnostics never record sessions and redact error contents; downgrades stop them immediately", async () => {
   const { api, sdk, calls } = setup();
   api.setAnalyticsLevel("enhanced");
   await settleSdk();
-  assert.equal(sdk.recording, true);
+  assert.equal(sdk.recording, false);
   assert.equal(sdk.config.capture_exceptions.capture_unhandled_errors, true);
   assert.equal(sdk.config.session_recording.maskAllInputs, true);
   assert.equal(sdk.config.session_recording.captureCanvas.recordCanvas, false);
@@ -154,7 +162,7 @@ test("enhanced diagnostics enable masked replay and redact error contents; downg
   sdk.capture("$snapshot");
   assert.equal(calls.events.length, 2);
   api.setAnalyticsLevel("enhanced");
-  assert.equal(sdk.recording, true, "an explicit new opt-in can enable replay again");
+  assert.equal(sdk.recording, false, "replay stays disabled at every consent level");
 });
 
 test("legacy permission migrates to usage only and malformed new preferences cannot resurrect it", async () => {
@@ -220,7 +228,7 @@ test("preferences synchronize across tabs and clearing stored consent stops an a
   api.initializeAnalytics();
   updateFromOtherTab("enhanced");
   await settleSdk();
-  assert.equal(sdk.recording, true);
+  assert.equal(sdk.recording, false);
   updateFromOtherTab("usage");
   assert.equal(sdk.recording, false);
   assert.equal(sdk.capturing, true);
@@ -258,7 +266,7 @@ test("concurrent granted events share one SDK download and retain only sanitized
   await settleSdk();
   assert.equal(calls.init, 1);
   assert.equal(calls.events.length, 3);
-  for (const event of calls.events) assert.deepEqual(event.properties, edited);
+  for (const event of calls.events) assert.deepEqual(event.properties, { ...edited, ...common });
   api.initializeAnalytics();
   assert.equal(calls.imports, 1);
   assert.equal(calls.init, 1);
@@ -337,15 +345,157 @@ test("referral classification reads the browser only after consent and stops imm
   assert.equal(calls.referrerReads, 0);
   api.setAnalyticsLevel("usage");
   await settleSdk();
-  sdk.capture("$pageview", { $referrer: "https://private.example/path", $initial_referrer: "private", $referring_domain: "private.example", utm_source: "secret", $initial_utm_campaign: "secret", gclid: "secret", entry_page: "private-path" });
-  assert.deepEqual(calls.events[0].properties, { referral_source: "chatgpt" });
+  sdk.capture("site_page_viewed", { $referrer: "https://private.example/path", $initial_referrer: "private", $referring_domain: "private.example", utm_source: "secret", $initial_utm_campaign: "secret", gclid: "secret", entry_page: "private-path" });
+  assert.deepEqual(calls.events[0].properties, { ...common, referral_source: "chatgpt" });
   assert.equal(calls.referrerReads, 1);
   assert.equal(JSON.stringify([...storage]).includes("private"), false);
   api.setAnalyticsLevel("required");
-  assert.equal(sdk.config.before_send({ event: "$pageview", properties: {} }), null);
+  assert.equal(sdk.config.before_send({ event: "site_page_viewed", properties: {} }), null);
   assert.equal(calls.referrerReads, 1);
   api.setAnalyticsLevel("usage");
   navigator.globalPrivacyControl = true;
-  assert.equal(sdk.config.before_send({ event: "$pageview", properties: {} }), null);
+  assert.equal(sdk.config.before_send({ event: "site_page_viewed", properties: {} }), null);
   assert.equal(calls.referrerReads, 1);
+});
+
+test("private previews, development and downloadable apps never import the SDK", async () => {
+  for (const options of [
+    { origin: "https://pixelwall-maker.ben-zavadil.chatgpt.site" },
+    { origin: "https://preview.vercel.app" },
+    { origin: "http://localhost:5173" },
+    { origin: "file://" },
+    { standalone: true },
+  ]) {
+    const { api, calls } = setup({ ...options, stored: { [preferenceKey]: "enhanced" } });
+    api.initializeAnalytics();
+    api.captureAnalyticsEvent("site_page_viewed", { page_group: "home" });
+    await settleSdk();
+    assert.equal(api.isAnalyticsConfigured(), false);
+    assert.equal(calls.imports, 0);
+    assert.equal(calls.events.length, 0);
+  }
+});
+
+test("the final payload boundary rejects enrichment, private identifiers and unknown events at every level", async () => {
+  const { api, sdk, calls } = setup();
+  api.setAnalyticsLevel("enhanced");
+  await settleSdk();
+  const id = "019a0000-1111-7777-aaaa-123456789abc";
+  const result = sdk.config.before_send({
+    event: "export_failed", uuid: id, $set: { email: "secret@example.com" }, $set_once: { name: "secret" }, $unset: ["secret"],
+    properties: { export_type: "gif", reason: "secret-token", project_name: "secret", distinct_id: id, $session_id: id,
+      $device_id: "secret@example.com", $browser: "Chrome", $os: "Mac OS X", $device_type: "Desktop", $process_person_profile: true,
+      $current_url: "https://secret.example/private", $pathname: "/secret", $referrer: "https://secret.example",
+      nested: { a: { b: { c: { d: { e: { f: { private: "secret" } } } } } } },
+      $set: { email: "secret" }, $geoip_city_name: "secret", $initial_utm_source: "secret", $raw_user_agent: "secret" },
+  });
+  assert.equal(JSON.stringify(result).includes("secret"), false);
+  assert.equal(result.uuid, id);
+  assert.equal(result.properties.distinct_id, id);
+  assert.equal(result.properties.$session_id, id);
+  assert.equal(result.properties.$browser, "Chrome");
+  assert.equal(result.properties.$process_person_profile, false);
+  assert.equal(result.$set, undefined);
+  for (const name of ["$snapshot", "$autocapture", "$pageview", "$pageleave", "$identify", "$groupidentify", "private-event", "__proto__"]) {
+    assert.equal(sdk.config.before_send({ event: name, properties: {} }), null);
+    assert.doesNotThrow(() => api.captureAnalyticsEvent(name, { reason: "secret" }));
+  }
+  assert.equal(calls.events.length, 0);
+  assert.equal(sdk.config.capture_pageview, false);
+  assert.equal(sdk.config.capture_pageleave, false);
+  assert.equal(sdk.config.disable_surveys, true);
+  assert.equal(sdk.config.disable_conversations, true);
+  assert.equal(sdk.config.disable_product_tours, true);
+  assert.equal(sdk.config.logs.beforeSend({ body: "secret" }), null);
+  assert.equal(sdk.config.session_recording.maskCapturedNetworkRequestFn({ name: "https://secret.example" }), null);
+});
+
+test("diagnostics keep only finite performance measures and known error types", async () => {
+  const { api, sdk, calls } = setup();
+  api.setAnalyticsLevel("enhanced");
+  await settleSdk();
+  sdk.capture("$web_vitals", { $web_vitals_LCP_value: 1234.5, $web_vitals_INP_value: Infinity, $web_vitals_CLS_value: 0.1,
+    $web_vitals_LCP_event: { entries: [{ url: "https://secret.example", name: "secret" }] } });
+  sdk.capture("$exception", { $exception_list: [{ type: "secret", value: "secret", mechanism: { type: "secret" },
+    stacktrace: { frames: [{ filename: "https://secret.example/private", function: "secret" }] } }] });
+  assert.equal(calls.events[0].properties.$web_vitals_LCP_value, 1234.5);
+  assert.equal(calls.events[0].properties.$web_vitals_INP_value, undefined);
+  assert.equal(calls.events[1].properties.$exception_list[0].type, "Error");
+  assert.equal(JSON.stringify(calls.events).includes("secret"), false);
+});
+
+
+test("real PostHog transport validation accepts the scrubbed SDK envelope", async () => {
+  const { api, sdk } = setup();
+  api.setAnalyticsLevel("enhanced");
+  await settleSdk();
+  const id = "019a0000-1111-7777-aaaa-123456789abc";
+  const timestamp = new Date();
+  const original = {
+    event: "desktop_download_clicked", uuid: id, timestamp,
+    $set: { email: "private@example.invalid" },
+    properties: {
+      token: "caller-must-not-control-project", distinct_id: `$device:${id}`,
+      $device_id: id, $session_id: id, $window_id: id, $pageview_id: id,
+      $browser: "Chrome", $browser_version: 145, $os: "Mac OS X",
+      $device_type: "Desktop", $lib: "web", $lib_version: "1.420.0",
+      $screen_width: 1728, $screen_height: 1117,
+      $current_url: "https://www.pixelwall.dev/downloads?private=secret",
+      $pathname: "/downloads", $referrer: "https://example.invalid/private",
+      platform: "darwin-arm64", version: "0.2.1", package_type: "zip",
+      $process_person_profile: false, $is_identified: false,
+    },
+  };
+  // Installed PostHog rejects events when before_send removes required fields.
+  const result = PostHog.prototype._runBeforeSend.call({ config: { before_send: sdk.config.before_send } }, original);
+  assert.ok(result, "the installed SDK must accept the final envelope");
+  assert.equal(result.properties.token, "test-project", "retain the trusted configured project token");
+  assert.equal(result.uuid, id);
+  assert.equal(result.timestamp, timestamp);
+  assert.equal(result.properties.distinct_id, `$device:${id}`);
+  assert.equal(result.properties.$session_id, id);
+  assert.equal(result.properties.platform, "darwin-arm64");
+  assert.equal(result.properties.version, "0.2.1");
+  assert.equal(result.$set, undefined);
+  assert.equal(result.properties.$current_url, undefined);
+  assert.equal(JSON.stringify(result).includes("secret"), false);
+});
+
+test("upgrading Usage to Enhanced starts the existing SDK's web vitals collector", async () => {
+  const { api, sdk, calls } = setup();
+  api.setAnalyticsLevel("usage");
+  await settleSdk();
+  assert.equal(calls.vitalsStarts, 0);
+  api.setAnalyticsLevel("enhanced");
+  assert.equal(calls.init, 1, "upgrade uses the existing SDK instance");
+  assert.equal(calls.vitalsStarts, 1, "set_config alone does not start the installed SDK collector");
+  api.initializeAnalytics();
+  assert.equal(calls.vitalsStarts, 1, "repeated events do not restart the collector");
+  api.setAnalyticsLevel("usage");
+  assert.equal(sdk.config.capture_performance, false);
+  assert.equal(sdk.config.before_send({ event: "$web_vitals", properties: { $web_vitals_LCP_value: 10 } }), null);
+});
+
+
+test("workbench milestones survive the final event catalog without losing their operation categories", async () => {
+  const { api, calls } = setup();
+  api.setAnalyticsLevel("usage");
+  await settleSdk();
+  const analytics = createWorkbenchAnalytics({ capture: api.captureAnalyticsEvent, consented: () => true,
+    getDocument: () => ({ width: 64, height: 32, frames: [], layers: [], colorMode: "indexed" }), now: () => 0 });
+  analytics.committed({ type: "draw.gradient" }, true);
+  analytics.project("new", "completed");
+  analytics.imported("extension", "json", 1);
+  analytics.exportFinished(analytics.exportStarted("zip", "automation"));
+  analytics.recovery("view", "completed");
+  analytics.automation("apply", 2000);
+  const event = name => calls.events.find(item => item.event === name).properties;
+  assert.equal(event("editor_activated").activation_type, "gradient");
+  assert.equal(event("editor_tool_used").tool_family, "gradient");
+  assert.equal(event("project_file_operation").outcome, "success");
+  assert.equal(event("import_completed").import_kind, "extension");
+  assert.equal(event("export_completed").export_type, "zip");
+  assert.equal(event("export_completed").source, "automation");
+  assert.equal(event("recovery_action").action, "view");
+  assert.equal(event("automation_used").operation, "apply");
 });

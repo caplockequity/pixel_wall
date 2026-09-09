@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useRef, useState } from "react";
 import {
   ANALYTICS_CONSENT_CHANGED_EVENT,
@@ -17,33 +19,29 @@ const PRIVACY_CHOICES = [
     value: "required",
     title: "Required only",
     badge: "DEFAULT",
-    description: "Keep artwork, preferences and your privacy choice in this browser. No optional analytics or session recordings.",
+    description: "Keep artwork, preferences and your privacy choice on this device. No optional analytics.",
   },
   {
     value: "usage",
     title: "Usage analytics",
     badge: "OPTIONAL",
-    description: "Also share which features are used, export results, and browser/device details with PostHog. No session recordings.",
+    description: "Share page categories, features used, download clicks, export and Pro results, and basic browser/device details with PostHog.",
   },
   {
     value: "enhanced",
     title: "Enhanced diagnostics",
     badge: "OPTIONAL",
-    description: "Include usage analytics plus masked session recordings, interaction patterns, and performance and error reports to help us fix problems.",
+    description: "Include usage analytics plus performance measurements and scrubbed error reports to help us fix problems.",
   },
 ] as const;
 
-type AnalyticsConsentProps = {
-  onInitialPromptClosed?: () => void;
-};
-
-export function AnalyticsConsent({ onInitialPromptClosed }: AnalyticsConsentProps) {
+export function AnalyticsConsent() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const sourceRef = useRef("initial_prompt");
-  const initialPromptClosed = useRef(false);
-  const initialPromptShown = useRef(false);
+  const [ready, setReady] = useState(false);
   const [status, setStatus] = useState<AnalyticsConsentStatus>("unavailable");
   const [level, setLevel] = useState<AnalyticsLevel>("required");
   const [selection, setSelection] = useState<AnalyticsLevel>("required");
@@ -52,16 +50,11 @@ export function AnalyticsConsent({ onInitialPromptClosed }: AnalyticsConsentProp
 
   useEffect(() => {
     const syncStatus = () => {
-      const nextStatus = getAnalyticsConsentStatus();
+      setStatus(getAnalyticsConsentStatus());
       const nextLevel = getAnalyticsLevel();
-      setStatus(nextStatus);
       setLevel(nextLevel);
       setSelection(nextLevel);
-      if (nextStatus === "pending" && !initialPromptShown.current) {
-        initialPromptShown.current = true;
-        sourceRef.current = "initial_prompt";
-        setOpen(true);
-      }
+      setReady(true);
     };
     syncStatus();
     window.addEventListener(ANALYTICS_CONSENT_CHANGED_EVENT, syncStatus);
@@ -79,20 +72,29 @@ export function AnalyticsConsent({ onInitialPromptClosed }: AnalyticsConsentProp
     }
   }, [open]);
 
-  if (!isAnalyticsConfigured()) return null;
+  // Keep the server and first client render identical; runtime configuration
+  // excludes private previews, local development and downloaded builds.
+  if (!ready || !isAnalyticsConfigured()) return null;
 
   const browserBlocked = status === "blocked";
-  const currentLabel = status === "pending" ? "Privacy choices"
-    : level === "enhanced" ? "Privacy: Enhanced"
-      : level === "usage" ? "Privacy: Usage"
-        : "Privacy: Required only";
+  const showBanner = status === "pending";
 
   function closeDialog() {
-    const shouldNotify = sourceRef.current === "initial_prompt" && !initialPromptClosed.current;
-    if (shouldNotify) initialPromptClosed.current = true;
     setOpen(false);
-    window.requestAnimationFrame(() => settingsButtonRef.current?.focus());
-    if (shouldNotify) window.setTimeout(() => onInitialPromptClosed?.(), 0);
+    window.requestAnimationFrame(() => {
+      const target = returnFocusRef.current;
+      if (target?.isConnected) target.focus();
+      else settingsButtonRef.current?.focus();
+    });
+  }
+
+  function openPreferences(source: string) {
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    sourceRef.current = source;
+    setStatus(getAnalyticsConsentStatus());
+    setSelection(getAnalyticsLevel());
+    setError("");
+    setOpen(true);
   }
 
   function saveChoice(choice: AnalyticsLevel) {
@@ -103,6 +105,7 @@ export function AnalyticsConsent({ onInitialPromptClosed }: AnalyticsConsentProp
       setError(nextStatus === "blocked"
         ? "Your browser’s privacy signal keeps optional analytics disabled. You can use Required only."
         : "We couldn’t save your choice. Optional analytics are disabled for this visit. Check your browser’s storage settings and try again.");
+      if (!open) setOpen(true);
       return;
     }
     if (choice !== "required") {
@@ -114,23 +117,23 @@ export function AnalyticsConsent({ onInitialPromptClosed }: AnalyticsConsentProp
 
   return (
     <div className="analytics-consent ph-no-capture">
-      <button
+      {showBanner ? <aside className="privacy-banner" aria-label="Privacy choices">
+        <div><strong>Your privacy</strong><p>Optional analytics are off. You can share usage to help improve PixelWall. Your artwork stays on your device.</p></div>
+        <div className="privacy-banner-actions">
+          <button type="button" onClick={() => { sourceRef.current = "initial_prompt"; saveChoice("required"); }}>Required only</button>
+          <button type="button" aria-haspopup="dialog" aria-expanded={open} aria-controls="analytics-consent-dialog" onClick={() => openPreferences("initial_prompt")}>Choose what to share</button>
+        </div>
+        {error && !open && <p className="privacy-message" role="alert">{error}</p>}
+      </aside> : <button
         ref={settingsButtonRef}
         type="button"
         className="analytics-consent-settings"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls="analytics-consent-dialog"
-        onClick={() => {
-          sourceRef.current = "privacy_settings";
-          setStatus(getAnalyticsConsentStatus());
-          setSelection(getAnalyticsLevel());
-          setError("");
-          setOpen(true);
-        }}
-      >
-        {currentLabel}
-      </button>
+        aria-label={`Privacy preferences: ${level === "enhanced" ? "Enhanced diagnostics" : level === "usage" ? "Usage analytics" : "Required only"}`}
+        onClick={() => openPreferences("privacy_settings")}
+      >Privacy preferences</button>}
       <dialog
         ref={dialogRef}
         id="analytics-consent-dialog"
@@ -171,7 +174,7 @@ export function AnalyticsConsent({ onInitialPromptClosed }: AnalyticsConsentProp
               </label>
             ))}
           </fieldset>
-          <p className="privacy-detail">Optional analytics use a stored browser ID to recognize repeat visits. Artwork and imported files are excluded; names, text and input values are masked. Change your choice here anytime.</p>
+          <p className="privacy-detail">Optional analytics use a stored browser ID for repeat visits. No session recordings. Artwork, files, names, license codes, scripts and full URLs are excluded. Change your choice anytime. <Link href="/privacy" target="_blank" rel="noopener noreferrer" prefetch={false}>Read our privacy policy</Link>.</p>
           {error && <p className="privacy-message" role="alert">{error}</p>}
           <div className="privacy-actions">
             <button type="button" onClick={() => saveChoice("required")}>Use required only</button>

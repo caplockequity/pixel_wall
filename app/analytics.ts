@@ -2,7 +2,6 @@
 
 import { classifyAcquisition } from "./acquisition.mjs";
 import type {
-  CapturedNetworkRequest,
   CaptureResult,
   PostHogConfig,
 } from "posthog-js";
@@ -10,6 +9,9 @@ import type {
 type AnalyticsPrimitive = string | number | boolean;
 
 type CommonProductProperties = {
+  canvas_width?: number;
+  canvas_height?: number;
+  color_mode?: string;
   canvas_size?: number;
   frame_count?: number;
   layer_count?: number;
@@ -23,6 +25,7 @@ type CommonProductProperties = {
 
 type ExportProperties = {
   export_type: string;
+  source?: string;
   duration_ms?: number;
   reason?: string;
   clip_scope?: string;
@@ -38,6 +41,22 @@ type ExportProperties = {
 };
 
 export type AnalyticsEventMap = {
+  site_page_viewed: { page_group: string };
+  site_cta_clicked: { destination: string; placement: string };
+  desktop_download_clicked: { platform: string; version: string; package_type: string };
+  editor_activated: CommonProductProperties & { activation_type: string };
+  editor_tool_used: CommonProductProperties & { tool_family: string };
+  import_completed: CommonProductProperties & { import_kind: string; format: string; file_count?: number; warning_count?: number };
+  import_failed: CommonProductProperties & { import_kind: string; format: string; file_count?: number; reason: string };
+  recovery_action: CommonProductProperties & { action: string; outcome: string; reason?: string };
+  automation_used: CommonProductProperties & { operation: string; command_count?: number };
+  pro_dialog_viewed: { source: string };
+  checkout_started: { billing_mode: string };
+  checkout_redirected: { billing_mode: string };
+  checkout_returned: { outcome: string };
+  checkout_failed: { reason: string; billing_mode?: string };
+  entitlement_claimed: { outcome: string; reason?: string; billing_mode?: string };
+  entitlement_restored: { outcome: string; reason?: string; billing_mode?: string };
   editor_loaded: CommonProductProperties & {
     project_source: string;
   };
@@ -134,6 +153,7 @@ export type AnalyticsEventName = keyof AnalyticsEventMap;
 export type AnalyticsProperties<E extends AnalyticsEventName = AnalyticsEventName> = AnalyticsEventMap[E];
 
 const COMMON_PRODUCT_PROPERTY_KEYS = [
+  "canvas_width", "canvas_height", "color_mode",
   "canvas_size",
   "frame_count",
   "layer_count",
@@ -146,6 +166,22 @@ const COMMON_PRODUCT_PROPERTY_KEYS = [
 ] as const;
 
 export const EVENT_PROPERTY_ALLOWLIST = {
+  site_page_viewed: ["page_group"],
+  site_cta_clicked: ["destination", "placement"],
+  desktop_download_clicked: ["platform", "version", "package_type"],
+  editor_activated: [...COMMON_PRODUCT_PROPERTY_KEYS, "activation_type"],
+  editor_tool_used: [...COMMON_PRODUCT_PROPERTY_KEYS, "tool_family"],
+  import_completed: [...COMMON_PRODUCT_PROPERTY_KEYS, "import_kind", "format", "file_count", "warning_count"],
+  import_failed: [...COMMON_PRODUCT_PROPERTY_KEYS, "import_kind", "format", "file_count", "reason"],
+  recovery_action: [...COMMON_PRODUCT_PROPERTY_KEYS, "action", "outcome", "reason"],
+  automation_used: [...COMMON_PRODUCT_PROPERTY_KEYS, "operation", "command_count"],
+  pro_dialog_viewed: ["source"],
+  checkout_started: ["billing_mode"],
+  checkout_redirected: ["billing_mode"],
+  checkout_returned: ["outcome"],
+  checkout_failed: ["reason", "billing_mode"],
+  entitlement_claimed: ["outcome", "reason", "billing_mode"],
+  entitlement_restored: ["outcome", "reason", "billing_mode"],
   editor_loaded: [...COMMON_PRODUCT_PROPERTY_KEYS, "project_source"],
   quick_guide_viewed: [...COMMON_PRODUCT_PROPERTY_KEYS, "source"],
   quick_guide_dismissed: [...COMMON_PRODUCT_PROPERTY_KEYS, "source", "method"],
@@ -227,6 +263,7 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   export_started: [
     ...COMMON_PRODUCT_PROPERTY_KEYS,
     "export_type",
+    "source",
     "duration_ms",
     "reason",
     "clip_scope",
@@ -243,6 +280,7 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   export_completed: [
     ...COMMON_PRODUCT_PROPERTY_KEYS,
     "export_type",
+    "source",
     "duration_ms",
     "reason",
     "clip_scope",
@@ -259,6 +297,7 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   export_failed: [
     ...COMMON_PRODUCT_PROPERTY_KEYS,
     "export_type",
+    "source",
     "duration_ms",
     "reason",
     "clip_scope",
@@ -275,6 +314,7 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   export_blocked: [
     ...COMMON_PRODUCT_PROPERTY_KEYS,
     "export_type",
+    "source",
     "duration_ms",
     "reason",
     "clip_scope",
@@ -296,6 +336,7 @@ export type AnalyticsLevel = "required" | "usage" | "enhanced";
 export const ANALYTICS_CONSENT_CHANGED_EVENT = "pixelwall:analytics-consent-changed";
 
 const POSTHOG_PROJECT_TOKEN = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim() ?? "";
+const STANDALONE = process.env.NEXT_PUBLIC_PIXELWALL_STANDALONE === "true";
 const POSTHOG_CONFIGURED_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() ?? "";
 const POSTHOG_PROXY_PATH = "/beam";
 const ANALYTICS_CONSENT_STORAGE_KEY = "pixelwall-analytics-consent-v2";
@@ -339,7 +380,10 @@ function configuredPostHogUiHost() {
 }
 
 export function isAnalyticsConfigured() {
-  return Boolean(POSTHOG_PROJECT_TOKEN && configuredPostHogUiHost());
+  if (STANDALONE || !POSTHOG_PROJECT_TOKEN || !configuredPostHogUiHost()) return false;
+  // Private Sites, preview deployments, development, and downloaded apps are excluded.
+  if (typeof window === "undefined") return false;
+  return ["https://pixelwall.dev", "https://www.pixelwall.dev"].includes(window.location.origin);
 }
 
 function hasBrowserEnvironment() {
@@ -361,122 +405,144 @@ export function isAnalyticsBlockedByBrowserPrivacySignal() {
     || doNotTrack?.toLowerCase() === "yes";
 }
 
-function stripUrlQueryAndHash(value: string) {
-  const queryIndex = value.indexOf("?");
-  const hashIndex = value.indexOf("#");
-  const indexes = [queryIndex, hashIndex].filter((index) => index >= 0);
-  return indexes.length ? value.slice(0, Math.min(...indexes)) : value;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function sanitizeNestedUrls(value: unknown, key = "", depth = 0): unknown {
-  if (depth > 6) return value;
-  if (typeof value === "string" && /(?:url|href|referrer)$/i.test(key)) {
-    return stripUrlQueryAndHash(value);
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => sanitizeNestedUrls(item, key, depth + 1));
-  }
-  if (!isRecord(value)) return value;
-  return Object.fromEntries(
-    Object.entries(value).map(([nestedKey, nestedValue]) => [
-      nestedKey,
-      sanitizeNestedUrls(nestedValue, nestedKey, depth + 1),
-    ]),
-  );
+const PAGE_GROUPS = "home editor classic_editor downloads guides workflow pricing support about privacy terms other".split(" ");
+const REFERRAL_SOURCES = "direct_or_unknown internal chatgpt claude perplexity copilot bing google reddit github other".split(" ");
+const CONTEXT_VALUES = {
+  page_group: PAGE_GROUPS,
+  editor_variant: ["workbench", "classic", "none"],
+  referral_source: REFERRAL_SOURCES,
+  entry_page: PAGE_GROUPS,
+};
+const STRING_VALUES: Record<string, readonly string[]> = Object.fromEntries(Object.entries({
+  page_group: PAGE_GROUPS.join(" "),
+  destination: [...PAGE_GROUPS, "browser_download", "cli_download"].join(" "),
+  placement: "header footer content",
+  platform: "darwin-arm64 darwin-x64 win32-x64 mac-arm64 mac-x64 windows-x64 linux-x64 macos-arm64 macos-x64 windows linux",
+  package_type: "zip exe appimage AppImage",
+  color_mode: "rgba indexed grayscale rgb",
+  project_source: "new library legacy_migration storage_unavailable fresh_demo restored_v3 upgraded_v2 upgraded_v1",
+  activation_type: "drawing erase fill gradient text shapes layers animation cels paste selection canvas palette effects slices tilemap structure import automation stroke edit",
+  tool_family: "erase gradient cels paste canvas slices drawing shapes fill selection transform layers frames animation palette tilemap tiles effects text import reference structure automation other",
+  import_kind: "document extension native aseprite image animation sprite_sheet palette reference sequence project gif sheet raster",
+  format: "other project image tga zip sheet pixelwall aseprite ase png jpeg jpg webp gif bmp avif svg json gpl pal hex aseprite_palette unknown",
+  source: "initial_prompt privacy_settings automatic keyboard toolbar footer menu export checkout_return restore ui automation banner settings",
+  method: "got_it close backdrop escape start_drawing button",
+  edit_type: "stroke erase fill selection_paste selection_move selection_flip_horizontal selection_flip_vertical selection_clear pivot_set frame_clear",
+  tool: "pencil eraser fill picker select pivot hand",
+  input_method: "pointer keyboard toolbar",
+  resource: "canvas frame layer clip slice tilemap pivot",
+  action: "match_pixels use_detected_grid next_sprite previous_sprite add_trace_frame view add delete duplicate reorder resize clear_layer range_change visibility_toggle lock_toggle timing_change direction_change loop_toggle use_default set_default bottom_center started paused completed clear paint erase center fit pixel_fit reset remove tile_previous tile_next import viewed restore",
+  feature: "grid seam_preview linked_edges onion_skin reference_visible reference_pixel_fit",
+  direction: "forward reverse pingpong ping-pong",
+  mime_type: "image/png image/jpeg image/gif image/webp image/avif image/bmp unknown",
+  file_size_bucket: "under_256kb 256kb_to_1mb 1mb_to_5mb 5mb_to_20mb 20mb_plus",
+  sheet_direction: "horizontal vertical grid",
+  operation: "apply new_document new create open save backup undo redo batch export import restore load",
+  outcome: "success failure cancelled unknown online_only",
+  reason: "missing_image project_operation_failed none ownership_license_unavailable verification_failed payment_pending rate_limited unavailable network save_failed unknown storage_failed browser_storage_unavailable too_large unsupported_type decode_error read_error frame_limit processing_error serialization_error invalid_or_unsupported render_or_download_error render_or_encode_error render_or_package_error empty_tilemap pro_required pro_unavailable export_failed import_failed cancelled unavailable budget_exceeded conflict corrupt_record not_found invalid_document invalid_revision quota_exceeded storage_unavailable encoding_failed invalid_format",
+  export_type: "project zip tga other frame_png animated_gif sprite_sheet_png sprite_package tilemap_package png jpeg webp gif sheet atlas game_zip pixelwall aseprite svg bmp",
+  clip_scope: "single all",
+  layout: "horizontal vertical grid packed",
+  choice: "usage enhanced",
+  billing_mode: "live test unknown",
+}).map(([key, values]) => [key, values.split(" ")]));
+
+function isApprovedString(key: string, value: string) {
+  if (key === "version") return /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(value);
+  if (key === "from_value" || key === "to_value") return ["forward", "reverse", "pingpong", "ping-pong"].includes(value) || /^\d{1,4}x\d{1,4}$/.test(value);
+  return STRING_VALUES[key]?.includes(value) ?? false;
+}
+export function analyticsPageGroup(pathname: string) {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  if (path === "/") return "home";
+  if (path === "/editor/classic") return "classic_editor";
+  if (path === "/editor") return "editor";
+  if (path === "/guides" || path.startsWith("/guides/")) return "guides";
+  if (["/sprite-sheet-maker", "/pixel-art-animation", "/pixel-art-tracing", "/tileset-maker"].includes(path)) return "workflow";
+  return PAGE_GROUPS.includes(path.slice(1)) ? path.slice(1) : "other";
 }
 
-function safeExceptionToken(value: unknown, fallback: string) {
-  if (typeof value !== "string" || value.length > MAX_ANALYTICS_STRING_LENGTH) return fallback;
-  return /^[a-z0-9_$.[\]<>:/-]+$/i.test(value) ? value : fallback;
-}
-
-function sanitizeExceptionFrame(value: unknown) {
-  if (!isRecord(value)) return null;
-  const frame: Record<string, string | number | boolean> = {};
-  if (typeof value.filename === "string") {
-    frame.filename = /^(?:data|blob):/i.test(value.filename)
-      ? "[redacted]"
-      : stripUrlQueryAndHash(value.filename).slice(0, 512);
-  }
-  if (typeof value.lineno === "number" && Number.isFinite(value.lineno)) frame.lineno = value.lineno;
-  if (typeof value.colno === "number" && Number.isFinite(value.colno)) frame.colno = value.colno;
-  if (typeof value.in_app === "boolean") frame.in_app = value.in_app;
-  return frame;
-}
-
-function sanitizeException(value: unknown) {
-  if (!isRecord(value)) return null;
-  const sanitized: Record<string, unknown> = {
-    type: safeExceptionToken(value.type, "Error"),
-    value: "[redacted]",
+function analyticsContext() {
+  const page = analyticsPageGroup(window.location.pathname ?? "/");
+  return {
+    analytics_schema_version: 2,
+    environment: "production",
+    page_group: page,
+    editor_variant: page === "editor" ? "workbench" : page === "classic_editor" ? "classic" : "none",
+    ...(typeof document === "undefined" ? {} : classifyAcquisition(document.referrer, window.location.origin)),
   };
-  if (isRecord(value.mechanism)) {
-    sanitized.mechanism = {
-      type: safeExceptionToken(value.mechanism.type, "generic"),
-      handled: typeof value.mechanism.handled === "boolean" ? value.mechanism.handled : false,
-      synthetic: typeof value.mechanism.synthetic === "boolean" ? value.mechanism.synthetic : false,
-    };
-  }
-  if (isRecord(value.stacktrace) && Array.isArray(value.stacktrace.frames)) {
-    sanitized.stacktrace = {
-      frames: value.stacktrace.frames
-        .slice(-100)
-        .map(sanitizeExceptionFrame)
-        .filter((frame) => frame !== null),
-    };
-  }
-  return sanitized;
 }
 
-function sanitizeBeforeSend(capture: CaptureResult | null) {
-  if (!capture) return null;
-  if (storedAnalyticsConsent() !== "granted" || isAnalyticsBlockedByBrowserPrivacySignal()) return null;
-  if (
-    getAnalyticsLevel() !== "enhanced"
-    && !Object.hasOwn(EVENT_PROPERTY_ALLOWLIST, capture.event)
-    && capture.event !== "$pageview"
-    && capture.event !== "$pageleave"
-  ) return null;
-  const properties = sanitizeNestedUrls(capture.properties) as CaptureResult["properties"];
-  // Keep attribution coarse even if the SDK supplies automatic referral fields.
-  for (const key of Object.keys(properties)) {
-    if (/referrer|referring_domain|campaign/i.test(key) || /^(?:\$initial_)?(?:utm_|gclid$|dclid$|fbclid$|msclkid$|ttclid$|twclid$)/i.test(key)) delete properties[key];
-  }
-  delete properties.referral_source;
-  delete properties.entry_page;
-  if (typeof document !== "undefined") {
-    Object.assign(properties, classifyAcquisition(document.referrer, window.location.origin));
-  }
-  if (capture.event !== "$exception") return { ...capture, properties };
+const SDK_IDS = ["distinct_id", "$device_id", "$session_id", "$window_id", "$pageview_id"];
+const RANDOM_ID = /^(?:\$device:)?[a-f0-9-]{16,64}$/i;
+const SDK_ENUMS: Record<string, readonly string[]> = {
+  $browser: ["Chrome", "Chrome iOS", "Safari", "Mobile Safari", "Firefox", "Firefox iOS", "Microsoft Edge", "Opera", "Samsung Internet", "Internet Explorer", "Other"],
+  $os: ["Windows", "Mac OS X", "macOS", "Linux", "Android", "iOS", "Chrome OS", "Other"],
+  $device_type: ["Desktop", "Mobile", "Tablet"],
+  $lib: ["web"],
+};
 
-  const exceptionProperties = { ...properties };
-  for (const key of Object.keys(exceptionProperties)) {
-    if (/exception/i.test(key) && /(message|stack_trace_raw|source|value|error)/i.test(key)) {
-      delete exceptionProperties[key];
+// The final send boundary rejects SDK enrichment and unknown events too. It never
+// recursively passes through caller objects, DOM text, URLs, or person properties.
+function sanitizeBeforeSend(capture: CaptureResult | null): CaptureResult | null {
+  if (!capture || !isAnalyticsConfigured() || storedAnalyticsConsent() !== "granted" || isAnalyticsBlockedByBrowserPrivacySignal()) return null;
+  const custom = Object.hasOwn(EVENT_PROPERTY_ALLOWLIST, capture.event);
+  const diagnostic = capture.event === "$exception" || capture.event === "$web_vitals";
+  if (!custom && !(diagnostic && getAnalyticsLevel() === "enhanced")) return null;
+  const source = isRecord(capture.properties) ? capture.properties : {};
+  const properties: Record<string, unknown> = custom
+    ? sanitizeEventProperties(capture.event as AnalyticsEventName, source as AnalyticsProperties)
+    : {};
+  // The SDK requires the public project token after before_send. Never reuse a
+  // caller-provided token or allow events to be redirected to another project.
+  properties.token = POSTHOG_PROJECT_TOKEN;
+  for (const key of SDK_IDS) {
+    if (typeof source[key] === "string" && RANDOM_ID.test(source[key])) properties[key] = source[key];
+  }
+  for (const [key, values] of Object.entries(SDK_ENUMS)) {
+    if (typeof source[key] === "string" && values.includes(source[key])) properties[key] = source[key];
+  }
+  for (const key of ["$screen_width", "$screen_height", "$viewport_width", "$viewport_height", "$browser_version"]) {
+    if (typeof source[key] === "number" && Number.isFinite(source[key]) && source[key] >= 0 && source[key] <= 100000) properties[key] = source[key];
+  }
+  // Disable person processing and IP enrichment even when a remote SDK default changes.
+  properties.$process_person_profile = false;
+  properties.$geoip_disable = true;
+  properties.$is_identified = false;
+  const current = analyticsContext();
+  for (const key of ["page_group", "editor_variant", "referral_source", "entry_page"] as const) {
+    const value = source[key];
+    if (typeof value === "string" && CONTEXT_VALUES[key].includes(value)) (current as Record<string, unknown>)[key] = value;
+  }
+  Object.assign(properties, current);
+  if (capture.event === "$exception") {
+    const exceptions = Array.isArray(source.$exception_list) ? source.$exception_list.slice(0, 5) : [];
+    properties.$exception_list = exceptions.filter(isRecord).map((exception) => ({
+      type: ["Error", "TypeError", "RangeError", "SyntaxError", "ReferenceError", "DOMException", "URIError", "EvalError"].includes(String(exception.type)) ? exception.type : "Error",
+      value: "[redacted]",
+      mechanism: { type: "generic", handled: isRecord(exception.mechanism) && exception.mechanism.handled === true },
+    }));
+  }
+  if (capture.event === "$web_vitals") {
+    for (const name of ["LCP", "CLS", "INP", "FCP", "TTFB"]) {
+      const key = `$web_vitals_${name}_value`;
+      if (typeof source[key] === "number" && Number.isFinite(source[key]) && source[key] >= 0) properties[key] = source[key];
     }
   }
-  const exceptionList = properties.$exception_list;
-  exceptionProperties.$exception_list = Array.isArray(exceptionList)
-    ? exceptionList.map(sanitizeException).filter((exception) => exception !== null)
-    : [];
-  return { ...capture, properties: exceptionProperties };
-}
-
-function sanitizeCapturedNetworkRequest(data: CapturedNetworkRequest) {
-  if (/^(?:data|blob):/i.test(data.name)) return null;
   return {
-    ...data,
-    name: stripUrlQueryAndHash(data.name),
-    requestHeaders: undefined,
-    requestBody: undefined,
-    responseHeaders: undefined,
-    responseBody: undefined,
+    event: capture.event,
+    uuid: typeof capture.uuid === "string" && RANDOM_ID.test(capture.uuid) ? capture.uuid : "",
+    ...(capture.timestamp instanceof Date ? { timestamp: capture.timestamp } : {}),
+    properties,
   };
 }
+
+// Network data is unnecessary for diagnostics; no request names, bodies or headers.
+function sanitizeCapturedNetworkRequest() { return null; }
 
 function clearPendingEvents() {
   pendingEvents.length = 0;
@@ -553,26 +619,17 @@ function optInInitializedAnalytics() {
 function analyticsFeatureConfig(level: AnalyticsLevel): Partial<PostHogConfig> {
   const enhanced = level === "enhanced";
   return {
-    autocapture: enhanced ? {
-      capture_copied_text: false,
-      css_selector_ignorelist: [".ph-no-capture", "[data-ph-no-capture]", ".ph-no-autocapture", "[data-ph-no-autocapture]"],
-    } : false,
-    rageclick: enhanced,
-    capture_dead_clicks: enhanced ? {
-      css_selector_ignorelist: [".ph-no-capture", "[data-ph-no-capture]", ".ph-no-deadclick"],
-    } : false,
-    capture_heatmaps: enhanced,
+    autocapture: false,
+    rageclick: false,
+    capture_dead_clicks: false,
+    capture_heatmaps: false,
     capture_exceptions: enhanced ? {
       capture_unhandled_errors: true,
       capture_unhandled_rejections: true,
       capture_console_errors: false,
     } : false,
-    capture_performance: enhanced ? {
-      network_timing: false,
-      web_vitals: true,
-      web_vitals_attribution: false,
-    } : false,
-    disable_session_recording: !enhanced,
+    capture_performance: enhanced ? { network_timing: false, web_vitals: true, web_vitals_attribution: false } : false,
+    disable_session_recording: true,
   };
 }
 
@@ -582,6 +639,7 @@ function applyAnalyticsLevel() {
   if (level === appliedLevel) return;
   if (level !== "enhanced") posthog.stopSessionRecording();
   posthog.set_config({ ...analyticsFeatureConfig(level), before_send: sanitizeBeforeSend });
+  if (level === "enhanced") posthog.webVitalsAutocapture?.startIfEnabled();
   appliedLevel = level;
 }
 
@@ -665,8 +723,15 @@ export function initializeAnalytics() {
       opt_out_capturing_persistence_type: "localStorage",
       respect_dnt: true,
       ...analyticsFeatureConfig(getAnalyticsLevel()),
-      capture_pageview: { path: true, search: false, hash: false },
-      capture_pageleave: true,
+      capture_pageview: false,
+      capture_pageleave: false,
+      ip: false,
+      disable_surveys: true,
+      disable_conversations: true,
+      disable_product_tours: true,
+      advanced_disable_feature_flags: true,
+      advanced_disable_flags: true,
+      logs: { captureConsoleLogs: false, beforeSend: () => null },
       disable_capture_url_hashes: true,
       save_referrer: false,
       save_campaign_params: false,
@@ -741,9 +806,9 @@ export function sanitizeEventProperties<E extends AnalyticsEventName>(
 ) {
   const source: Record<string, unknown> = isRecord(properties) ? properties : {};
   const sanitized: Record<string, AnalyticsPrimitive> = {};
-  for (const key of EVENT_PROPERTY_ALLOWLIST[event]) {
+  for (const key of EVENT_PROPERTY_ALLOWLIST[event] ?? []) {
     const value = source[key];
-    if (isSafeAnalyticsValue(value)) sanitized[key] = value;
+    if (isSafeAnalyticsValue(value) && (typeof value !== "string" || isApprovedString(key, value))) sanitized[key] = value;
   }
   return sanitized;
 }
@@ -767,12 +832,14 @@ export function captureAnalyticsEvent<E extends AnalyticsEventName>(
   properties: AnalyticsProperties<E>,
 ) {
   if (!isAnalyticsConfigured() || !hasBrowserEnvironment()) return;
+  if (!Object.hasOwn(EVENT_PROPERTY_ALLOWLIST, event)) return;
   const sanitizedProperties = sanitizeEventProperties(event, properties);
   const consentStatus = getAnalyticsConsentStatus();
   if (consentStatus !== "granted") {
     clearPendingEvents();
     return;
   }
+  Object.assign(sanitizedProperties, analyticsContext());
   initializeAnalytics();
   if (!posthog || !analyticsIsInitialized() || !posthog.is_capturing()) {
     if (pendingEvents.length < MAX_PENDING_EVENTS) {

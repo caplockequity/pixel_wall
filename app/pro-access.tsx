@@ -5,10 +5,23 @@ import { X, Sparkles, Check, Download } from "lucide-react";
 import { verifyOfflineLicense } from "./offline-license.mjs";
 import { openStore } from "./storage.mjs";
 import {PINNED_PUBLIC_KEYS} from "./license-public-keys.mjs";
+import { captureAnalyticsEvent } from "./analytics";
 
 type BillingReply = { pro?: boolean; checkoutAvailable?: boolean; mode?: "test" | "live"; url?: string; recoveryCode?: string; offlineLicense?: string; offline?: boolean; reason?: string };
 class PurchaseError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
+}
+// Keep failure categories finite; billing messages and ownership values are private.
+function billingFailureReason(error: unknown) {
+  if (error instanceof PurchaseError) {
+    if ([400, 402, 403, 404].includes(error.status)) return "verification_failed";
+    if (error.status === 409) return "payment_pending";
+    if (error.status === 429) return "rate_limited";
+    return "unavailable";
+  }
+  if (error instanceof Error && ["ProjectSaveError", "DocumentStorageError"].includes(error.name)) return "save_failed";
+  if (error instanceof TypeError || error instanceof Error && ["AbortError", "TimeoutError", "NetworkError"].includes(error.name)) return "network";
+  return "unknown";
 }
 const STANDALONE = process.env.NEXT_PUBLIC_PIXELWALL_STANDALONE === "true";
 const STOREFRONT = "https://www.pixelwall.dev";
@@ -66,6 +79,13 @@ export function useProAccess() {
   const working = useRef(false);
   const revision = useRef(0);
   const owned = useRef("");
+  const dialogVisible = useRef(false);
+  const showDialog = useCallback((source: "menu" | "export" | "checkout_return") => {
+    if (!dialogVisible.current) captureAnalyticsEvent("pro_dialog_viewed", { source });
+    dialogVisible.current = true;
+    setOpen(true);
+  }, []);
+  const close = useCallback(() => { dialogVisible.current = false; setOpen(false); }, []);
 
   const acceptOwned = useCallback(async (code?: string) => {
     if (!code || !await verifyOwned(code)) return false;
@@ -96,11 +116,12 @@ export function useProAccess() {
     } catch { if (valid && version === revision.current) setStatus((current) => ({ ...current, pro: true, offline: true })); }
   }, [acceptOwned, forgetOwned]);
 
-  const run = useCallback(async (operation: () => Promise<void>) => {
+  const run = useCallback(async (operation: () => Promise<void>, onFailure?: (reason: ReturnType<typeof billingFailureReason>) => void) => {
     if (working.current) return false;
     working.current = true; revision.current++; setBusy(true); setMessage("");
     try { await operation(); return true; }
     catch (error) {
+      onFailure?.(billingFailureReason(error));
       setMessage(error instanceof PurchaseError || error instanceof Error && ["ProjectSaveError", "DocumentStorageError"].includes(error.name)
         ? error.message : "We couldn’t connect. Please try again; don’t start another payment if you already paid.");
       if (error instanceof PurchaseError && [402, 403, 404].includes(error.status)) { await forgetOwned(); setStatus((current) => ({ ...current, pro: false })); }
@@ -111,62 +132,74 @@ export function useProAccess() {
   const claim = useCallback(async (id: string) => run(async () => {
     const data = await billing("claim", { sessionId: id });
     const offlineReady = await acceptOwned(data.offlineLicense);
+    captureAnalyticsEvent("entitlement_claimed", { outcome: offlineReady ? "success" : "online_only", reason: offlineReady ? "none" : "ownership_license_unavailable", billing_mode: LICENSE_MODE });
     setStatus((current) => ({ ...current, pro: true }));
     setRecoveryCode(data.recoveryCode ?? ""); setSessionId(""); clearCheckoutReturn();
     setMessage(offlineReady ? "Pro is yours. Save your ownership license; it unlocks these exports offline without a subscription." : "Pro is active online. Save your recovery code; reconnect once offline licenses are available to convert it.");
-  }), [run, acceptOwned]);
+  }, (reason) => captureAnalyticsEvent("entitlement_claimed", { outcome: "failure", reason, billing_mode: LICENSE_MODE })), [run, acceptOwned]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const url = new URL(window.location.href); const outcome = url.searchParams.get("checkout"); const id = url.searchParams.get("session_id");
-      if (url.searchParams.get("purchase") === "1") setOpen(true);
-      if (outcome) { setOpen(true); if (outcome === "success" && id) { setSessionId(id); void claim(id).then(refresh); } else { clearCheckoutReturn(); setMessage("Checkout closed. Your free tools are ready whenever you are."); void refresh(); } }
-      else void refresh();
+      if (outcome) {
+        captureAnalyticsEvent("checkout_returned", { outcome: outcome === "success" ? "success" : outcome === "cancelled" || outcome === "cancel" ? "cancelled" : "unknown" });
+        showDialog("checkout_return");
+        if (outcome === "success" && id) { setSessionId(id); void claim(id).then(refresh); }
+        else { clearCheckoutReturn(); setMessage("Checkout closed. Your free tools are ready whenever you are."); void refresh(); }
+      }
+      else { if (url.searchParams.get("purchase") === "1") showDialog("menu"); void refresh(); }
     }, 0);
     const onFocus = () => { if (!working.current) void refresh(); };
     window.addEventListener("focus", onFocus); window.addEventListener("online", onFocus);
     return () => { window.clearTimeout(timer); window.removeEventListener("focus", onFocus); window.removeEventListener("online", onFocus); };
-  }, [claim, refresh]);
+  }, [claim, refresh, showDialog]);
 
-  function show() { setOpen(true); void refresh(); }
+  function show() { showDialog("menu"); void refresh(); }
   async function requestAccess() {
     const cached = owned.current || await readOwned();
     if (cached && await verifyOwned(cached)) { owned.current = cached; setStatus((current) => ({ ...current, pro: true })); return true; }
     const allowed = await run(async () => { const data = await billing("authorize"); await acceptOwned(data.offlineLicense); setStatus((current) => ({ ...current, pro: true })); });
-    if (!allowed) setOpen(true);
+    if (!allowed) showDialog("export");
     return allowed;
   }
   async function checkout(beforeLeave: () => void | Promise<void>) {
     await run(async () => {
+      captureAnalyticsEvent("checkout_started", { billing_mode: status.mode ?? LICENSE_MODE });
       const data = await billing("checkout");
       if (data.pro) { await acceptOwned(data.offlineLicense); setStatus((current) => ({ ...current, pro: true })); return; }
       if (STANDALONE) {
         if (!data.url || new URL(data.url).origin !== new URL(STOREFRONT).origin) throw new Error("Invalid storefront URL");
         await beforeLeave();
+        captureAnalyticsEvent("checkout_redirected", { billing_mode: status.mode ?? LICENSE_MODE });
         window.open(data.url, "_blank", "noopener,noreferrer");
         setMessage("Complete checkout in your browser, download the ownership license, then paste the PW2 code here to restore Pro.");
         return;
       }
       if (!data.url || new URL(data.url).origin !== "https://checkout.stripe.com") throw new Error("Invalid checkout URL");
-      await beforeLeave(); window.location.assign(data.url);
-    });
+      await beforeLeave();
+      captureAnalyticsEvent("checkout_redirected", { billing_mode: status.mode ?? LICENSE_MODE });
+      window.location.assign(data.url);
+    }, (reason) => captureAnalyticsEvent("checkout_failed", { reason, billing_mode: status.mode ?? LICENSE_MODE }));
   }
   async function restore(code: string) {
     await run(async () => {
       const clean = code.trim();
+      let offlineReady = false;
       if (clean.startsWith("PW2.")) {
-        if (!await acceptOwned(clean)) throw new PurchaseError("That ownership license is not valid for this store. Copy the complete PW2 code.", 400);
+        offlineReady = await acceptOwned(clean);
+        if (!offlineReady) throw new PurchaseError("That ownership license is not valid for this store. Copy the complete PW2 code.", 400);
         // Re-establish the online cookie when reachable so refunds/disputes can
         // be observed. Ownership verification itself works with zero requests.
         if (!STANDALONE && navigator.onLine) { try { await billing("restore", { code: clean }); } catch (error) { if (error instanceof PurchaseError && [403, 404].includes(error.status)) throw error; } }
-      } else { const data = await billing("restore", { code: clean }); await acceptOwned(data.offlineLicense); }
+      } else { const data = await billing("restore", { code: clean }); offlineReady = await acceptOwned(data.offlineLicense); }
+      captureAnalyticsEvent("entitlement_restored", { outcome: offlineReady ? "success" : "online_only", reason: offlineReady ? "none" : "ownership_license_unavailable", billing_mode: LICENSE_MODE });
       setStatus((current) => ({ ...current, pro: true })); setSessionId(""); clearCheckoutReturn(); setMessage("Pro restored. Save your ownership license with your project backups.");
-    });
+    }, (reason) => captureAnalyticsEvent("entitlement_restored", { outcome: "failure", reason, billing_mode: LICENSE_MODE }));
   }
   async function getRecovery() {
     await run(async () => { const cached = owned.current || await readOwned(); if (cached && await verifyOwned(cached)) { setRecoveryCode(cached); return; } const data = await billing("recovery"); await acceptOwned(data.offlineLicense); setRecoveryCode(data.recoveryCode ?? ""); });
   }
-  return { ...status, open, busy, message, recoveryCode, sessionId, show, close: () => setOpen(false), requestAccess, checkout, restore, getRecovery, retryClaim: () => claim(sessionId) };
+  return { ...status, open, busy, message, recoveryCode, sessionId, show, close, requestAccess, checkout, restore, getRecovery, retryClaim: () => claim(sessionId) };
 }
 
 type ProAccess = ReturnType<typeof useProAccess>;

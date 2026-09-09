@@ -15,6 +15,7 @@ export async function standaloneConfig({ sourceRoot = process.env.PIXELWALL_SOUR
     envDir: false, envPrefix: 'PIXELWALL_NO_AUTOMATIC_CLIENT_ENV_',
     plugins: [react()],
     resolve: { alias: {
+      './analytics': resolve(here, 'analytics.mjs'),
       '@pixelwall/workbench': resolve(sourceRoot, 'app/workbench.jsx'),
       '@pixelwall/globals.css': resolve(sourceRoot, 'app/globals.css'),
       '@pixelwall/dialogs.css': resolve(sourceRoot, 'app/editor/studio.css'),
@@ -22,6 +23,8 @@ export async function standaloneConfig({ sourceRoot = process.env.PIXELWALL_SOUR
     } },
     define: {
       'process.env.NEXT_PUBLIC_PIXELWALL_STANDALONE': JSON.stringify('true'),
+      'process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN': JSON.stringify(''),
+      'process.env.NEXT_PUBLIC_POSTHOG_HOST': JSON.stringify(''),
       'process.env.NEXT_PUBLIC_PIXELWALL_SITE_URL': JSON.stringify(storefront.origin),
       'process.env.NEXT_PUBLIC_PIXELWALL_LICENSE_PUBLIC_KEYS': JSON.stringify(JSON.stringify(publicKeys)),
       'process.env.NEXT_PUBLIC_PIXELWALL_LICENSE_MODE': JSON.stringify('live'),

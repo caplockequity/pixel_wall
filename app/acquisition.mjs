@@ -22,7 +22,9 @@ export function classifyAcquisition(referrer, currentOrigin) {
       : path === "/guides" || path.startsWith("/guides/") ? "guides"
         : ["/sprite-sheet-maker", "/pixel-art-animation", "/pixel-art-tracing", "/tileset-maker"].includes(path) ? "workflow"
           : path === "/pricing" ? "pricing"
-            : path === "/support" ? "support" : "other";
+            : path === "/support" ? "support"
+              : path === "/downloads" ? "downloads"
+                : path === "/editor" || path.startsWith("/editor/") ? "editor" : "other";
     return { referral_source: "internal", entry_page: entry };
   }
 
@@ -32,6 +34,8 @@ export function classifyAcquisition(referrer, currentOrigin) {
   if (domain("claude.ai")) return { referral_source: "claude" };
   if (domain("perplexity.ai")) return { referral_source: "perplexity" };
   if (domain("copilot.microsoft.com")) return { referral_source: "copilot" };
+  if (domain("reddit.com")) return { referral_source: "reddit" };
+  if (domain("github.com")) return { referral_source: "github" };
   if (domain("bing.com")) return { referral_source: "bing" };
   if (["google.com", "google.co.uk", "google.ca", "google.com.au", "google.de", "google.fr", "google.co.in", "google.co.jp"].some(domain)) return { referral_source: "google" };
   return { referral_source: "other" };

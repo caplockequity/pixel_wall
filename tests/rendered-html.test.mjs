@@ -121,7 +121,8 @@ test("keeps optional analytics private and content-safe", async () => {
   ]);
 
   assert.match(envExample, /^NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=\s*$/m);
-  assert.doesNotMatch(layoutSource, /(?:posthog|initializeAnalytics|\.\/analytics)/);
+  assert.doesNotMatch(layoutSource, /(?:posthog-js|initializeAnalytics)/);
+  assert.match(layoutSource, /<AnalyticsSurface \/>/);
   const initializationSource = analyticsSource.slice(
     analyticsSource.indexOf("export function initializeAnalytics"),
     analyticsSource.indexOf("export function getAnalyticsConsentStatus"),

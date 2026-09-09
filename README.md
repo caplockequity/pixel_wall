@@ -45,65 +45,78 @@ Use `npm run build`, `npm run lint`, and `npm test` to validate the project.
 
 ## PostHog analytics (optional)
 
-PixelWall works normally without analytics configuration. To enable PostHog,
-copy `.env.example` to `.env.local` and set the two public variables:
+PixelWall works normally without analytics configuration. To enable PostHog on
+production, set these two public variables in Vercel and rebuild:
 
-```bash
-cp .env.example .env.local
-```
+- `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`: the intentionally public project token
+  from PostHog project settings, never a personal API key.
+- `NEXT_PUBLIC_POSTHOG_HOST`: `https://us.i.posthog.com` for US Cloud or
+  `https://eu.i.posthog.com` for EU Cloud, matching the project region.
 
-- `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` is the **project token** from the PostHog
-  project settings. It is intentionally public; do not use a personal API key.
-- `NEXT_PUBLIC_POSTHOG_HOST` must match the project's region: use
-  `https://us.i.posthog.com` for US Cloud or `https://eu.i.posthog.com` for EU
-  Cloud.
+Optional collection runs only on `pixelwall.dev` and `www.pixelwall.dev`.
+Local development, Vercel aliases, private Sites previews, desktop apps, the
+standalone browser bundle and the CLI are excluded. Leaving the token unset is
+supported and keeps PostHog disabled.
 
-Browser events use the first-party `/beam` relay in
-`app/beam/[...path]/route.ts`; the host variable still selects the US or EU
-upstream. The relay strips cookies, authorization, referrer, and other app
-headers before forwarding. It improves delivery but does not bypass consent,
-Do Not Track, or Global Privacy Control.
+Browser events use the first-party `/beam` relay. It strips cookies,
+authorization, referrer and other app headers before forwarding to the configured
+PostHog region. The relay does not bypass privacy preferences, Do Not Track or
+Global Privacy Control.
 
-Restart the development server after changing `.env.local`. For an OpenAI Sites
-or Vercel deployment, add both variables in that project's environment-variable
-settings for each environment where analytics should run, then redeploy. Leaving
-the token unset is supported and keeps PostHog disabled.
+A shared, nonmodal prompt and Privacy preferences control cover public pages and
+both hosted editors. **Required only** is the default and does not download or
+initialize the SDK. **Usage analytics** enables explicit page, navigation,
+download and product events. **Enhanced diagnostics** adds scrubbed error reports
+and performance measurements. Session recording, automatic interaction capture,
+heatmaps, surveys and person profiles are disabled at every level. Optional modes
+use a stored browser identifier for repeat visits; do not describe it as anonymous.
 
-Privacy preferences offer three levels. **Required only** is the default and uses
-browser storage for the editor and preferences without initializing PostHog.
-**Usage analytics** opts into page visits and the allowlisted product events below;
-automatic interaction tracking, recordings, and performance/error diagnostics stay
-disabled. **Enhanced diagnostics** also opts into those masked diagnostics and
-session replay, subject to the project's recording settings. Optional modes use
-a stored browser identifier; they are not described as fully anonymous.
+The v2 preference preserves refusals and maps legacy permission to Usage only.
+Permission is checked again after asynchronous SDK loading. Changes apply
+immediately and synchronize across tabs. Activity before permission is discarded,
+never backfilled. A grant records only the current page, not previously visited
+pages. If saving a choice fails, optional collection stops for the visit.
 
-The v2 preference preserves existing refusals and maps legacy analytics permission
-to usage only. Enhanced diagnostics need a new explicit choice. Changes apply
-immediately and synchronize across tabs; withdrawal stops recording and capture.
-Events before a choice are discarded, never replayed after permission. If saving
-fails, optional analytics stay disabled for the current visit and the UI explains
-the failure. Do Not Track or Global Privacy Control overrides optional choices.
+The final payload sanitizer permits only reviewed event properties and coarse SDK
+metadata. Artwork, uploaded references, project/layer/animation/slice names,
+filenames, license and purchase identifiers, scripts, raw error messages, full
+URLs and campaign parameters are excluded. Document content is never attached to
+an event. Immediate referral classification uses fixed categories and does not
+reconstruct attribution across earlier page visits.
 
-Pixel artwork,
-uploaded references, project and layer names, animation and slice names, and
-notices are excluded from replay/autocapture. Custom event properties use strict
-per-event allowlists containing only coarse counts, dimensions, timings,
-booleans, and operation/result enums—never names, filenames, colors, pixels, or
-uploaded content.
+The event inventory covers:
 
-The custom event taxonomy is intentionally small:
+- Public navigation: `site_page_viewed`, `site_cta_clicked`,
+  `desktop_download_clicked`. Download clicks match the four current release
+  assets; they indicate a click, not a completed download or installation.
+- Hosted Workbench: document and command use, imports, storage/recovery, exports,
+  and Pro interactions through explicit events and fixed operation categories.
+- Classic editor: lifecycle/guidance, committed edits, structure, playback,
+  references, file operations, autosave and export outcomes.
+- Privacy grants: `analytics_consent_updated`. Refusals and withdrawals do not
+  send a tracking event.
 
-- Lifecycle and guidance: `editor_loaded`, `quick_guide_viewed`,
-  `quick_guide_dismissed`
-- Editing: `canvas_edit_committed`, `project_structure_changed`,
-  `feature_toggled`, `animation_playback_changed`, `tilemap_edit_committed`
-- References: `reference_loaded`, `reference_load_failed`, `reference_action`,
-  `sprite_sheet_imported`
-- Storage and recovery: `project_file_operation`, `autosave_failed`,
-  `autosave_recovered`
-- Export funnel: `export_started`, `export_completed`, `export_failed`,
-  `export_blocked`
-- Privacy choice: `analytics_consent_updated`
+`app/site-analytics-core.mjs` contains the recognized public page/link vocabulary;
+update it when adding public routes. `app/analytics.ts` owns consent, the event
+catalog and final payload filtering. Test with an isolated SDK or intercepted
+requests so validation traffic is not mistaken for real visitors.
+
+The versioned dashboard definitions are in `docs/analytics/posthog-dashboards.json`.
+They cover website/downloads, editor/exports, and Pro/reliability (28 insights).
+Only schema 2 production events are included; no historical activity is backfilled.
+To manage them, use a personal API key with project/read, dashboard/read,
+insight/read and query/read access; applying also needs dashboard/write and
+insight/write. Keep the key in a private local text file. Run
+`node scripts/sync-posthog-dashboards.mjs --key-file /absolute/private-key.txt --project PROJECT_ID`
+for a read/query validation pass, then repeat with `--apply`. The tool verifies
+that the selected project matches the site's public capture token, preserves
+unrelated dashboards and memberships, and saves resulting links under `outputs/`.
+Never put a personal key in a `NEXT_PUBLIC_` variable or commit it.
+
+Enhanced performance reports describe the current page's lifetime. Withdrawing
+permission blocks new analytics events; previously consented requests already
+queued by the SDK may finish sending. Performance observers may remain in memory
+until navigation, while the send boundary continues enforcing the current choice.
 
 ## GitHub and Vercel
 
@@ -251,12 +264,13 @@ public links do not prefetch the editor. The studio lives at `/editor`, retains
 its existing browser storage keys, and opens help pages in another tab so a live
 reference is not discarded. Old checkout return URLs continue to work.
 
-Optional analytics is scoped to the editor. The PostHog SDK is downloaded only
-after consent, with consent checked again when loading completes. The public
-pages load neither the editor nor its analytics package. After consent, editor
-events include only coarse immediate-referral and internal entry-page categories;
-raw referrer URLs and campaign values are removed. This does not reconstruct
-external acquisition across a visit to a public page.
+Public pages include a small shared privacy and event component without loading
+the editor. The PostHog SDK downloads only after optional consent on the public
+production domain. Page views use fixed page groups rather than URLs; public links
+and current desktop downloads use a known destination list. The current page is
+counted on permission, and earlier activity is not recovered. Referral categories
+describe the immediate source only. Private previews and downloadable apps remain
+outside this site analytics integration.
 
 See [the search launch notes](docs/search-launch.md) for verification, production
 checks, and the remaining account setup. Regenerate the downloadable starter

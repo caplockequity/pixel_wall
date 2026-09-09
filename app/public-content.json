@@ -921,7 +921,7 @@
   {
     "slug": "privacy",
     "title": "Privacy and local projects",
-    "description": "How PixelWall handles local artwork, browser storage, optional analytics, and Stripe payments. Usage analytics and enhanced diagnostics are opt-in.",
+    "description": "How PixelWall handles local artwork, browser storage, optional analytics, and Stripe payments. Usage analytics and enhanced diagnostics are opt-in, with no session recordings.",
     "eyebrow": "PRIVACY",
     "intro": "PixelWall edits artwork and reference data on your device. The current workspace stores documents, recovery versions, preferences, and a verified Pro license locally. A purchase does not create cloud artwork storage.",
     "sections": [
@@ -933,11 +933,13 @@
         ]
       },
       {
-        "heading": "Current and classic analytics behavior",
+        "heading": "Your analytics choices",
         "paragraphs": [
-          "The current Workbench does not initialize optional analytics or session replay. Public information pages do not load optional analytics.",
-          "The classic editor retains its consent controls. Required only is the default. Optional usage analytics or enhanced diagnostics load only after the corresponding choice, subject to Do Not Track and Global Privacy Control. Reopen Privacy Preferences in the classic editor to change that choice.",
-          "Classic usage analytics records limited feature events and coarse referral information. Enhanced diagnostics adds masked replay and diagnostic capture; artwork, references, project/layer names, and other sensitive content are excluded or masked. Optional identifiers are not described as anonymous."
+          "On pixelwall.dev, public pages and both web editors share Privacy preferences. Required only is the default: optional analytics stay off until you choose Usage analytics or Enhanced diagnostics. Do Not Track and Global Privacy Control keep optional analytics disabled. You can change your choice from Privacy preferences at any time.",
+          "Usage analytics shares page categories, recognized navigation and download clicks, feature use, storage and export results, Pro interactions, and basic browser/device details with PostHog. Coarse referral categories describe the current page’s immediate source. Optional analytics use a stored browser identifier to recognize repeat visits; this identifier is not anonymous.",
+          "Enhanced diagnostics adds performance measurements and scrubbed error reports. No privacy level records sessions or automatically captures page text and clicks. Artwork, imported files, document and layer names, license and purchase identifiers, scripts, error messages, and full URLs are excluded from analytics.",
+          "Activity before permission is discarded rather than collected later. Withdrawing permission stops optional collection immediately and synchronizes the preference across tabs. If a preference cannot be saved, optional analytics stay disabled for that visit.",
+          "Downloaded desktop apps, the standalone browser bundle, and the CLI do not initialize optional site analytics. Local development and the private preview are excluded as well. Desktop update checks request release information separately; they do not upload artwork or optional usage analytics."
         ]
       },
       {
