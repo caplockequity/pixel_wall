@@ -64,7 +64,9 @@ else {
     }
     const updater = createUpdateController({
       currentVersion: app.getVersion(), platform: process.platform, arch: process.arch, packaged: app.isPackaged,
-      fetch: (url, options) => net.fetch(url, options),
+      // Node fetch supplies the final response URL needed for strict feed validation.
+      // Electron net.fetch currently omits it and uses a separate TLS implementation.
+      fetch: (url, options) => globalThis.fetch(url, options),
       ...createFileSettingsStore(join(app.getPath('userData'), 'update-checker.json')),
       notify: updateDialog, openExternal: url => shell.openExternal(url),
     });

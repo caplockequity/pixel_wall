@@ -486,7 +486,7 @@ test("round-trips portable layered PixelWall projects and upgrades legacy drafts
 
 test("public pages expose canonical content and a connected crawlable site", async () => {
   const documents = JSON.parse(await readFile(new URL("app/public-content.json", projectRoot), "utf8"));
-  const paths = ["/", "/guides", ...documents.map((page) => `/${page.slug}`)];
+  const paths = ["/", "/guides", "/downloads", ...documents.map((page) => `/${page.slug}`)];
   const allowed = new Set([...paths, "/editor", "/editor/classic"]);
   const titles = new Set();
   for (const path of paths) {
