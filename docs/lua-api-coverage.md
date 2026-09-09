@@ -1,0 +1,39 @@
+# Lua API coverage inventory
+
+This inventory compares the adapter with the official Aseprite API documentation at revision `662b12efe00fd374909bc3a0e9cce5d0d0d35d63`. “Supported” means the listed operations exist; it does not claim every native application behavior, command, tool rasterizer, or extension works. Differential checks use official Aseprite 1.3.18.5-dev, API 41, Lua 5.4.6; PixelWall runs Wasmoon 1.16.0 with Lua 5.4.5.
+
+| API family | Available behavior | Remaining compatibility work |
+| --- | --- | --- |
+| Lua execution | Real 5.4 language, arithmetic, tables, loops, protected calls, closures, base/math/string/table/UTF-8 libraries | Runtime patch differs; OS/filesystem/network/package/debug/coroutine access intentionally absent; resource bounds apply |
+| app | Active Sprite/Frame/Layer/Cel/Image aliases, sprite collection, params, foreground/background colors, refresh, transactions, useTool, command, range | Native version/API-version identity, preferences, events, undo/redo, clipboard, exit and document-open interfaces |
+| Sprite | Create raster/indexed/grayscale sprite; dimensions/spec/mode; frames/layers/cels/palettes; layer/frame/cel CRUD; palette assignment; resize; selection; tags/slices; data/color/properties | Copy constructors, crop/close, direct file export/import, arbitrary frame palette assignment, full background semantics |
+| Layer | Names, opacity, visibility/editability, blend mode, parent/stack index, children/cels and type flags; data/color/properties | Background conversion; complete reference-layer authoring |
+| Frame | Number handles, seconds-based duration, previous/next, owning sprite | Remaining frame-specific application behavior and UI history |
+| Cel | Image, position/bounds, opacity/zIndex, layer/frame/sprite, frame relocation; data/color/properties | Remaining native geometry/context properties; native linked-cel identity details beyond tested cases |
+| Image | Create/copy/crop/clone, packed bytes, pixels/iterator, clipped clear, nearest resize/flip, drawSprite, drawImage opacity/blends/SRC, shrinkBounds, equality/plain/empty, mode/spec/numeric ID/version/rowStride/cel | Graphics context, non-nearest resize and nonzero pivots, unsupported cross-mode fitting, tile pixel APIs, external files/saveAs |
+| Palette | Construct/copy, length/resize, zero-based getColor/setColor, attached engine updates | File APIs, complete per-frame palette object semantics and advanced palette manipulation |
+| Color | Packed pixels, RGB/gray/index/HSV/HSL constructors and mutable retained components, active-frame palette lookup, packed-channel reads | Exact native arbitrary nearest-index tie breaking, ICC color objects, tile colors |
+| ImageSpec | Detached dimensions/mode/mask/profile, equality, Image(spec)/Sprite(spec), copied owner specs and transient image profiles | Tilemap allocation and general Sprite copy construction; see [specification contract](lua-image-specs.md) |
+| ColorSpace | Detached None/sRGB/copy values, name/equality, Sprite.colorSpace and assignColorSpace/convertColorSpace; existing RGB/gray ICC and fixed-gamma profiles in the worker | Arbitrary profile files, direct image-level profile mutation/conversion, profile recognition beyond documented names; see [color spaces](lua-color-spaces.md) |
+| Geometry | Point/Size/Rectangle constructors and aliases, arithmetic/equality, Rectangle bounds/origin/size/contains/intersection/union/isEmpty | Native overflow and unsupported constructor edge cases |
+| Selection | Empty/rectangle construct, live sprite selection, copy on assignment, bounds/origin/isEmpty, contains, select/deselect/selectAll, add/subtract/intersect, masks applied by tools/Clear | Host receives canvas-clipped mask; off-canvas geometry stays available during script only. Bounds/allocation caps; no implicit pixel-content transform when moving selection origin |
+| Range | EMPTY/CELS/FRAMES/LAYERS enum; layer/frame selection and fallback active cel; cels, unique images, editableImages; colors/slices; contains/containsColor/clear | Tile selection. Initial loaded layer creation order uses imported document order; native creation history cannot be recovered when absent from file |
+| Tag | CRUD, sprite, from/to Frame, frame count, name, AniDir, repeats, data/color/properties; interior insertion repairs ranges | Full subtag/repeat playback/export traversal belongs to animation/export pipeline; arbitrary discontiguous PixelWall clips are not native tags |
+| Slice | CRUD, sprite/name, first-frame bounds/center/pivot, data/color/properties; preserve later keys | The official Slice API addresses first-frame key; no extra moving-key authoring API is invented. Mixed optional pivot/center fields across native keys remain subject to exporter validation |
+| User properties | Sprite/Layer/Cel/Tag/Slice/Tileset/Tile native text/color and property maps; user and extension namespaces; namespace replacement; nil deletion; pairs; booleans/exact finite numbers/strings/vectors/maps | Point/Size/Rectangle/UUID values, integers outside exact JavaScript numeric range; unsafe/unsupported existing values fail explicitly on access/edit |
+| Commands | NewLayer, NewFrame, NewEmptyFrame, RemoveFrame, RemoveLayer, MergeDownLayer/MergeDown, DuplicateLayer, ClearCel, UnlinkCel, SpriteSize, CanvasSize, ChangePixelFormat, SelectAll, Deselect, InvertMask, Clear | Every other native app.command, and parameters outside each documented adapter allow-list |
+| Tools | pencil/eraser/line/rectangle/filled_rectangle/ellipse/filled_ellipse/paint_bucket with documented adapter parameters | Native brush/dynamics/ink and all other tools; no universal pixel-identical rasterizer claim |
+| Dialog | Blocking editor dialogs, common fields, button callbacks, data/close; same VM across waits | Modeless/event-driven behavior, advanced widgets, modification/layout APIs; see [dialog limits](lua-dialogs.md) |
+| Extension/application objects | Explicit package command sessions: init, command registration/selection/callback, enabled/checked callbacks, successful exit, bounded preferences saved atomically with artwork | Persistent plugins, native menu integration, Timer, Events, application preferences/context, export/event registration, Lua package loading; see [package sessions](lua-package-sessions.md) |
+| Tile objects | Tileset collection/creation/copy, native insert/delete and index-bound Tile handles, artwork-bound Image handles, layer reassignment, empty NewLayer tilemaps, live Tile.image editing, Grid, tile/tileset metadata/properties and unused-tileset deletion | Tile range, tilemap Image storage and newCel authoring; see [tile scripting](lua-tileset-compatibility.md) |
+
+The adapter-specific app.pixelwallApiVersion remains 1. A native Aseprite extension that depends on missing objects must receive an error; it must not be treated as successfully loaded. Engine raster/export functionality available elsewhere in PixelWall does not by itself count as Lua API coverage.
+
+## Evidence
+
+- `tests/lua-adapter.test.mjs`: core runtime, pixels, objects, transaction replay, sandbox and bounds.
+- `tests/lua-authoring.test.mjs`: 18 focused tests for selection/range state, native user data and properties, tag/slice authorship, malformed property input, locks, rollback and native chunk order.
+- `tests/lua-browser-runner.test.mjs`: worker wrapper lifecycle/replay/timeout behavior; controlled worker tests do not replace real packaged browser/desktop smoke testing.
+- Original `tests/fixtures/lua-authoring-semantics.lua`: identical printed results under Aseprite and Wasmoon; `lua-authoring-roundtrip.lua`: Aseprite independently validates an adapter-exported native file.
+
+See [the integration and limits guide](lua-compatibility.md) for supported argument shapes and host responsibilities.

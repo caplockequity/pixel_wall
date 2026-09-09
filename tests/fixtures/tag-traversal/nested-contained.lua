@@ -1,0 +1,2 @@
+local s=Sprite(1,1);for i=1,5 do if i>1 then s:newEmptyFrame() end;local im=Image(1,1);im:drawPixel(0,0,app.pixelColor.rgba(i*40,0,0,255));s:newCel(s.layers[1],i,im);s.frames[i].duration=.1 end
+local t=s:newTag(2,5);t.name='clip';t.aniDir=AniDir.PING_PONG;t.repeats=3;local b=s:newTag(3,4);b.name='inner';b.aniDir=AniDir.REVERSE;b.repeats=2;s:saveAs(app.params.path);s:close()

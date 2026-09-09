@@ -52,3 +52,4 @@ yarn-error.log*
 # Generated hosted offline shell (source: scripts/offline-worker.js)
 /public/sw.js
 /public/offline-assets.json
+/public/runtimes/

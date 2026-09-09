@@ -1,0 +1,6 @@
+// Original CC0 fixture generator. Run from repository root; see README.md.
+import {execFileSync} from 'node:child_process';import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';import omggif from 'omggif';
+const root='tests/fixtures/tag-traversal',bin=process.env.ASEPRITE_BIN;mkdirSync(`${root}/exports`,{recursive:true});let results=[];
+for(const direction of ['forward','reverse','pingpong','pingpong_reverse'])for(let repeat=0;repeat<4;repeat++)for(const subtags of [false,true])for(const tag of [false,true]){
+const name=`${direction}-${repeat}${subtags?'-subtags':''}${tag?'-tag':''}`,file=`${root}/exports/${name}.gif`,args=['--batch',`${root}/${direction}-${repeat}.aseprite`,...(subtags?['--play-subtags']:[]),...(tag?['--tag','clip']:[]),'--save-as',file];execFileSync(bin,args);const gif=new omggif.GifReader(readFileSync(file)),frames=[],rgba=new Uint8Array(4);for(let i=0;i<gif.numFrames();i++){gif.decodeAndBlitFrameRGBA(i,rgba);frames.push({frame:rgba[0]/40-1,ms:gif.frameInfo(i).delay*10});}results.push({direction,repeat,subtags,tag,format:'gif',frames});}
+writeFileSync(`${root}/cli-vectors.json`,JSON.stringify(results,null,2)+'\n');console.log(results.map(x=>`${x.direction} ${x.repeat} subtags=${x.subtags} tag=${x.tag} : ${x.frames.map(y=>`${y.frame}(${y.ms})`).join(' ')}`).join('\n'));

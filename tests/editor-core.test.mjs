@@ -12,7 +12,9 @@ function freezeDeep(o){if(o&&typeof o==='object'&&!Object.isFrozen(o)){Object.fr
 
 test('rectangular document dimensions and strict stored-pixel validation',()=>{
  const d=blank(2048,1);assert.equal(d.width,2048);assert.equal(d.height,1);assert.equal(renderFrame(d).length,8192);
- assert.throws(()=>blank(2049,1),EditorError);assert.throws(()=>blank(1,0),EditorError);
+ assert.equal(blank(4096,1).width,4096);assert.equal(blank(65535,1).width,65535);
+ assert.throws(()=>blank(65536,1),EditorError);assert.throws(()=>blank(4096,4096),/pixel budget/);assert.throws(()=>blank(1,0),EditorError);
+ assert.throws(()=>applyCommand(d,{type:'document.resize',width:4096,height:4096}),/pixel budget/);
  const bad=blank();bad.images.a={width:8,height:8,pixels:[red]};assert.throws(()=>normalizeDocument(bad),/pixel count/);
 });
 

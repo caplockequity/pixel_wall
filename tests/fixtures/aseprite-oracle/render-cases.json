@@ -1,0 +1,291 @@
+[
+  {
+    "file": "1empty3.aseprite",
+    "frames": [
+      "1empty3-001.rgba",
+      "1empty3-002.rgba",
+      "1empty3-003.rgba"
+    ]
+  },
+  {
+    "file": "2f-index-3x3.aseprite",
+    "frames": [
+      "2f-index-3x3-001.rgba",
+      "2f-index-3x3-002.rgba"
+    ]
+  },
+  {
+    "file": "2x2tilemap2x2tile.aseprite",
+    "frames": [
+      "2x2tilemap2x2tile-001.rgba"
+    ]
+  },
+  {
+    "file": "2x3tilemap-indexed.aseprite",
+    "frames": [
+      "2x3tilemap-indexed-001.rgba",
+      "2x3tilemap-indexed-002.rgba",
+      "2x3tilemap-indexed-003.rgba"
+    ]
+  },
+  {
+    "file": "3x2tilemap-grayscale.aseprite",
+    "frames": [
+      "3x2tilemap-grayscale-001.rgba",
+      "3x2tilemap-grayscale-002.rgba",
+      "3x2tilemap-grayscale-003.rgba",
+      "3x2tilemap-grayscale-004.rgba"
+    ]
+  },
+  {
+    "file": "4f-index-4x4.aseprite",
+    "frames": [
+      "4f-index-4x4-001.rgba",
+      "4f-index-4x4-002.rgba",
+      "4f-index-4x4-003.rgba",
+      "4f-index-4x4-004.rgba"
+    ]
+  },
+  {
+    "file": "abcd.aseprite",
+    "frames": [
+      "abcd-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-addition.aseprite",
+    "frames": [
+      "audit-blend-addition-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-color_burn.aseprite",
+    "frames": [
+      "audit-blend-color_burn-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-color_dodge.aseprite",
+    "frames": [
+      "audit-blend-color_dodge-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-darken.aseprite",
+    "frames": [
+      "audit-blend-darken-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-difference.aseprite",
+    "frames": [
+      "audit-blend-difference-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-divide.aseprite",
+    "frames": [
+      "audit-blend-divide-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-exclusion.aseprite",
+    "frames": [
+      "audit-blend-exclusion-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-hard_light.aseprite",
+    "frames": [
+      "audit-blend-hard_light-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-hsl_color.aseprite",
+    "frames": [
+      "audit-blend-hsl_color-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-hsl_hue.aseprite",
+    "frames": [
+      "audit-blend-hsl_hue-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-hsl_luminosity.aseprite",
+    "frames": [
+      "audit-blend-hsl_luminosity-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-hsl_saturation.aseprite",
+    "frames": [
+      "audit-blend-hsl_saturation-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-lighten.aseprite",
+    "frames": [
+      "audit-blend-lighten-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-multiply.aseprite",
+    "frames": [
+      "audit-blend-multiply-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-normal.aseprite",
+    "frames": [
+      "audit-blend-normal-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-overlay.aseprite",
+    "frames": [
+      "audit-blend-overlay-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-screen.aseprite",
+    "frames": [
+      "audit-blend-screen-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-soft_light.aseprite",
+    "frames": [
+      "audit-blend-soft_light-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-blend-subtract.aseprite",
+    "frames": [
+      "audit-blend-subtract-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-group-opacity.aseprite",
+    "frames": [
+      "audit-group-opacity-001.rgba"
+    ]
+  },
+  {
+    "file": "audit-wide-document.aseprite",
+    "frames": [
+      "audit-wide-document-001.rgba"
+    ]
+  },
+  {
+    "file": "bg-index-3.aseprite",
+    "frames": [
+      "bg-index-3-001.rgba"
+    ]
+  },
+  {
+    "file": "cut_paste.aseprite",
+    "frames": [
+      "cut_paste-001.rgba"
+    ]
+  },
+  {
+    "file": "file-tests-props.aseprite",
+    "frames": [
+      "file-tests-props-001.rgba",
+      "file-tests-props-002.rgba",
+      "file-tests-props-003.rgba",
+      "file-tests-props-004.rgba",
+      "file-tests-props-005.rgba",
+      "file-tests-props-006.rgba"
+    ]
+  },
+  {
+    "file": "groups2.aseprite",
+    "frames": [
+      "groups2-001.rgba"
+    ]
+  },
+  {
+    "file": "groups3abc.aseprite",
+    "frames": [
+      "groups3abc-001.rgba"
+    ]
+  },
+  {
+    "file": "link.aseprite",
+    "frames": [
+      "link-001.rgba",
+      "link-002.rgba"
+    ]
+  },
+  {
+    "file": "point2frames.aseprite",
+    "frames": [
+      "point2frames-001.rgba",
+      "point2frames-002.rgba"
+    ]
+  },
+  {
+    "file": "point4frames.aseprite",
+    "frames": [
+      "point4frames-001.rgba",
+      "point4frames-002.rgba",
+      "point4frames-003.rgba",
+      "point4frames-004.rgba"
+    ]
+  },
+  {
+    "file": "slices-moving.aseprite",
+    "frames": [
+      "slices-moving-001.rgba",
+      "slices-moving-002.rgba",
+      "slices-moving-003.rgba",
+      "slices-moving-004.rgba"
+    ]
+  },
+  {
+    "file": "slices.aseprite",
+    "frames": [
+      "slices-001.rgba"
+    ]
+  },
+  {
+    "file": "tags3.aseprite",
+    "frames": [
+      "tags3-001.rgba",
+      "tags3-002.rgba",
+      "tags3-003.rgba",
+      "tags3-004.rgba",
+      "tags3-005.rgba",
+      "tags3-006.rgba",
+      "tags3-007.rgba",
+      "tags3-008.rgba",
+      "tags3-009.rgba",
+      "tags3-010.rgba",
+      "tags3-011.rgba",
+      "tags3-012.rgba"
+    ]
+  },
+  {
+    "file": "tags3x123reps.aseprite",
+    "frames": [
+      "tags3x123reps-001.rgba",
+      "tags3x123reps-002.rgba",
+      "tags3x123reps-003.rgba",
+      "tags3x123reps-004.rgba",
+      "tags3x123reps-005.rgba",
+      "tags3x123reps-006.rgba",
+      "tags3x123reps-007.rgba",
+      "tags3x123reps-008.rgba",
+      "tags3x123reps-009.rgba"
+    ]
+  },
+  {
+    "file": "z-order.aseprite",
+    "frames": [
+      "z-order-001.rgba"
+    ]
+  }
+]

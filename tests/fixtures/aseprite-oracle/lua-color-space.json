@@ -1,0 +1,26 @@
+{
+  "source": "Official Aseprite 1.3.18.5 self-built native batch (API 41)",
+  "prints": [
+    "construct-names\t\"\"\t\"\"\t\"\"",
+    "equality\ttrue\ttrue\tfalse\tfalse",
+    "rename-equality\ttrue\t",
+    "sprite-default\ttrue\t\"sRGB\"",
+    "getter-detached\tsRGB\tdetached",
+    "assign-result\ttrue\trenamed\ttrue",
+    "assign-detached\trenamed",
+    "setter-none\ttrue\t\"None\"",
+    "convert-none\ttrue\tsRGB\ttrue",
+    "argument\tboolean\ttrue\ttrue\terror",
+    "argument\tboolean\ttrue\ttrue\terror",
+    "argument\tnumber\ttrue\ttrue\terror",
+    "argument\tstring\ttrue\ttrue\terror",
+    "argument\ttable\ttrue\ttrue\terror",
+    "argument\ttable\ttrue\ttrue\terror",
+    "argument\ttable\ttrue\terror\ttrue",
+    "name-set\tboolean\ttrue\t\"after\"",
+    "name-set\tboolean\ttrue\t\"after\"",
+    "name-set\tnumber\ttrue\t\"123\"",
+    "name-set\ttable\ttrue\t\"after\"",
+    "name-set\tstring\ttrue\t\"\""
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "name": "pixelwall-desktop",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "PixelWall local desktop studio",
   "private": true,
   "type": "module",
@@ -20,8 +20,30 @@
     "files": [
       "main.mjs",
       "update-checker.mjs",
+      "editor-controls.mjs",
+      "native-files.mjs",
+      "native-file-ipc.mjs",
+      "native-preload.cjs",
+      "native-clipboard-ipc.mjs",
+      "clipboard-payload.mjs",
       "app/**/*",
       "package.json"
+    ],
+    "fileAssociations": [
+      {
+        "ext": "pixelwall",
+        "name": "PixelWall Project",
+        "description": "Editable PixelWall artwork",
+        "role": "Editor",
+        "mimeType": "application/x-pixelwall"
+      },
+      {
+        "ext": "aseprite",
+        "name": "Editable Sprite",
+        "description": "Editable sprite artwork",
+        "role": "Editor",
+        "mimeType": "image/x-aseprite"
+      }
     ],
     "mac": {
       "target": [

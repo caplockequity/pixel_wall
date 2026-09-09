@@ -1,0 +1,37 @@
+-- Original fixture. Run unchanged in Aseprite or PixelWall's real Lua VM.
+local function near(actual,expected) assert(math.abs(actual-expected)<1e-10,tostring(actual)..' ~= '..tostring(expected)) end
+local function values(i) local data={};for p in i:pixels() do data[#data+1]=tostring(p()) end;return table.concat(data,',') end
+local pc=app.pixelColor
+local image=Image(2,2)
+for y=0,1 do for x=0,1 do image:drawPixel(x,y,pc.rgba(1+4*(y*2+x),2+4*(y*2+x),3+4*(y*2+x),4+4*(y*2+x))) end end
+local crop=Image(image,Rectangle(-1,-1,3,3));assert(crop.width==3 and crop.height==3 and crop:getPixel(1,1)==image:getPixel(0,0));assert(Image(image,Rectangle(0,0,0,2))==nil)
+assert(Image(image,Rectangle(10,10,2,2)):isEmpty())
+local resized=Image(image);assert(resized:resize{size=Size(3,3),method='nearest'}==nil);assert(values(resized)=='67305985,67305985,134678021,67305985,67305985,134678021,202050057,202050057,269422093')
+local flipped=Image(image);flipped:flip();flipped:flip(FlipType.VERTICAL);assert(values(flipped)=='269422093,202050057,134678021,67305985')
+assert(image.rowStride==8 and image.bytesPerPixel==4 and #image.bytes==16)
+local bytes=Image(2,1);bytes.bytes=string.char(1,2,3,0,5,6,7,8);assert(bytes.bytes==string.char(1,2,3,0,5,6,7,8));assert(bytes:getPixel(0,0)==197121);local hidden=Image(2,1);hidden.bytes=string.char(1,2,3,0,0,0,0,0);assert(hidden:isEmpty() and hidden:isPlain(0) and hidden:isEqual(Image(2,1)) and hidden:shrinkBounds().isEmpty)
+local gray=Image(2,1,ColorMode.GRAY);gray.bytes=string.char(55,0,77,88);assert(gray.bytes==string.char(55,0,77,88));assert(gray:getPixel(1,0)==22605)
+local index=Image(2,1,ColorMode.INDEXED);index.bytes=string.char(0,255);assert(index.bytes==string.char(0,255))
+local source=Image(1,1);source:clear(pc.rgba(255,0,0,128));local dest=Image(1,1);dest:clear(pc.rgba(0,0,255,128));dest:drawImage(source);assert(dest:getPixel(0,0)==3226796202)
+local direct=Image(2,1);direct:clear(pc.rgba(255,255,255,255));direct:drawImage(bytes,Point(0,0),0,BlendMode.SRC);assert(direct.bytes==bytes.bytes)
+local bound=Image(4,4);bound:clear(Rectangle(1,2,2,1),pc.rgba(255,0,0,255));assert(bound:shrinkBounds()==Rectangle(1,2,2,1))
+local s=Sprite(2,2,ColorMode.RGB);s.cels[1].image:clear(pc.rgba(11,22,33,255));s:newFrame();s.cels[2].image:clear(pc.rgba(44,55,66,255))
+local first=Image(s);assert(first.colorMode==ColorMode.RGB and first:getPixel(0,0)==pc.rgba(11,22,33,255))
+local frame=Image(3,3);frame:drawSprite(s,s.frames[2],Point(1,1));assert(frame:getPixel(0,0)==0 and frame:getPixel(1,1)==pc.rgba(44,55,66,255))
+local attached=s.cels[1].image;local id=attached.id;attached:resize(4,4);assert(attached.width==4 and s.cels[1].image.width==4 and attached.id~=id and attached.cel~=nil);assert(type(id)=='number')
+local c=Color{h=45,s=.5,v=.2,a=128};assert(c.red==51 and c.green==45 and c.blue==26);near(c.hsvHue,45);near(c.hsvSaturation,.5);near(c.hsvValue,.2);near(c.hslSaturation,25/77);near(c.hslLightness,77/510)
+c.hsvValue=.8;assert(c.red==204 and c.green==179 and c.blue==102);near(c.hsvValue,.8);c.alpha=23;near(c.hue,45);near(c.saturation,.5);c.red=10;near(c.hsvHue,152.66272189349);assert(c.gray==94 and c.grayPixel==pc.graya(94,23))
+local c=Color{h=45,s=.5,l=.2,a=128};assert(c.red==77 and c.green==64 and c.blue==26);near(c.hslLightness,.2);near(c.saturation,.5);c.hsvSaturation=.2;assert(c.red==77 and c.green==73 and c.blue==62);near(c.hsvSaturation,.2);near(c.hsvValue,77/255)
+c.gray=91;assert(c.red==91 and c.green==91 and c.blue==91);near(c.lightness,91/255);local endHue=Color{h=360,s=1,v=1};assert(endHue.red==255 and endHue.hue==360)
+local palette=Palette(4);palette:setColor(0,Color{r=0,g=0,b=0,a=0});palette:setColor(1,Color{r=255,g=0,b=0,a=44});palette:setColor(2,Color{r=0,g=0,b=255,a=88});palette:setColor(3,Color{r=255,g=0,b=0,a=255});s:setPalette(palette)
+local indexed=Color{index=1};assert(indexed.red==255 and indexed.alpha==44);palette:setColor(1,Color{r=0,g=99,b=0,a=55});s:setPalette(palette);assert(indexed.green==99 and indexed.alpha==55);indexed.alpha=128;assert(indexed.alpha==128 and indexed.index==1);indexed.index=2;assert(indexed.blue==255 and indexed.alpha==88)
+assert(Color{r=255,g=0,b=0,a=255}.index==3);assert(Color{r=0,g=0,b=255,a=88}.index==2)
+local p=Point(3,4);assert(p+Point(1,2)==Point(4,6) and p-Point(1,2)==Point(2,2));local size=Size{w=3,h=4};size.w=5;assert(size:union(Size(6,2))==Size(6,4))
+local rectangle=Rectangle(1.8,-2.8,3.8,4.8);assert(rectangle==Rectangle(1,-3,3,4));rectangle.origin=Point(1,1);rectangle.size=Size(4,4);assert(rectangle:contains(Rectangle(2,2,1,1)));assert(not rectangle:contains(Rectangle(2,2,0,0)));assert(rectangle:intersect(Rectangle(3,3,4,4))==Rectangle(3,3,2,2));assert(rectangle:intersect(Rectangle(99,99,1,1))==Rectangle())
+local indexedSprite=Sprite(1,1,ColorMode.INDEXED);local pal=Palette(3);pal:setColor(0,Color{r=0,g=0,b=0,a=0});pal:setColor(1,Color{r=255,g=0,b=0});pal:setColor(2,Color{r=0,g=0,b=255});indexedSprite:setPalette(pal)
+indexedSprite.cels[1].image:drawPixel(0,0,1);local layer=indexedSprite:newLayer();local top=Image(1,1,ColorMode.INDEXED);top:drawPixel(0,0,2);local cel=indexedSprite:newCel(layer,1,top)
+for _,opacity in ipairs{0,1,127,255} do layer.opacity=opacity;assert(Image(indexedSprite):getPixel(0,0)==2) end
+layer.opacity=0;local rgb=Image(1,1,ColorMode.RGB);rgb:drawSprite(indexedSprite,1);assert(rgb:getPixel(0,0)==pc.rgba(255,0,0,255))
+layer.opacity=255;cel.opacity=0;assert(Image(indexedSprite):getPixel(0,0)==2);layer.blendMode=BlendMode.MULTIPLY;assert(Image(indexedSprite):getPixel(0,0)==2)
+local graySprite=Sprite(1,1,ColorMode.GRAY);graySprite.cels[1].image:drawPixel(0,0,pc.graya(77,88));local grayCopy=Image(graySprite);assert(grayCopy.colorMode==ColorMode.GRAY and grayCopy:getPixel(0,0)==pc.graya(77,88))
+print('image-color-native-contract-ok')

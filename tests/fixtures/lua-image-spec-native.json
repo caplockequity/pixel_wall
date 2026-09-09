@@ -1,0 +1,13 @@
+{
+  "source": "Official native 1.3.18.5 self-built batch (API 41)",
+  "prints": [
+    "default\t1\t1\t0\t0\t\ttrue\tfalse",
+    "table\t2\t3\t2\t7\t\ttrue\tfalse",
+    "image\t2\t3\t2\t7\tNamed\tfalse\ttrue",
+    "sprite\t4\t3\t2\t8\tNamed\tfalse\ttrue",
+    "image-spec-contract-ok",
+    "indexedMask\t4278190080\t0\t255",
+    "rgbSpec\t67305985\t67305985\t0",
+    "graySpec\t258\t258\t0"
+  ]
+}

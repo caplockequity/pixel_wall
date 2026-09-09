@@ -1,0 +1,35 @@
+{
+  "provenance": {
+    "oracle": "Official Aseprite 1.3.18.5 self-built native batch, API 41",
+    "source": "Independently written Lua conversion probes; no Aseprite application source copied",
+    "grayProfile": "PixelWall-generated CC0 gamma-1 gray ICC, rebuilt from createGammaProfile using desc/wtpt/kTRC/cprt tags"
+  },
+  "rgb": {
+    "inputRGBA": [
+      128,
+      80,
+      40,
+      99
+    ],
+    "packed": 1665161882,
+    "pixel": "#9a5a4063"
+  },
+  "grayscale": {
+    "inputGray": 128,
+    "alpha": 99,
+    "packed": 25490,
+    "pixel": "#92929263"
+  },
+  "indexed": {
+    "index": 1,
+    "paletteInput": "#808080dc",
+    "paletteOutput": "#929292dc"
+  },
+  "grayICC": {
+    "base64": "AAABgAAAAAACEAAAbW50ckdSQVlYWVogB+oAAQABAAAAAAAAYWNzcEFQUEwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPbWAAEAAAAA0y1QV0FMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEZGVzYwAAALQAAAB7d3RwdAAAATAAAAAUa1RSQwAAAUQAAAAQY3BydAAAAVQAAAAqZGVzYwAAAAAAAAAhUGl4ZWxXYWxsIHNSR0IgcHJpbWFyaWVzIGdhbW1hIDEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFhZWiAAAAAAAAD21gABAAAAANMtY3VydgAAAAAAAAABAQAAAHRleHQAAAAAUGl4ZWxXYWxsIGdlbmVyYXRlZCBwcm9maWxlLiBDQzAuAAAA",
+    "inputGray": 128,
+    "alpha": 99,
+    "packed": 25532,
+    "pixel": "#bcbcbc63"
+  }
+}

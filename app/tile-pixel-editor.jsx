@@ -7,8 +7,9 @@ import {
   renderFrame,
   getCel,
 } from "./editor-core.mjs";
+import { isSRGB } from "./color-management.mjs";
 
-export default function TilePixelEditor({ tile, color, onApply, onCancel }) {
+export default function TilePixelEditor({ tile, color, colorProfile, colorManager, onApply, onCancel }) {
   const [draft, setDraft] = useState(() =>
     applyCommand(
       createDocument({
@@ -34,18 +35,20 @@ export default function TilePixelEditor({ tile, color, onApply, onCancel }) {
     Math.min(16, Math.floor(320 / Math.max(tile.width, tile.height))),
   );
   useEffect(() => {
+    if (!colorManager && !isSRGB(colorProfile)) return;
+    const pixels = renderFrame(draft, draft.frames[0].id);
     canvas.current
       .getContext("2d")
       .putImageData(
         new ImageData(
-          renderFrame(draft, draft.frames[0].id),
+          colorManager ? colorManager.transformRGBA(pixels, colorProfile) : pixels,
           draft.width,
           draft.height,
         ),
         0,
         0,
       );
-  }, [draft]);
+  }, [draft, colorManager, colorProfile]);
   function point(event) {
     const rect = canvas.current.getBoundingClientRect();
     return {

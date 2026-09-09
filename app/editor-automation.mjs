@@ -1,8 +1,12 @@
 /** Public, versioned control surface. Every mutation uses the editor's command engine. */
+import { createDesktopSession } from './desktop-session.mjs';
+import { LIMITS } from './editor-core.mjs';
 export const AUTOMATION_VERSION = 1;
 
 export function createAutomation(host) {
+  const desktop = createDesktopSession(host);
   const apply = async ({ commands, expectedRevision, label = "Script" }) => {
+    desktop.assertEditable();
     if (
       !Array.isArray(commands) ||
       commands.length < 1 ||
@@ -20,10 +24,12 @@ export function createAutomation(host) {
   };
   return Object.freeze({
     version: AUTOMATION_VERSION,
+    desktop,
     inspect: () => ({ revision: host.revision(), document: host.inspect() }),
     commands: () => host.commands(),
     apply,
     newDocument: async (options = {}) => {
+      desktop.assertEditable();
       await host.newDocument(options);
       return { revision: host.revision(), document: host.inspect() };
     },
@@ -44,11 +50,25 @@ export function createAutomation(host) {
           };
     },
     export: async (options = {}) => host.export(options),
+    colorProfile: async (options = {}) => {
+      if ((options.operation || "inspect") !== "inspect") desktop.assertEditable();
+      if (options.expectedRevision !== undefined && options.expectedRevision !== host.revision())
+        throw Error("The document changed. Inspect it again before changing its profile.");
+      return host.colorProfile(options);
+    },
+    runLua: async (options = {}) => {
+      desktop.assertEditable();
+      if (options.expectedRevision !== undefined && options.expectedRevision !== host.revision())
+        throw Error("The document changed. Inspect it again before running Lua.");
+      return host.runLua(options);
+    },
     undo: async () => {
+      desktop.assertEditable();
       await host.undo();
       return { revision: host.revision(), document: host.inspect() };
     },
     redo: async () => {
+      desktop.assertEditable();
       await host.redo();
       return { revision: host.revision(), document: host.inspect() };
     },
@@ -59,6 +79,18 @@ export function registerAutomation(context, api) {
   if (!context?.registerTool) return () => {};
   const lifecycle = new AbortController();
   const definitions = [
+    {
+      name:"pixelwall_lua",
+      description:"Run Lua 5.4 against the active project using supported Sprite/Image/Color/layer/frame/palette APIs. Applies one undoable result; errors and cancellation preserve artwork. Files and export commands are unavailable inside Lua; use the existing export tool.",
+      inputSchema:{type:"object",properties:{source:{type:"string",maxLength:262144},params:{type:"object"},timeoutMs:{type:"integer",minimum:50,maximum:10000},expectedRevision:{type:"integer",minimum:0}},required:["source"],additionalProperties:false},
+      execute:options=>api.runLua(options),
+    },
+    {
+      name: "pixelwall_color_profile",
+      description: "Inspect, assign or convert the working color profile. Assign keeps pixel values; convert uses LittleCMS to preserve appearance. Omit ICC bytes to use sRGB. Mutations are undoable.",
+      inputSchema: {type:"object", properties:{operation:{type:"string",enum:["inspect","assign","convert"]},icc:{type:"array",items:{type:"integer",minimum:0,maximum:255},maxItems:4194304},intent:{type:"integer",minimum:0,maximum:3},expectedRevision:{type:"integer",minimum:0}},additionalProperties:false},
+      execute: (options) => api.colorProfile(options),
+    },
     {
       name: "pixelwall_inspect",
       description:
@@ -116,8 +148,8 @@ export function registerAutomation(context, api) {
         type: "object",
         properties: {
           name: { type: "string" },
-          width: { type: "integer", minimum: 1, maximum: 2048 },
-          height: { type: "integer", minimum: 1, maximum: 2048 },
+          width: { type: "integer", minimum: 1, maximum: LIMITS.edge },
+          height: { type: "integer", minimum: 1, maximum: LIMITS.edge },
           colorMode: { type: "string", enum: ["rgba", "indexed", "grayscale"] },
         },
         additionalProperties: false,
@@ -170,7 +202,7 @@ export function registerAutomation(context, api) {
               "zip",
             ],
           },
-          scale: { type: "integer", minimum: 1, maximum: 8 },
+          scale: { type: "number", exclusiveMinimum: 0, maximum: 64 },
           frameId: { type: "string" },
           clipId: { type: "string" },
           includeReferenceLayers: { type: "boolean" },

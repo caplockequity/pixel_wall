@@ -27,7 +27,7 @@ const GUIDE_PATHS = new Set([
   '/guides/getting-started', '/guides/export-formats', '/guides/phaser-sprite-sheets',
   '/guides/pixijs-animated-sprites', '/guides/tiled-tilemaps', '/guides/desert-signal',
   '/guides/scripting', '/guides/command-api', '/guides/command-line',
-  '/guides/offline-and-downloads', '/guides/aseprite-compatibility',
+  '/guides/offline-and-downloads', '/guides/file-compatibility',
 ]);
 
 export function sitePageGroup(pathname) {

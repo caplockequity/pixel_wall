@@ -6,6 +6,52 @@ import { createHistory } from '../app/history.mjs';
 const makeDoc = (id = 'sprite', count = 64) => ({ format: 'pixelwall-document', version: 4, id, name: 'Sprite', width: 8, height: 8, colorMode: 'rgba', palette: ['#ffffff'], layers: [{ id: 'ink' }], frames: [{ id: 'first', cels: { ink: { imageId: 'pixels' } } }], images: { pixels: { width: 8, height: 8, pixels: new Uint32Array(count) } } });
 const change = (doc, index, value) => { const pixels = doc.images.pixels.pixels.slice(); pixels[index] = value; return { ...doc, images: { ...doc.images, pixels: { ...doc.images.pixels, pixels } } }; };
 const open = (options = {}) => openStore({ indexedDB: new IDBFactory(), ...options });
+test('package preferences and all artwork commit atomically under settings revision guards', async () => {
+ const store = await open();
+ await store.setSetting('registry', {enabled:true});
+ const captured = await store.getSettingsSnapshot(['registry','preferences']);
+ const saved = await store.saveDocuments([{document:makeDoc('a')},{document:makeDoc('b')}], {settings:[{key:'registry',expectedRevision:captured[0].revision},{key:'preferences',expectedRevision:captured[1].revision,value:{runs:1}}]});
+ assert.deepEqual(saved.map(entry=>entry.revision),[1,1]);
+ assert.deepEqual(await store.getSetting('preferences'),{runs:1});
+ assert.equal((await store.getSettingsSnapshot(['registry']))[0].revision,captured[0].revision);
+ const next = await store.getSettingsSnapshot(['registry','preferences']);
+ await store.setSetting('registry',{enabled:false});
+ await assert.rejects(store.saveDocuments([{document:{...makeDoc('a'),name:'Rejected'},settings:{expectedRevision:1}},{document:makeDoc('new')}], {settings:next.map(entry=>({key:entry.key,expectedRevision:entry.revision,...(entry.key==='preferences'?{value:{runs:2}}:{})}))}), {code:'CONFLICT'});
+ assert.equal((await store.loadDocument('a')).revision,1);assert.equal(await store.loadDocument('new'),null);
+ assert.deepEqual(await store.getSetting('preferences'),{runs:1});assert.equal((await store.listRevisions('a')).length,1);
+ store.close();
+});
+test('setting deletion and recreation cannot fool a captured package command revision', async () => {
+ const indexedDB = new IDBFactory(), first = await openStore({indexedDB}), other = await openStore({indexedDB});
+ const [absent] = await first.getSettingsSnapshot(['preferences']);
+ await other.setSetting('preferences',{runs:1});await other.deleteSetting('preferences');
+ assert.equal(await first.getSetting('preferences','missing'),'missing');
+ await assert.rejects(first.saveDocuments([{document:makeDoc()}],{settings:[{key:'preferences',expectedRevision:absent.revision,value:{runs:2}}]}),{code:'CONFLICT'});
+ assert.equal(await first.loadDocument('sprite'),null);
+ const [deleted] = await first.getSettingsSnapshot(['preferences']);assert.equal(deleted.exists,false);assert.ok(deleted.revision>0);
+ await other.setSetting('preferences',{runs:1});assert.ok((await first.getSettingsSnapshot(['preferences']))[0].revision>deleted.revision);
+ first.close();other.close();
+});
+test('failed document budget validation also rolls back pending preference updates', async () => {
+ const store=await open({budgetBytes:5000});await store.setSetting('preferences',{runs:0});
+ const [captured] = await store.getSettingsSnapshot(['preferences']);
+ await assert.rejects(store.saveDocuments([{document:{...makeDoc(),notes:'x'.repeat(6000)}}],{settings:[{key:'preferences',expectedRevision:captured.revision,value:{runs:1}}]}),{code:'BUDGET_EXCEEDED'});
+ assert.deepEqual(await store.getSetting('preferences'),{runs:0});assert.equal((await store.getSettingsSnapshot(['preferences']))[0].revision,captured.revision);store.close();
+});
+test('multi-document script saves commit together and conflicts roll every document back', async () => {
+ const store=await open(),first=makeDoc('first'),second=makeDoc('second');
+ const saved=await store.saveDocuments([{document:first,settings:{expectedRevision:0}},{document:second,settings:{expectedRevision:0}}]);
+ assert.deepEqual(saved.map(entry=>entry.revision),[1,1]);assert.equal(saved.reduce((n,entry)=>n+entry.imagesWritten,0),1);
+ await assert.rejects(store.saveDocuments([{document:{...first,name:'Must roll back'},settings:{expectedRevision:1}},{document:{...second,name:'Stale edit'},settings:{expectedRevision:0}}]),{code:'CONFLICT'});
+ assert.equal((await store.loadDocument('first')).document.name,'Sprite');assert.equal((await store.loadDocument('first')).revision,1);
+ assert.equal((await store.loadDocument('second')).revision,1);
+ assert.equal((await store.listRevisions('first')).length,1);store.close();
+});
+test('multi-document budget failure creates no partial documents or recovery entries', async () => {
+ const store=await open({budgetBytes:5000});
+ await assert.rejects(store.saveDocuments([{document:makeDoc('small')},{document:{...makeDoc('large'),notes:'x'.repeat(6000)}}]),{code:'BUDGET_EXCEEDED'});
+ assert.equal((await store.listDocuments()).length,0);assert.equal((await store.listRevisions('small')).length,0);store.close();
+});
 test('atomic saves, reopen, image deduplication, metadata edits and version restoration', async () => {
  const indexedDB = new IDBFactory(); let store = await openStore({ indexedDB }); let doc = makeDoc();
  assert.equal((await store.saveDocument(doc)).imagesWritten, 1);

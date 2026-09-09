@@ -2,6 +2,7 @@ import {readFile,readdir,writeFile,mkdir} from 'node:fs/promises';
 import {join,relative,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {zipSync,strToU8} from 'fflate';
+import {RUNTIME_FILES} from './prepare-runtimes.mjs';
 
 export function assertPublicArtifact(path,data) {
   const text=new TextDecoder().decode(data);
@@ -36,9 +37,9 @@ export function localLauncher(source) {
 export async function packageDownloads(root=process.cwd()) {
   const web=await collect(join(root,'dist/standalone'));
   web['run-local.mjs']=strToU8(localLauncher(await readFile(join(root,'scripts/serve-standalone.mjs'),'utf8')));
-web['README.txt']=strToU8('PIXELWALL — LOCAL STUDIO\n\nKeep this folder with your project backups and Pro ownership license.\nInstall Node.js 22.13 or newer from nodejs.org, then run:\n\n  node run-local.mjs\n\nOpen http://127.0.0.1:4173 in a modern browser. The server stays on your computer; it does not upload artwork. Keep the folder and use this same address to reopen your device library. Save portable .pixelwall files for independent backups.\n\nThe browser needs a local HTTP address for secure storage. Do not double-click index.html. After the first visit, the installed browser cache also supports reopening offline.\n\nEditing, scripting, individual PNG/BMP/TGA images and editable project/Aseprite files are free. GIF, sprite atlases and game packages require Pro. Open Pro, Restore Pro, and paste the PW2 code from your downloaded ownership license. This verifies locally with no subscription or expiry. Old PW1 codes need one online conversion in the hosted editor.\n\nNo AI runs inside PixelWall. Its public command API and CLI can be controlled by external tools. Aseprite Lua scripts are not supported. Embedded color profiles are preserved; editing uses sRGB values without ICC conversion.\n');
+web['README.txt']=strToU8('PIXELWALL — LOCAL STUDIO\n\nKeep this folder with your project backups and Pro ownership license.\nInstall Node.js 22.13 or newer from nodejs.org, then run:\n\n  node run-local.mjs\n\nOpen http://127.0.0.1:4173 in a modern browser. The server stays on your computer; it does not upload artwork. Keep the folder and use this same address to reopen your device library. Save portable .pixelwall files for independent backups.\n\nThe browser needs a local HTTP address for secure storage. Do not double-click index.html. The local server and editor also work without an internet connection.\n\nEditing, scripting, individual PNG/BMP/TGA images and editable project files are free. GIF, sprite atlases and game packages require Pro. Open Pro, Restore Pro, and paste the PW2 code from your downloaded ownership license. This verifies locally with no subscription or expiry. Old PW1 codes need one online conversion in the hosted editor.\n\nNo AI runs inside PixelWall. Its public command API and CLI can be controlled by external tools. Embedded ICC profiles are retained in projects. Preview and image export use LittleCMS color conversion.\n');
   const cli=await collect(join(root,'dist/cli'));
-  const expectedCli=['README.md','package.json','pixelwall.mjs'];
+  const expectedCli=['README.md','package.json','pixelwall.mjs','lua-node-worker.mjs',...RUNTIME_FILES.map(name=>'runtimes/'+name)];
   if (Object.keys(cli).sort().join('\n')!==expectedCli.sort().join('\n')) throw new Error('Unexpected or missing CLI output. Rebuild the CLI into a clean distribution folder.');
   const packages=[['standalone',web],['cli',cli]];
   // Validate every file before creating either downloadable archive.

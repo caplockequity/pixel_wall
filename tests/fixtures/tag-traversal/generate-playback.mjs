@@ -1,0 +1,12 @@
+// Original CC0 fixture generator. Run from repository root; see README.md.
+import {execFileSync} from 'node:child_process';import {writeFileSync} from 'node:fs';import {createFramePlayback} from '../../../app/frame-traversal.mjs';
+const dirs=['forward','reverse','pingpong','pingpong_reverse'],modes=['all','loop','without-tags','once','stopped'],cases=[];
+function add(name,frameCount,tags,mode,initialFrame=0,activeTagId=null,forward=1,delta=1,steps=36){cases.push({name,options:{frameCount,tags,mode,initialFrame,activeTagId,forward},delta,steps});}
+for(let mode=0;mode<5;mode++)for(let dir=0;dir<4;dir++)for(let repeat=0;repeat<4;repeat++)for(const active of [false,true])for(const n of [1,3,5]){const from=n===5?1:0,to=n===5?3:n-1;add(`single-${mode}-${dir}-${repeat}-${active}-${n}`,n,[{id:'0',from,to,direction:dirs[dir],repeat}],modes[mode],from,active?'0':null);}
+let seed=924717;const rnd=n=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%n;};
+for(let i=0;i<700;i++){const n=3+rnd(6),count=2+rnd(5),tags=[];for(let j=0;j<count;j++){const from=rnd(n),to=from+rnd(n-from);tags.push({id:String(j),from,to,direction:dirs[rnd(4)],repeat:rnd(4)});}const mode=i%2?'loop':'all';add(`overlap-${i}`,n,tags,mode,rnd(n),null,1,1,60);}
+for(let i=0;i<40;i++){const dir=i%4;add(`negative-${i}`,5,[{id:'0',from:1,to:3,direction:dirs[dir],repeat:i%4}],i%2?'loop':'without-tags',i%5,i%3?'0':null,i%2?-1:1,-1);}
+const input=cases.map(c=>{const o=c.options;return [o.frameCount,o.tags.length,modes.indexOf(o.mode),o.initialFrame,o.activeTagId==null?-1:Number(o.activeTagId),c.steps,c.delta,o.forward,...o.tags.flatMap(t=>[t.from,t.to,dirs.indexOf(t.direction),t.repeat])].join(' ')}).join('\n')+'\n';
+const lines=execFileSync(process.env.ASEPRITE_PLAYBACK_ORACLE,[],{input,encoding:'utf8',timeout:20000,maxBuffer:30e6}).trim().split('\n');let mismatch=0;
+for(let i=0;i<cases.length;i++){const c=cases[i];c.expected=lines[i].trim().split(/\s+/).map(token=>{const [frame,stopped,tag]=token.split(',');return {frame:Number(frame),stopped:stopped==='1',tagId:tag==='-'?null:tag}});try{const p=createFramePlayback(c.options);const actual=Array.from({length:c.steps},(_,i)=>i?p.next(c.delta):p.snapshot());if(JSON.stringify(actual)!==JSON.stringify(c.expected)){if(mismatch++<8)console.log('MISMATCH',c.name,c.options,actual.slice(0,10),c.expected.slice(0,10));}}catch(e){if(mismatch++<8)console.log('ERR',c.name,e.message);}}
+writeFileSync('tests/fixtures/tag-traversal/playback-vectors.json',JSON.stringify(cases)+'\n');console.log({cases:cases.length,mismatch});

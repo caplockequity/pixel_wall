@@ -1,0 +1,23 @@
+# Lua image specifications
+
+`ImageSpec` is a detached, mutable value describing raster dimensions, color mode, transparent color, and a color profile. It supports `ImageSpec()`, `ImageSpec(otherSpec)`, `ImageSpec{ width, height, colorMode, transparentColor }`, the corresponding property getters/setters, and value equality. Defaults are 1×1, RGB, transparent color zero, and an unnamed None profile. Equality includes dimensions, mode, mask and profile; profile names do not affect equality.
+
+Set a profile explicitly with `spec.colorSpace = profile`. The table constructor ignores a `colorSpace` field, following the native API. The getter and setter copy the ColorSpace value; editing a returned name does not alter its owner. `image.spec` and `sprite.spec` return detached specs. Their setters remain unavailable. There is no `Image.colorSpace` property: use `image.spec.colorSpace` to read the profile.
+
+`Image(spec)` allocates independent pixels and initializes them to the spec's transparent color. It preserves the profile and mask. `Sprite(spec)` creates a document through the existing validated command transaction, preserves its working profile/mask, and starts pixels at raw zero. Nonzero indexed masks leave index zero visible. Saved spec values remain usable after the original image is replaced by profile conversion.
+
+Copying or cropping an image preserves dimensions/color mode/mask and pixel values, but the detached copy's profile is unnamed None. `Image(sprite)` retains the sprite profile at the moment of rendering. Adding or assigning a cel clones pixels with a None profile and the destination sprite's mask; later sprite profile assignment updates its cel image profiles. Detached resize retains a profile; attached resize uses a copied None profile. Tile image specs keep independent None profiles through sprite profile changes. These transient per-image hints live only in the scripting session; they do not add a new on-disk profile field. Document working-profile changes still use the existing replayable profile command.
+
+Transient attached-image hints participate in transaction rollback. Detached values remain ordinary local values, independent of document history. Pixel edits, generated documents, profile changes and final host installation retain the existing atomic, cancellation, stale-revision and license rules. No file, network, export or package execution capability is added.
+
+## Bounds and remaining gaps
+
+- Specs can store signed 32-bit dimensions and mode values; allocations support only RGB, gray and indexed raster images. `ColorMode.TILEMAP` is the native enum value 4, but tilemap ImageSpec allocation remains explicitly unavailable.
+- Image allocation clamps nonpositive dimensions to one. Sprite allocation rejects nonpositive dimensions. Both retain the 2048-axis and one-million-pixel limits. Invalid/oversized allocations fail before a generated sprite is published.
+- Spec masks are bounded 32-bit pixels; allocation additionally requires the mask to fit the selected pixel format (8, 16 or 32 bits). Custom RGB/gray mask initialization and clear are supported. Indexed detached Images can hold every byte index even if the active document has a shorter palette.
+- At most 2048 ImageSpec values are retained in one run, in addition to existing ColorSpace and worker budgets. Invalid/nonfinite numeric values fail explicitly. Legacy `Image{...}` mask behavior remains available; using an actual ImageSpec gives the contract described above.
+- General Sprite copy construction, ImageSpec tilemap allocation, direct image profile mutation/conversion, graphics contexts, and profile loading from files remain unavailable. Newly created images from unrelated engine commands use the document profile unless their explicit scripting copy path records a transient None profile; this is not universal per-image profile lifetime compatibility.
+
+Verification uses an original script and captured output from the native 1.3.18.5 batch API (API 41), then runs that exact script in the real Node and browser worker. Additional tests cover ICC-backed creation/conversion, indexed masks, tile isolation, nested rollback, invalid constructor publication and resource limits. Primary references: [ImageSpec API](https://www.aseprite.org/api/imagespec), [Image API](https://www.aseprite.org/api/image), [Sprite API](https://www.aseprite.org/api/sprite). No upstream application implementation code is included.
+
+An actual rebuilt browser tool run verified nonzero indexed mask initialization, Image(spec) and Sprite(spec) profile equality, per-cel drawing order surviving pixel writes, and activation of the created sprite. Undo restored its empty generated-document seed.

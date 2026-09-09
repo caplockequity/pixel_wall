@@ -15,7 +15,7 @@
           },
           {
             "title": "Define a clip",
-            "text": "Select frames in the timeline. Open Edit clips, choose Create clip from selected frames, and set its Name, Direction, and Loop. Duration ms edits selected frames."
+            "text": "Select frames in the timeline. Open Edit clips, choose Create clip from selected frames, and set its Name, Direction, and Repeats (0 loops continuously). Duration ms edits selected frames."
           },
           {
             "title": "Set the export",
@@ -37,8 +37,8 @@
       {
         "heading": "What is included",
         "paragraphs": [
-          "Drawing, animation editing, scripting and the command API are free. Editable .pixelwall and supported .aseprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
-          "The current editor accepts canvases from 1 × 1 through 2048 × 2048, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. These are validation limits, not a promise that every maximum-size combination will be responsive on your device; memory and export budgets also apply."
+          "Drawing, animation editing, scripting and the command API are free. Editable PixelWall and supported sprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
+          "The document engine accepts canvas sides from 1 to 65,535 pixels, with at most 4,194,304 canvas pixels, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. Browser canvas limits and available memory can be lower, especially for very wide sprites. Check representative artwork on your device."
         ],
         "links": [
           {
@@ -96,7 +96,7 @@
           },
           {
             "title": "Set timing and clips",
-            "text": "Select frames using Shift for a range or Command/Ctrl for individual selection. Adjust Duration ms. Open Edit clips to create a clip from selected frames, name it, and choose Direction and Loop."
+            "text": "Select frames using Shift for a range or Command/Ctrl for individual selection. Adjust Duration ms. Open Edit clips to create a clip from selected frames, name it, and choose Direction and Repeats (0 loops continuously)."
           },
           {
             "title": "Preview and export",
@@ -116,7 +116,7 @@
         "paragraphs": [
           "The current GIF encoder reserves a transparent entry and keeps up to 255 distinct opaque colors per frame. More colorful frames are quantized to a 216-color RGB grid. Alpha below 128 becomes transparent; other pixels become opaque.",
           "GIF delays round to 10 ms units with a 10 ms minimum in the current encoder. Some viewers impose a longer minimum. The editor limits the complete scaled GIF sequence to 67,108,864 output pixels; choose a smaller scale or shorter clip when needed.",
-          "The current editor accepts canvases from 1 × 1 through 2048 × 2048, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. These are validation limits, not a promise that every maximum-size combination will be responsive on your device; memory and export budgets also apply."
+          "The document engine accepts canvas sides from 1 to 65,535 pixels, with at most 4,194,304 canvas pixels, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. Browser canvas limits and available memory can be lower, especially for very wide sprites. Check representative artwork on your device."
         ]
       }
     ],
@@ -212,7 +212,7 @@
     ],
     "related": [
       "guides/getting-started",
-      "guides/aseprite-compatibility",
+      "guides/file-compatibility",
       "guides/offline-and-downloads"
     ]
   },
@@ -281,8 +281,8 @@
       {
         "heading": "Capacity",
         "paragraphs": [
-          "Drawing, animation editing, scripting and the command API are free. Editable .pixelwall and supported .aseprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
-          "The current editor accepts canvases from 1 × 1 through 2048 × 2048, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. These are validation limits, not a promise that every maximum-size combination will be responsive on your device; memory and export budgets also apply.",
+          "Drawing, animation editing, scripting and the command API are free. Editable PixelWall and supported sprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
+          "The document engine accepts canvas sides from 1 to 65,535 pixels, with at most 4,194,304 canvas pixels, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. Browser canvas limits and available memory can be lower, especially for very wide sprites. Check representative artwork on your device.",
           "A tilemap layer can contain up to 1,048,576 cells, with no more than 2048 rows or columns. Browser memory can become a practical limit earlier."
         ]
       }
@@ -349,8 +349,8 @@
       {
         "heading": "What is free and how large can I work?",
         "paragraphs": [
-          "Drawing, animation editing, scripting and the command API are free. Editable .pixelwall and supported .aseprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
-          "The current editor accepts canvases from 1 × 1 through 2048 × 2048, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. These are validation limits, not a promise that every maximum-size combination will be responsive on your device; memory and export budgets also apply."
+          "Drawing, animation editing, scripting and the command API are free. Editable PixelWall and supported sprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
+          "The document engine accepts canvas sides from 1 to 65,535 pixels, with at most 4,194,304 canvas pixels, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. Browser canvas limits and available memory can be lower, especially for very wide sprites. Check representative artwork on your device."
         ]
       },
       {
@@ -377,7 +377,7 @@
       },
       {
         "question": "Do I need Pro to save editable work?",
-        "answer": "No. Native PixelWall and supported Aseprite exports are free, as are individual PNG, BMP, and TGA frames."
+        "answer": "No. Native PixelWall and supported sprite exports are free, as are individual PNG, BMP, and TGA frames."
       },
       {
         "question": "Where are my documents saved?",
@@ -393,7 +393,7 @@
   {
     "slug": "guides/export-formats",
     "title": "Pixel art export formats",
-    "description": "Compare native PixelWall, Aseprite, PNG, BMP, TGA, GIF, atlas, and game ZIP exports, including compatibility and memory limits.",
+    "description": "Choose PixelWall project, editable sprite, PNG, BMP, TGA, GIF, atlas, and game ZIP exports, with format and memory limits explained.",
     "eyebrow": "Export reference",
     "intro": "Choose an editable project for future changes, a raster frame for a finished image, or a Pro batch format for an animation or game pipeline. Current-editor and classic package schemas differ; use the matching guide.",
     "sections": [
@@ -401,7 +401,7 @@
         "heading": "Current editor export choices",
         "items": [
           "Editable PixelWall project · Free: a v4 .pixelwall document with frames, layers, clips, palettes, linked image references, tilesets, and metadata.",
-          "Editable Aseprite project · Free: a native .aseprite file for supported document features. Review import/export warnings and keep the .pixelwall source.",
+          "Editable sprite project · Free: a binary sprite file with supported layers, frames and metadata. Review import/export warnings and keep the .pixelwall source.",
           "Current frame PNG, BMP, or TGA · Free: the active rendered frame at the selected scale. Native projects retain information that raster images flatten.",
           "Animated GIF · Pro: the chosen clip and playback order with rounded GIF timing and limited color/transparency.",
           "Sprite atlas PNG · Pro: an atlas PNG plus a separate JSON download describing rectangles, trimming offsets, source IDs, and durations. Allow multiple downloads.",
@@ -413,7 +413,7 @@
         "heading": "Choose rendered layers and references",
         "paragraphs": [
           "For rendered formats, Layers selects Visible layers, Active layer, or Selected layers. Reference layers are omitted by default; enable Include reference layers to put them in the rendered output. Editor previews can still show visible references while you work.",
-          "Editable PixelWall and Aseprite saves retain the whole editable document, including reference layers. Scale, clip, and rendered-layer choices are not a way to flatten or reduce a native project save."
+          "Editable PixelWall and sprite saves retain the whole editable document, including reference layers. Scale, clip, and rendered-layer choices are not a way to flatten or reduce a native project save."
         ]
       },
       {
@@ -429,7 +429,7 @@
         "heading": "Inside a current game package",
         "items": [
           "manifest.json identifies the native project, atlas, rendered frames, tilesets, maps, clips, slices, and compatibility warnings.",
-          "sprites.png and sprites.json contain the chosen sprite playback sequence and atlas metadata.",
+          "sprites.png and sprites.json contain the selected frames in timeline order and their atlas metadata.",
           "A named .pixelwall file preserves the editable source document.",
           "frames/ contains individual rendered PNGs with source frame IDs and timing listed in the manifest.",
           "tilesets/ contains independent tileset metadata and tile PNGs. Indexed documents with per-frame palette changes may emit separate palette variants.",
@@ -446,12 +446,12 @@
       {
         "heading": "Import and interoperability limits",
         "paragraphs": [
-          "PixelWall imports its native files, supported Aseprite files, PNG/BMP/TGA images, GIF animations, image sequences, and sprite sheets. A flattened format does not recover original layers. Animated PNG is rejected; use PNG frames or GIF. PNG 16-bit channels are reduced to 8 bits for editing.",
-          "The working color space is sRGB. Aseprite ICC profile data can be retained for round-trip metadata, but PixelWall does not apply ICC color conversion. PNG profile/gamma information is not converted. Unsupported Aseprite features can produce warnings or a rejected import; this is not a promise of full Aseprite parity."
+          "PixelWall imports its native files, supported editable sprite files, PNG/BMP/TGA images, GIF animations, image sequences, and sprite sheets. A flattened format does not recover original layers. Animated PNG is rejected; use PNG frames or GIF. PNG 16-bit channels are reduced to 8 bits for editing.",
+          "PixelWall uses embedded ICC profiles for previews and image export, and converts PNG profile/gamma information when importing. Use Colors → Color profile to assign a profile or convert colors. Unsupported file features produce compatibility notes or a rejected import."
         ],
         "links": [
           {
-            "href": "/guides/aseprite-compatibility",
+            "href": "/guides/file-compatibility",
             "label": "Read detailed file compatibility notes"
           },
           {
@@ -483,7 +483,7 @@
     ],
     "faqs": [
       {
-        "question": "Are native .aseprite exports free?",
+        "question": "Are editable sprite exports free?",
         "answer": "Yes, for the features the current encoder supports. Keep the native PixelWall project and review any compatibility notes."
       },
       {
@@ -496,7 +496,7 @@
       }
     ],
     "related": [
-      "guides/aseprite-compatibility",
+      "guides/file-compatibility",
       "guides/command-line",
       "guides/offline-and-downloads"
     ]
@@ -740,7 +740,7 @@
     "related": [
       "tileset-maker",
       "guides/export-formats",
-      "guides/aseprite-compatibility"
+      "guides/file-compatibility"
     ]
   },
   {
@@ -753,12 +753,12 @@
       {
         "heading": "Free studio",
         "paragraphs": [
-          "Drawing, animation editing, scripting and the command API are free. Editable .pixelwall and supported .aseprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets."
+          "Drawing, animation editing, scripting and the command API are free. Editable PixelWall and supported sprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets."
         ],
         "items": [
           "Drawing tools, selections, layers and groups, palettes, animation clips, tilemap editing, 2D motion, scripts, and the command API.",
           "Local multi-document storage, recovery revisions, and portable project backups.",
-          "Editable PixelWall and supported Aseprite files; individual PNG, BMP, and TGA frame exports."
+          "Editable PixelWall and supported sprite files; individual PNG, BMP, and TGA frame exports."
         ]
       },
       {
@@ -820,7 +820,7 @@
         "heading": "A shared 2D workspace",
         "paragraphs": [
           "The current editor combines drawing tools, selections, layered and grouped artwork, linked cels, indexed/grayscale/RGBA documents, animation clips, independent tilesets, and procedural 2D motion. Its scripting/API and command-line tools use the same document model.",
-          "PixelWall contains no embedded AI generator. An external assistant or other tool can use the ordinary documented command interface when you choose to connect it. Lua compatibility and 3D rendering are not included."
+          "PixelWall contains no embedded AI generator. An external assistant can use the documented editing tools, including Lua scripts, when you choose to connect it. Lua supports editable sprites, images, colors, palettes, selections and transactions. 3D rendering is not included."
         ]
       },
       {
@@ -898,11 +898,11 @@
       {
         "heading": "File imports look different",
         "paragraphs": [
-          "Review the import compatibility notes. The working color space is sRGB; embedded Aseprite ICC metadata can be preserved without being applied. Unsupported features may be rejected rather than flattened silently. Keep the original source file."
+          "Review the import compatibility notes. Embedded sprite ICC profiles are retained and used for previews; exported images are converted to sRGB. Unsupported features may be rejected. Keep the original source file."
         ],
         "links": [
           {
-            "href": "/guides/aseprite-compatibility",
+            "href": "/guides/file-compatibility",
             "label": "Read compatibility limits"
           },
           {
@@ -914,7 +914,7 @@
     ],
     "related": [
       "guides/offline-and-downloads",
-      "guides/aseprite-compatibility",
+      "guides/file-compatibility",
       "pricing"
     ]
   },
@@ -983,7 +983,7 @@
         "heading": "Local saving and compatibility",
         "paragraphs": [
           "Documents are stored on your device and in downloaded project files. Keep backups of work you want to preserve. Browser/app data removal, changing devices, or losing files can make work unavailable. Pro does not include cloud storage or an unconditional artwork recovery service.",
-          "Import/export support has documented limits. PixelWall uses sRGB without ICC conversion, does not offer complete Aseprite feature parity, and does not run Aseprite Lua scripts. Review compatibility notes and retain original files."
+          "Import/export support has documented limits. PixelWall supports ICC color conversion and Lua scripts for sprite editing, with documented API and file-format limits. Review compatibility notes and retain original files."
         ]
       },
       {
@@ -1011,7 +1011,7 @@
     "related": [
       "pricing",
       "privacy",
-      "guides/aseprite-compatibility"
+      "guides/file-compatibility"
     ]
   },
   {
@@ -1102,9 +1102,9 @@
   {
     "slug": "guides/scripting",
     "title": "Draw and edit with scripts and commands",
-    "description": "Run free JSON command batches, inspect the document, and use PixelWall’s shared JavaScript API or CLI. No embedded AI or Lua runtime.",
+    "description": "Run free Lua scripts or JSON command batches in PixelWall, and use the shared browser API or CLI. Edit images, colors, palettes and tiles, and build blocking dialogs with Lua.",
     "eyebrow": "SCRIPTING",
-    "intro": "The Scripts panel exposes the same editing commands used by the interface. Use it for repeatable pixel work, or call the public browser API and standalone CLI from your own tools. Scripting is free; paid export formats keep their Pro gate.",
+    "intro": "Choose Lua 5.4 or PixelWall commands in the Scripts panel for repeatable pixel work. The browser API and standalone CLI use the same editing engine. Scripting is free; Pro export formats keep their license requirements.",
     "sections": [
       {
         "heading": "Run a command batch in the editor",
@@ -1129,6 +1129,13 @@
         "code": "[\n  {\"type\":\"draw.rect\",\"x\":2,\"y\":2,\"width\":12,\"height\":12,\"color\":\"#ffb34bff\",\"filled\":true},\n  {\"type\":\"draw.ellipse\",\"x\":5,\"y\":5,\"width\":6,\"height\":6,\"color\":\"#16152bff\",\"filled\":true}\n]"
       },
       {
+        "heading": "Run a Lua script",
+        "paragraphs": [
+          "Choose Lua 5.4 in the Scripts panel, enter or open a .lua file, and choose Run Lua script. Check the canvas and printed result; Undo restores the previous artwork. This example adds one colored pixel on a new layer."
+        ],
+        "code": "app.transaction(\"Add a pixel\", function()\n  local layer = app.sprite:newLayer()\n  layer.name = \"Lua drawing\"\n  local image = Image(app.sprite.width, app.sprite.height)\n  image:drawPixel(0, 0, Color{r=255, g=107, b=87})\n  app.sprite:newCel(layer, app.frame, image, Point(0, 0))\nend)\nprint(\"Pixel added\")"
+      },
+      {
         "heading": "What scripts can do",
         "paragraphs": [
           "Commands cover document/layer/frame operations, cels, drawing, selections/transforms, palettes, effects, clips, 2D motion, particles, tilesets, and tilemap painting. Use the command reference shipped with your build for the exact fields and supported options.",
@@ -1138,14 +1145,14 @@
       {
         "heading": "Runtime boundaries",
         "paragraphs": [
-          "The editor text box accepts JSON commands, not arbitrary JavaScript or Lua. The browser API is JavaScript. The CLI script command runs an explicitly chosen local JavaScript module with ordinary Node.js access, so run only scripts you trust.",
-          "PixelWall does not implement Aseprite’s Lua API. Rework an existing Lua automation using PixelWall commands rather than assuming it will execute unchanged. Procedural motion is 2D; 3D model rendering remains outside the current release."
+          "The editor runs Lua 5.4 scripts and structured JSON commands. Lua supports Sprite, Image, Color, selections, palettes, tilesets, color profiles and transactions. Unsupported APIs report a compatibility error. Each successful run is one undoable edit, including its selection and foreground/background changes.",
+          "Lua dialogs can ask for text, numbers, colors and other supported inputs, then resume the same script. Cancel discards staged artwork. Time, memory and image-size limits apply; Lua has no arbitrary file, network or process access. The separate CLI JavaScript script command loads an explicitly chosen local module with ordinary Node.js access."
         ]
       },
       {
         "heading": "Licensing is consistent",
         "paragraphs": [
-          "Drawing, animation editing, scripting and the command API are free. Editable .pixelwall and supported .aseprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
+          "Drawing, animation editing, scripting and the command API are free. Editable PixelWall and supported sprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
           "Calling a GIF, atlas, or ZIP export through an API or CLI does not bypass Pro verification. Editing a project with a script and saving that editable project remain free."
         ],
         "links": [
@@ -1190,10 +1197,12 @@
           "version: current browser API version, presently 1.",
           "inspect(): current document summary and revision. commands(): command descriptions and field reference.",
           "apply({commands, expectedRevision?, label?}): apply a batch of 1–2000 commands, limited to 16 MiB of command JSON, as one undoable change.",
+          "runLua({source, params?, timeoutMs?, expectedRevision?}): run a bounded Lua script with the current document, selection and colors; successful changes are one undoable transaction.",
+          "colorProfile(options): inspect, assign or convert a document color profile through the editor’s color manager.",
           "newDocument(options): save the previous document and activate a new one.",
           "preview({frameId?, scale?}): return an in-memory PNG preview at up to 8× scale.",
           "save(): await a durable local save. It does not download a backup or create cloud storage.",
-          "export(options): invoke the editor’s export flow. PNG, BMP, TGA, project, and Aseprite are free; gif, sheet, and zip require Pro.",
+          "export(options): invoke the editor’s export flow. Individual PNG, BMP and TGA frames and editable projects are free; gif, sheet, and zip require Pro.",
           "undo() and redo(): use the active document’s editing history."
         ]
       },
@@ -1239,12 +1248,19 @@
         "code": "node pixelwall.mjs apply hero.pixelwall --commands edits.json --out hero-edited.pixelwall\nnode pixelwall.mjs script hero.pixelwall --script ./draw.mjs --out hero-scripted.pixelwall\n\n// draw.mjs\nexport default async ({ apply }) => {\n  apply({ type: \"draw.rect\", x: 2, y: 2, width: 12, height: 12,\n          color: \"#ffb34bff\", filled: true });\n}"
       },
       {
+        "heading": "Run a Lua script",
+        "paragraphs": [
+          "Lua scripts run locally with supported sprite-editing APIs. Use --params for app.params and --out-dir when a script edits more than one project. The default time limit is 3 seconds; --timeout can raise it to 10000 milliseconds. The Lua worker cannot read arbitrary files or use the network."
+        ],
+        "code": "node pixelwall.mjs script hero.pixelwall --script ./draw.lua --out hero-scripted.pixelwall\nnode pixelwall.mjs profile hero.pixelwall --convert sRGB --out hero-srgb.pixelwall"
+      },
+      {
         "heading": "Import and export",
         "items": [
-          "import art.aseprite --out hero.pixelwall reads a supported Aseprite file. PNG, BMP, TGA, GIF, and native inputs are also supported.",
+          "import art.ase --out hero.pixelwall reads a supported binary sprite file. PNG, BMP, TGA, GIF, and native inputs are also supported.",
           "import sheet.png --frame-width 32 --frame-height 32 --out hero.pixelwall slices a PNG sheet; margin, spacing, count, order, and duration options are available.",
           "import-sequence frame1.png frame2.png --duration 100 --out hero.pixelwall combines PNG files in the supplied order.",
-          "export hero.pixelwall --format aseprite --out hero.aseprite writes a supported native Aseprite document for free.",
+          "export hero.pixelwall --format ase --out hero.ase writes a supported editable sprite document for free.",
           "render writes a single PNG frame. export with png, bmp, or tga also writes a free individual frame.",
           "export with gif, sheet, atlas, or zip requires a valid Pro ownership license. Use sheet for a fixed-column sheet and atlas for trimming and packing."
         ],
@@ -1255,7 +1271,7 @@
         "paragraphs": [
           "Supply the downloaded ownership license with --license, or supply the raw PW2 code using PIXELWALL_PRO_LICENSE. A valid signed PW2 license verifies offline against the public keys included in the build. Existing PW1 codes need one online conversion first.",
           "Frame selectors are zero-based indices or frame IDs. --clip accepts a clip ID or exact name. CLI scale supports integer factors from 1 to 64, subject to output memory limits; the interactive editor exposes 1×, 2×, 4×, and 8× choices.",
-          "The CLI does not run Lua scripts and does not promise every Aseprite feature will round-trip. Read warnings on stderr and keep the source file. Individual PNG/BMP/TGA images cannot preserve editable layers or clips."
+          "The CLI runs Lua sprite-editing scripts in a bounded worker. File features outside the documented format support may not survive import and export. Read warnings on stderr and keep the source file. Individual PNG/BMP/TGA images cannot preserve editable layers or clips."
         ]
       }
     ],
@@ -1344,25 +1360,26 @@
     ]
   },
   {
-    "slug": "guides/aseprite-compatibility",
+    "slug": "guides/file-compatibility",
     "title": "Understand native file and color compatibility",
-    "description": "Review supported Aseprite structures, indexed and grayscale editing, ICC preservation without conversion, raster limits, and unsupported Lua or 3D workflows.",
+    "description": "Explore editable file structures, indexed and grayscale editing, ICC color management, Lua scripting, and format limits.",
     "eyebrow": "FILE COMPATIBILITY",
-    "intro": "PixelWall reads and writes real Aseprite files for supported document features. It also has its own v4 native format. Keep your original source and inspect compatibility notes when moving complex artwork between tools; full Aseprite parity is not claimed.",
+    "intro": "PixelWall saves layered artwork in its native v4 format and a supported binary sprite format. Keep your original source and inspect compatibility notes when moving complex artwork between tools.",
     "sections": [
       {
         "heading": "What editable files preserve",
         "paragraphs": [
           "Native PixelWall documents retain layers and groups, frames and cels, linked image references, color mode and palettes, clips, slices, independent tilesets, tilemap data, and metadata. Linked cels reference shared image records.",
-          "Supported Aseprite structures include RGBA, grayscale and indexed cel data; layers and groups; linked cels; frame timing and tags; slices, pivots, and user metadata; and supported embedded tilemap/tileset data. Preservation of a record does not guarantee every external application interprets it identically.",
-          "Unsupported structures can be rejected or reported as compatibility notes. External tilesets need available pixel data for rendered/game-package output. Unchanged source metadata may be retained where supported, but arbitrary unknown features are not guaranteed to survive every edit."
+          "Supported binary sprite structures include RGBA, grayscale and indexed cel data; layers and groups; linked cels; frame timing and tags; slices, pivots, and user metadata; and supported embedded tilemap/tileset data. Preservation of a record does not guarantee every external application interprets it identically.",
+          "Unsupported structures can be rejected or reported as compatibility notes. External tilesets need available pixel data for rendered/game-package output. Unchanged source metadata may be retained where supported, but arbitrary unknown features are not guaranteed to survive every edit.",
+          "For an external tileset, use Tiles → Choose source & embed to select the matching sprite source. The editor verifies its grid and color mode and embeds it as one undoable edit. It never follows external paths automatically."
         ]
       },
       {
         "heading": "Color mode and profile limits",
         "paragraphs": [
-          "The working profile is sRGB. Aseprite ICC bytes and profile metadata can be retained, but PixelWall does not perform ICC color conversion. A preview can differ from a color-managed source application. PNG profile/gamma metadata also is not converted.",
-          "RGBA stores color and alpha. Grayscale stores equal RGB channels with alpha. Indexed mode keeps palette indices and palette data; reserve a transparent palette entry when exporting indexed Aseprite. Per-frame indexed palette changes require care when editing and converting.",
+          "PixelWall keeps pixel values in the document’s working profile, with sRGB as the default. Embedded ICC profiles drive color conversion for previews and exported images. Assign changes how values are interpreted; Convert changes values to preserve appearance. PNG import converts embedded ICC or gamma information to sRGB. The current profile engine supports RGB and gray profiles.",
+          "RGBA stores color and alpha. Grayscale stores equal RGB channels with alpha. Indexed mode keeps palette indices, per-frame palettes and the transparent index. Conversion preserves linked cels when their effective palettes agree and separates them when palette changes require different pixels.",
           "PNG imports support common bit depths and interlacing. Sixteen-bit channels become eight-bit editing values. Animated PNG is rejected; import a PNG sequence or GIF instead. GIF import preserves rendered animation frames and timing rather than the source layer structure."
         ]
       },
@@ -1376,13 +1393,14 @@
       {
         "heading": "Scripting compatibility",
         "paragraphs": [
-          "The Scripts panel accepts PixelWall JSON commands; the browser API and CLI use JavaScript. Existing Aseprite Lua scripts require a rewrite against PixelWall’s command model. There is no embedded AI runtime."
+          "Choose Lua 5.4 in the Scripts panel to edit and run scripts using supported sprite-editing APIs. Images support pixel and byte access, crop/copy, nearest resizing, flips and compositing. Colors support RGB, gray, indexed, HSV and HSL values. Blocking dialogs retain script variables across user input. Each successful run is undoable; failed or cancelled scripts leave staged artwork unapplied. Time and memory limits and unsupported API errors are explicit. Extension packages can provide palettes and explicit Lua command sessions; persistent plug-ins and advanced widgets are not supported.",
+          "Scripts can create and edit tilesets, insert or delete tiles, and assign tilesets to tilemap layers. ColorSpace values can assign working profiles or convert sprite colors. Imported ICC profiles are available to the script; arbitrary file and network access are unavailable."
         ]
       },
       {
         "heading": "Capacity and practical checking",
         "paragraphs": [
-          "The current editor accepts canvases from 1 × 1 through 2048 × 2048, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. These are validation limits, not a promise that every maximum-size combination will be responsive on your device; memory and export budgets also apply.",
+          "The document engine accepts canvas sides from 1 to 65,535 pixels, with at most 4,194,304 canvas pixels, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. Browser canvas limits and available memory can be lower, especially for very wide sprites. Check representative artwork on your device.",
           "Large layers, long clips, many palette variants, and scaled exports can hit memory or format budgets before the document validation maximum. Check a representative import, edit, export, and reopen cycle for the features your project uses."
         ],
         "links": [

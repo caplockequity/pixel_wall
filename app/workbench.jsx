@@ -8,11 +8,13 @@ import {
   applyCommand,
   renderFrame,
   getCel,
+  getFramePalette,
   getTile,
   pixelRGBA,
   describeDocument,
   buildSelection,
   COMMANDS,
+  LIMITS,
 } from "./editor-core.mjs";
 import {
   readAseprite,
@@ -30,7 +32,10 @@ import {
 } from "./formats.mjs";
 import { parseProject } from "./project-format.mjs";
 import { openStore } from "./storage.mjs";
-import { createHistory } from "./history.mjs";
+import { createHistory, historyValuesEqual } from "./history.mjs";
+import { createDocumentHistoryCache } from "./history-cache.mjs";
+import { editorUiContext } from "./editor-ui-context.mjs";
+import { listExternalTilesets, resolveExternalTileset } from "./external-tilesets.mjs";
 import { createAutomation, registerAutomation } from "./editor-automation.mjs";
 import { validateExtension, parsePalette } from "./editor-extensions.mjs";
 import { useProAccess, ProDialog } from "./pro-access";
@@ -43,6 +48,20 @@ import { sameFrameRender } from "./frame-render-equality.mjs";
 import SheetImportPreview from "./sheet-import-preview.jsx";
 import { captureAnalyticsEvent, getAnalyticsConsentStatus, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
 import { createWorkbenchAnalytics, analyticsFormat } from "./workbench-analytics.mjs";
+import { encodeClipboardImage, decodeClipboardImage } from "./native-clipboard-payload.mjs";
+import { renderScaledExportFrame } from "./export-render.mjs";
+import { validateExportScale, scaleExportSlices } from "./export-scale.mjs";
+import { createDocumentPlayback, exportFrameTraversal } from "./frame-traversal.mjs";
+import { transferPixelColors } from "./color-transfer.mjs";
+import { documentProfile, isSRGB } from "./color-management.mjs";
+import { loadBrowserColorManager } from "./color-runtime.mjs";
+import { runLuaScript } from "./lua-runner-browser.mjs";
+import LuaDialogView, { useLuaDialog } from "./lua-dialog-view.jsx";
+import LuaCommandView from "./lua-command-view.jsx";
+import { assertPackageRunCurrent, capturePackageRun, packageRunSettings } from "./aseprite-package-session.mjs";
+import { createNativeDocumentSession } from "./native-document-session.mjs";
+import { createAsepriteExtensionRegistry } from "./aseprite-extensions.mjs";
+import AsepritePackagesPanel from "./aseprite-packages-panel.jsx";
 import {
   Pencil,
   Eraser,
@@ -213,15 +232,17 @@ function Modal({ title, onClose, children, wide = false }) {
     </dialog>
   );
 }
-function FrameThumb({ doc, frameId, repeat = 1 }) {
+function FrameThumb({ doc, frameId, repeat = 1, colorManager }) {
   const ref = useRef(null);
   const lastInputs = useRef(null);
   useEffect(() => {
     const previous = lastInputs.current;
-    lastInputs.current = { doc, frameId, repeat };
+    lastInputs.current = { doc, frameId, repeat, colorManager };
     if (
       previous?.frameId === frameId &&
       previous?.repeat === repeat &&
+      previous?.colorManager === colorManager &&
+      documentProfile(previous.doc) === documentProfile(doc) &&
       sameFrameRender(previous.doc, doc, frameId)
     )
       return;
@@ -230,9 +251,10 @@ function FrameThumb({ doc, frameId, repeat = 1 }) {
       if (ctx) {
         ctx.clearRect(0, 0, 40 * repeat, 40 * repeat);
         ctx.imageSmoothingEnabled = false;
+        if (!colorManager && !isSRGB(documentProfile(doc))) return;
         const s = Math.min(40 / doc.width, 40 / doc.height);
         const image = rgbaImage(
-          renderFrame(doc, frameId),
+          colorManager ? colorManager.displayFrame(doc, frameId) : renderFrame(doc, frameId),
           doc.width,
           doc.height,
         );
@@ -249,7 +271,7 @@ function FrameThumb({ doc, frameId, repeat = 1 }) {
     } catch {
       /* Invalid thumbnails are reported by the editor renderer. */
     }
-  }, [doc, frameId, repeat]);
+  }, [doc, frameId, repeat, colorManager]);
   return (
     <canvas
       ref={ref}
@@ -261,7 +283,22 @@ function FrameThumb({ doc, frameId, repeat = 1 }) {
 }
 
 export default function Workbench() {
-  const [extensions, setExtensions] = useState([]);
+  const [colorManager, setColorManager] = useState(null);
+  const [scriptLanguage, setScriptLanguage] = useState("commands"),
+    [luaSource, setLuaSource] = useState('local sprite = app.activeSprite\napp.transaction("Lua drawing", function()\n  local layer = sprite:newLayer()\n  layer.name = "Lua drawing"\n  local image = Image(sprite.width, sprite.height)\n  image:drawPixel(0, 0, app.pixelColor.rgba(255, 107, 87, 255))\n  sprite:newCel(layer, app.activeFrame, image, Point(0, 0))\nend)\nprint("Added a pixel on a new layer")'),
+    [luaTimeout, setLuaTimeout] = useState(3000);
+  const luaAbortRef = useRef(null), luaSavingRef = useRef(false);
+  const [luaSaving, setLuaSaving] = useState(false);
+  const luaDialog = useLuaDialog();
+  const luaCommands = useLuaDialog();
+  useEffect(() => () => luaAbortRef.current?.abort(), []);
+  const [indexedOptions, setIndexedOptions] = useState({paletteMode:"existing",maxColors:256,quantization:"median-cut",rgbmap:"pixelwall",fitCriteria:"default",withAlpha:true,dithering:"none",ditherMatrix:"bayer4x4",ditherStrength:1});
+  const [profileTarget, setProfileTarget] = useState("sRGB"),
+    [importedProfile, setImportedProfile] = useState(null),
+    [renderingIntent, setRenderingIntent] = useState(1),
+    [paletteScope, setPaletteScope] = useState("all"),
+    [shadeStep, setShadeStep] = useState(-1);
+  const [extensions, setExtensions] = useState([]), [asepriteRegistry, setAsepriteRegistry] = useState(null);
   const [exportPresets, setExportPresets] = useState([]),
     [presetName, setPresetName] = useState("My export");
   const [tileDraft, setTileDraft] = useState(null);
@@ -281,6 +318,7 @@ export default function Workbench() {
     [activeLayer, setActiveLayer] = useState("");
   const [tool, setTool] = useState("pencil"),
     [color, setColor] = useState("#ffb34bff"),
+    [bgColor, setBgColor] = useState("#ffffffff"),
     [endColor, setEndColor] = useState("#ff6b57ff");
   const [brush, setBrush] = useState(1),
     [brushShape, setBrushShape] = useState("square"),
@@ -339,7 +377,7 @@ export default function Workbench() {
       powerOfTwo: false,
       clipId: "",
     }),
-    [busy, setBusy] = useState(false);
+    [busy, setBusyState] = useState(false);
   const [newOptions, setNewOptions] = useState({
       name: "Untitled",
       width: 64,
@@ -359,6 +397,7 @@ export default function Workbench() {
       scaleY: 1,
       angle: 0,
     });
+  const [rotationMethod, setRotationMethod] = useState("rotsprite");
   const [paletteText, setPaletteText] = useState(""),
     [importKind, setImportKind] = useState("document"),
     [sheetOptions, setSheetOptions] = useState({
@@ -394,7 +433,13 @@ export default function Workbench() {
   const storeRef = useRef(null),
     docRef = useRef(null),
     historyRef = useRef(null),
+    historyCacheRef = useRef(null),
+    luaRangeRef = useRef({type:0, colors:[], sliceIds:[]}),
+    uiContextRef = useRef(null),
     revisionRef = useRef(0),
+    nativeSessionRef = useRef(null),
+    nativeReadyRef = useRef(false),
+    documentRevisionsRef = useRef(new Map()),
     storedRevisionRef = useRef(undefined),
     savedRevisionsRef = useRef(new Map()),
     savedDocumentsRef = useRef(new Map()),
@@ -407,9 +452,33 @@ export default function Workbench() {
     viewportRef = useRef(null),
     rgbaRef = useRef(null),
     fileRef = useRef(null),
+    externalTilesetInputRef = useRef(null),
+    externalTilesetRequestRef = useRef(null),
     saveQueueRef = useRef(Promise.resolve()),
     hostRef = useRef(null),
+    automationRef = useRef(null),
+    busyRef = useRef(false),
     loadGeneration = useRef(0);
+  if (!historyCacheRef.current) historyCacheRef.current = createDocumentHistoryCache({historyOptions:{maxEntries:100}});
+  uiContextRef.current = useMemo(() => doc ? editorUiContext(doc, {selection, range:{...luaRangeRef.current, frameIds:selectedFrames, layerIds:selectedLayers}, active:{frameId:activeFrame, layerId:activeLayer}, fgColor:color, bgColor}) : null, [doc, selection, selectedFrames, selectedLayers, activeFrame, activeLayer, color, bgColor]);
+  const restoreUiContext = useCallback((context) => {
+    const next = editorUiContext(docRef.current, context || {});
+    uiContextRef.current = next;
+    luaRangeRef.current = next.range;
+    activeRef.current = next.active;
+    setSelection(next.selection);
+    setColor(next.fgColor);
+    setBgColor(next.bgColor);
+    setActiveFrame(next.active.frameId);
+    setActiveLayer(next.active.layerId);
+    setSelectedFrames(next.range.frameIds.length ? next.range.frameIds : [next.active.frameId]);
+    setSelectedLayers(next.range.layerIds.length ? next.range.layerIds : [next.active.layerId]);
+    setTimelinePage(Math.floor(docRef.current.frames.findIndex(frame => frame.id === next.active.frameId) / 64));
+  }, []);
+  const setBusy = useCallback((value) => {
+    busyRef.current = typeof value === "function" ? value(busyRef.current) : value;
+    setBusyState(busyRef.current);
+  }, []);
   const analyticsRef = useRef(null);
   if (analyticsRef.current === null) {
     analyticsRef.current = createWorkbenchAnalytics({
@@ -428,8 +497,12 @@ export default function Workbench() {
   const downloads = useDownload();
   const report = useCallback((error) => {
     setNotice(error instanceof Error ? error.message : String(error));
-    setBusy(false);
   }, []);
+  useEffect(() => {
+    let mounted = true;
+    loadBrowserColorManager().then(manager => { if (mounted) setColorManager(manager); }).catch(error => { if (mounted) report(error); });
+    return () => { mounted = false; };
+  }, [report]);
   const reconcile = useCallback((next) => {
     const frameId = next.frames.some((f) => f.id === activeRef.current.frameId)
       ? activeRef.current.frameId
@@ -458,7 +531,19 @@ export default function Workbench() {
     );
   }, []);
   const install = useCallback(
-    (next, { resetHistory = false, storedRevision } = {}) => {
+    (next, { resetHistory = false, storedRevision, allowLua = false, allowNative = false, allowRecovery = false } = {}) => {
+      const finishingLua = allowLua && luaSavingRef.current && luaAbortRef.current;
+      // External file-open delivery can still be cancelling its grants after
+      // nativeFlushRecovery rejected it during Lua. Finish the durable Lua
+      // installation; no native document can activate while Lua owns the editor.
+      if (nativeSessionRef.current?.busy && !allowNative && !finishingLua) throw Error("Finish the current file operation first.");
+      if (restoringRef.current && !allowRecovery) throw Error("Finish the current recovery before opening another project.");
+      // A close prompt can arrive after a tracked operation starts saving. Finish
+      // its installation; the close lock still blocks every new edit/operation.
+      const finishing = finishingLua ||
+        (allowNative && nativeSessionRef.current?.busy) || (allowRecovery && restoringRef.current);
+      if (!finishing) automationRef.current?.desktop.assertEditable();
+      if (luaAbortRef.current && !allowLua) throw Error("Wait for the Lua script to finish or cancel it.");
       docRef.current = next;
       activeRef.current = {
         frameId: next.frames.some((f) => f.id === activeRef.current.frameId)
@@ -469,11 +554,11 @@ export default function Workbench() {
           : next.layers.find((l) => l.type !== "group")?.id,
       };
       revisionRef.current++;
+      documentRevisionsRef.current.set(docRef.current.id, (documentRevisionsRef.current.get(docRef.current.id) || 0) + 1);
       if (resetHistory) {
-        historyRef.current = createHistory(next, {
-          maxEntries: 100,
-          maxBytes: 64 * 1024 * 1024,
-        });
+        historyRef.current = historyCacheRef.current.acquire(next, {storedRevision}).history;
+        next = historyRef.current.present;
+        docRef.current = next;
         storedRevisionRef.current = storedRevision;
         savedRevisionsRef.current.set(next.id, storedRevision);
         if (storedRevision !== undefined)
@@ -507,6 +592,9 @@ export default function Workbench() {
   );
   const commit = useCallback(
     (commands, label = "Edit") => {
+      automationRef.current?.desktop.assertEditable();
+      if (nativeSessionRef.current?.busy) throw Error("Finish the current file operation first.");
+      if (luaAbortRef.current) throw Error("Wait for the Lua script to finish or cancel it.");
       if (restoringRef.current || operationRef.current)
         throw Error(
           "Finish the current edit or recovery before applying commands.",
@@ -524,6 +612,7 @@ export default function Workbench() {
       setSaveStatus("Unsaved changes");
       docRef.current = next;
       revisionRef.current++;
+      documentRevisionsRef.current.set(docRef.current.id, (documentRevisionsRef.current.get(docRef.current.id) || 0) + 1);
       analyticsRef.current.committed(commands, historyRef.current.lastChange?.changed);
       reconcile(next);
       setDoc(next);
@@ -537,42 +626,53 @@ export default function Workbench() {
     [reconcile],
   );
   const undo = useCallback(() => {
+    if (luaAbortRef.current || nativeSessionRef.current?.busy) return;
+    if (automationRef.current?.desktop.locked) return;
     if (restoringRef.current || operationRef.current) return;
     const h = historyRef.current;
     if (h?.canUndo) {
       h.undo();
       docRef.current = h.present;
       revisionRef.current++;
+      documentRevisionsRef.current.set(docRef.current.id, (documentRevisionsRef.current.get(docRef.current.id) || 0) + 1);
       reconcile(h.present);
       setDoc(h.present);
       setSaveStatus("Unsaved changes");
-      setSelection(null);
+      const context = h.lastContext;
+      if (context !== undefined) restoreUiContext(context);
+      else setSelection(null);
       setHistoryVersion((v) => v + 1);
       setHistoryState({
         canUndo: historyRef.current?.canUndo || false,
         canRedo: historyRef.current?.canRedo || false,
       });
     }
-  }, [reconcile]);
+  }, [reconcile, restoreUiContext]);
   const redo = useCallback(() => {
+    if (luaAbortRef.current || nativeSessionRef.current?.busy) return;
+    if (automationRef.current?.desktop.locked) return;
     if (restoringRef.current || operationRef.current) return;
     const h = historyRef.current;
     if (h?.canRedo) {
       h.redo();
       docRef.current = h.present;
       revisionRef.current++;
+      documentRevisionsRef.current.set(docRef.current.id, (documentRevisionsRef.current.get(docRef.current.id) || 0) + 1);
       reconcile(h.present);
       setDoc(h.present);
       setSaveStatus("Unsaved changes");
-      setSelection(null);
+      const context = h.lastContext;
+      if (context !== undefined) restoreUiContext(context);
+      else setSelection(null);
       setHistoryVersion((v) => v + 1);
       setHistoryState({
         canUndo: historyRef.current?.canUndo || false,
         canRedo: historyRef.current?.canRedo || false,
       });
     }
-  }, [reconcile]);
+  }, [reconcile, restoreUiContext]);
   const save = useCallback(async () => {
+    if (luaAbortRef.current) return null;
     const captured = docRef.current,
       store = storeRef.current;
     if (!captured || !store) return null;
@@ -606,9 +706,11 @@ export default function Workbench() {
     }
   }, [report]);
   const activate = useCallback(
-    async (next, storedRevision) => {
+    async (next, storedRevision, {allowLua = false, allowNative = false, allowRecovery = false} = {}) => {
       setPlaying(false);
-      install(next, { resetHistory: true, storedRevision });
+      if (docRef.current && docRef.current.id !== next.id) historyCacheRef.current.park({history:historyRef.current, document:savedDocumentsRef.current.get(docRef.current.id), storedRevision:savedRevisionsRef.current.get(docRef.current.id)});
+      install(next, { resetHistory: true, storedRevision, allowLua, allowNative, allowRecovery });
+      luaRangeRef.current = {type:0, colors:[], sliceIds:[]};
       const layerId =
         next.layers.find((l) => l.type !== "group")?.id ||
         next.layers[0]?.id ||
@@ -644,11 +746,15 @@ export default function Workbench() {
   );
   const newDocument = useCallback(
     async (options = {}) => {
+      automationRef.current?.desktop.assertEditable();
+      if (nativeSessionRef.current?.busy) throw Error("Finish the current file operation first.");
+      if (luaAbortRef.current) throw Error("Wait for the Lua script to finish or cancel it.");
       if (restoringRef.current || operationRef.current)
         throw Error(
           "Finish the current edit or recovery before opening another document.",
         );
       try {
+        setBusy(true);
         await save();
         const next = createDocument({ ...options, id: crypto.randomUUID() });
         await activate(next);
@@ -658,9 +764,11 @@ export default function Workbench() {
       } catch (error) {
         analyticsRef.current.project("new", "failed");
         throw error;
+      } finally {
+        setBusy(false);
       }
     },
-    [save, activate],
+    [save, activate, setBusy],
   );
   useEffect(() => {
     let mounted = true;
@@ -672,6 +780,7 @@ export default function Workbench() {
         return;
       }
       storeRef.current = store;
+      setAsepriteRegistry(createAsepriteExtensionRegistry(store));
       const savedExtensions = await store.getSetting("extensions", []);
       setExtensions(
         savedExtensions.flatMap((value) => {
@@ -785,39 +894,49 @@ export default function Workbench() {
     frame = doc?.frames.find((f) => f.id === activeFrame),
     selectedClip = doc?.clips?.find((c) => c.id === clipId),
     maskBounds = doc ? bounds(selection, doc.width) : null;
+  const externalTilesets = useMemo(() => doc?.tilesets.some(tileset => tileset.flags & 1) ? listExternalTilesets(doc) : [], [doc]);
+  const workingBrush = useMemo(() => {
+    if (!customBrush || !doc) return customBrush;
+    try { return {...customBrush, colors:transferPixelColors(customBrush.colors, customBrush.colorProfile || "sRGB", documentProfile(doc), colorManager)}; }
+    catch { return null; }
+  }, [customBrush, doc, colorManager]);
+  const activePalette = useMemo(() => doc ? getFramePalette(doc, activeFrame) : [], [doc, activeFrame]);
+  const displayedColors = useMemo(() => {
+    const colors = [...new Set([...activePalette, color, bgColor, endColor])];
+    try {
+      const converted = colorManager && doc ? colorManager.transformColors(colors, documentProfile(doc), "sRGB") : colors;
+      return new Map(colors.map((value, index) => [value, converted[index]]));
+    } catch { return new Map(colors.map(value => [value, value])); }
+  }, [activePalette, color, bgColor, endColor, colorManager, doc]);
+  const displayColor = value => displayedColors.get(value) || value;
+  const workingColor = (value) => colorManager && doc ? colorManager.workingColor(doc, value) : value;
+  const paletteTarget = () => ({ scope: paletteScope, ...(paletteScope === "range" ? {frameIds: selectedFrames.length ? selectedFrames : [activeFrame]} : {}) });
+  let profileName = "sRGB";
+  try { profileName = colorManager && doc ? colorManager.profileInfo(documentProfile(doc)).name : doc && !isSRGB(documentProfile(doc)) ? "Embedded profile · loading" : "sRGB"; } catch { profileName = "Unreadable profile"; }
   const visibleFrames = useMemo(
     () => doc?.frames.slice(timelinePage * 64, (timelinePage + 1) * 64) || [],
     [doc, timelinePage],
   );
   useEffect(() => {
     if (!playing || !doc) return;
-    let ids = selectedClip?.frameIds?.length
-      ? [...selectedClip.frameIds]
-      : doc.frames.map((f) => f.id);
-    if (["reverse", "pingpong_reverse"].includes(selectedClip?.direction))
-      ids.reverse();
-    if (selectedClip?.direction?.startsWith("pingpong"))
-      ids = [...ids, ...ids.slice(1, -1).reverse()];
-    let index = Math.max(0, ids.indexOf(activeRef.current.frameId)),
-      timer;
-    const schedule = () => {
-      const frame = doc.frames.find((f) => f.id === ids[index]);
+    let timer, cursor, cancelled = false;
+    const fail = error => { if (!cancelled) { report(error); setPlaying(false); } };
+    const show = state => {
+      if (cancelled) return;
+      if (state.frameId) setActiveFrame(state.frameId);
+      if (state.stopped) { setPlaying(false); return; }
       timer = setTimeout(() => {
-        if (index + 1 >= ids.length && selectedClip?.loop === false) {
-          setPlaying(false);
-          return;
-        }
-        index = (index + 1) % ids.length;
-        setActiveFrame(ids[index]);
-        schedule();
-      }, frame?.durationMs || 125);
+        try { show(cursor.next()); } catch (error) { fail(error); }
+      }, doc.frames[state.frame]?.durationMs || 125);
     };
     timer = setTimeout(() => {
-      setActiveFrame(ids[index]);
-      schedule();
+      try {
+        cursor = createDocumentPlayback(doc, {clip:selectedClip, initialFrameId:activeRef.current.frameId, loop:selectedClip?.loop !== false});
+        show(cursor.snapshot());
+      } catch (error) { fail(error); }
     }, 0);
-    return () => clearTimeout(timer);
-  }, [playing, doc, selectedClip]);
+    return () => { cancelled = true; clearTimeout(timer); cursor?.stop(); };
+  }, [playing, doc, selectedClip, report]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !doc || !activeFrame) return;
@@ -846,7 +965,8 @@ export default function Workbench() {
       }
       const pixels = renderFrame(doc, activeFrame);
       rgbaRef.current = pixels;
-      ctx.drawImage(rgbaImage(pixels, doc.width, doc.height), 0, 0);
+      if (!colorManager && !isSRGB(documentProfile(doc))) return;
+      ctx.drawImage(rgbaImage(colorManager ? colorManager.transformRGBA(pixels, documentProfile(doc)) : pixels, doc.width, doc.height), 0, 0);
     } catch (error) {
       queueMicrotask(() => report(error));
     }
@@ -858,6 +978,7 @@ export default function Workbench() {
     onionAfter,
     onionOpacity,
     report,
+    colorManager,
   ]);
   useEffect(() => {
     const overlay = overlayRef.current?.getContext("2d");
@@ -877,6 +998,9 @@ export default function Workbench() {
       targetFrames().map((frameId) => ({ layerId, frameId })),
     );
   function selectLayer(id, event) {
+    if (luaAbortRef.current || nativeSessionRef.current?.busy || automationRef.current?.desktop.locked) return;
+    luaRangeRef.current = {...luaRangeRef.current, type:4};
+    activeRef.current.layerId = id;
     setActiveLayer(id);
     if (event?.metaKey || event?.ctrlKey)
       setSelectedLayers((current) => {
@@ -897,6 +1021,9 @@ export default function Workbench() {
     }
   }
   function selectFrame(id, event) {
+    if (luaAbortRef.current || nativeSessionRef.current?.busy || automationRef.current?.desktop.locked) return;
+    luaRangeRef.current = {...luaRangeRef.current, type:2};
+    activeRef.current.frameId = id;
     setPlaying(false);
     if (event?.shiftKey && doc) {
       const a = doc.frames.findIndex((f) => f.id === activeFrame),
@@ -944,12 +1071,13 @@ export default function Workbench() {
         points,
         size: brush,
         brush: brushShape,
-        mask: customBrush || undefined,
+        mask: customBrush ? workingBrush || (() => { throw Error("Color management is still loading. Try again in a moment."); })() : undefined,
         wrap,
         symmetry,
         pixelPerfect,
         erase: kind === "eraser",
         ink,
+        shadeStep,
         pressure,
       };
     if (kind === "line")
@@ -1009,7 +1137,8 @@ export default function Workbench() {
     );
   }
   function pointerDown(event) {
-    if (!doc || playing || event.button !== 0) return;
+    if (luaAbortRef.current || nativeSessionRef.current?.busy) return;
+    if (!doc || playing || event.button !== 0 || automationRef.current?.desktop.locked || nativeSessionRef.current?.busy) return;
     event.currentTarget.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
     const p = point(event);
@@ -1239,6 +1368,7 @@ export default function Workbench() {
         setSaveStatus("Unsaved changes");
         docRef.current = next;
         revisionRef.current++;
+        documentRevisionsRef.current.set(docRef.current.id, (documentRevisionsRef.current.get(docRef.current.id) || 0) + 1);
         analyticsRef.current.committed(command, historyRef.current.lastChange?.changed);
         setDoc(next);
         setHistoryVersion((v) => v + 1);
@@ -1277,74 +1407,106 @@ export default function Workbench() {
     }
   }
   function selectAll() {
+    if (luaAbortRef.current || nativeSessionRef.current?.busy || automationRef.current?.desktop.locked) return;
     setSelection(Array(doc.width * doc.height).fill(1));
   }
-  function copy() {
-    if (!maskBounds) {
-      setNotice("Select an area first.");
-      return;
-    }
-    const cel = getCel(doc, activeFrame, activeLayer);
-    if (!cel) return;
-    const rgba = renderFrame(
-      {
-        ...doc,
-        layers: doc.layers.map((l) => ({
-          ...l,
-          visible: l.id === activeLayer || l.type === "group",
-          locked: false,
-          opacity: 1,
-          blendMode: "normal",
-        })),
-        frames: doc.frames.map((f) => ({
-          ...f,
-          cels: Object.fromEntries(
-            Object.entries(f.cels).map(([id, cel]) => [
-              id,
-              { ...cel, opacity: 1 },
-            ]),
-          ),
-        })),
-      },
-      activeFrame,
-    );
-    const pixels = [];
-    for (let y = 0; y < maskBounds.height; y++)
-      for (let x = 0; x < maskBounds.width; x++) {
-        const i = (maskBounds.y + y) * doc.width + maskBounds.x + x;
-        pixels.push(selection[i] ? hex(rgba.slice(i * 4, i * 4 + 4)) : null);
+  async function copy({system = true, cut = false, throwOnError = false} = {}) {
+    let ownsBusy = false, writeToken;
+    const bridge = system ? window.pixelwallNativeClipboard : null;
+    const before = docRef.current, revision = revisionRef.current, context = uiContextRef.current;
+    try {
+      automationRef.current?.desktop.assertEditable();
+      if (busyRef.current || luaAbortRef.current || nativeSessionRef.current?.busy || operationRef.current || restoringRef.current) throw Error("Finish the current operation before copying.");
+      if (!maskBounds || !context?.selection) throw Error("Select an area first.");
+      const cel = getCel(before, context.active.frameId, context.active.layerId);
+      if (!cel) throw Error("The active cel has no pixels to copy.");
+      if (bridge) {
+        setBusy(true);ownsBusy = true;
+        const reserved = await bridge.beginWrite();
+        if (reserved?.status !== "reserved" || !reserved.token) throw Error(reserved?.reason || "Use Copy or Cut again to copy this image.");
+        writeToken = reserved.token;
       }
-    setClipboard({ ...maskBounds, pixels });
-    setNotice("Selection copied");
+      const rgba = renderFrame({...before,
+        layers:before.layers.map(layer => ({...layer, visible:layer.id === context.active.layerId || layer.type === "group", locked:false, opacity:1, blendMode:"normal"})),
+        frames:before.frames.map(frame => ({...frame,cels:Object.fromEntries(Object.entries(frame.cels).map(([id,cel]) => [id,{...cel,opacity:1}]))})),
+      }, context.active.frameId);
+      const pixels = [], cropped = new Uint8Array(maskBounds.width * maskBounds.height * 4);
+      for (let y = 0; y < maskBounds.height; y++) for (let x = 0; x < maskBounds.width; x++) {
+        const index = (maskBounds.y + y) * before.width + maskBounds.x + x, target = y * maskBounds.width + x;
+        const value = rgba.subarray(index * 4, index * 4 + 4);
+        pixels.push(context.selection[index] ? hex(value) : null);
+        if (context.selection[index]) cropped.set(value,target * 4);
+      }
+      const copied = {...maskBounds,pixels,colorProfile:structuredClone(documentProfile(before))};
+      setClipboard(copied);
+      if (!system) {setNotice("Selection copied inside PixelWall.");return copied;}
+      if (!bridge && (!navigator.clipboard?.write || !window.ClipboardItem)) {
+        if (cut) throw Error("The system image clipboard is unavailable. Your artwork has been kept; use Paste copied pixels for the internal copy.");
+        setNotice("Copied inside PixelWall. Use Paste copied pixels.");return copied;
+      }
+      setBusy(true);ownsBusy = true;
+      const encoded = (async () => {
+        const manager = colorManager || await loadBrowserColorManager();
+        return encodeClipboardImage({width:copied.width,height:copied.height,rgba:manager.transformRGBA(cropped, copied.colorProfile, "sRGB")});
+      })();
+      if (bridge) {
+        const result = await bridge.writeImage({...await encoded, token:writeToken});
+        if (result?.status !== "written") throw Error(result?.reason || "The system image clipboard could not be written.");
+      } else {
+        // Passing a promised Blob starts the permission request in the user's click.
+        await navigator.clipboard.write([new ClipboardItem({"image/png":encoded.then(payload => new Blob([payload.bytes],{type:"image/png"}))})]);
+      }
+      if (cut) {
+        if (docRef.current !== before || revisionRef.current !== revision || !historyValuesEqual(context, uiContextRef.current)) throw Error("The selection was copied, but the project changed before Cut could remove it. Your artwork has been kept.");
+        commit({type:"selection.clear", selection:Array.from(context.selection), frameId:context.active.frameId, layerId:context.active.layerId}, "Cut selection");
+      }
+      setNotice(cut ? "Selection cut to the system clipboard. Undo restores the pixels." : "Selection copied to the system clipboard.");
+      return copied;
+    } catch (error) {if (throwOnError) throw error;report(error);return null;}
+    finally { if (writeToken) await bridge.cancelWrite({token:writeToken}).catch(() => {}); if (ownsBusy) setBusy(false); }
   }
-  function paste() {
-    if (!clipboard) return;
-    const next = run(
-      {
-        type: "image.stamp",
-        width: clipboard.width,
-        height: clipboard.height,
-        pixels: clipboard.pixels,
-        x: clipboard.x + 1,
-        y: clipboard.y + 1,
-        transparent: "skip",
-      },
-      "Paste selection",
-    );
-    if (next)
-      setSelection(
-        buildSelection(next, {
-          shape: "rect",
-          x: clipboard.x + 1,
-          y: clipboard.y + 1,
-          width: clipboard.width,
-          height: clipboard.height,
-        }),
-      );
+  async function paste({localOnly = false, throwOnError = false} = {}) {
+    const before = docRef.current, revision = revisionRef.current, context = uiContextRef.current;
+    let ownsBusy = false;
+    try {
+      automationRef.current?.desktop.assertEditable();
+      if (busyRef.current || luaAbortRef.current || nativeSessionRef.current?.busy || operationRef.current || restoringRef.current) throw Error("Finish the current operation before pasting.");
+      setBusy(true);ownsBusy = true;
+      let copied = clipboard;
+      if (!localOnly) {
+        let payload;
+        if (window.pixelwallNativeClipboard) {
+          payload = await window.pixelwallNativeClipboard.readImage();
+          if (payload?.status !== "image") throw Error(payload?.reason || "The system clipboard contains no image.");
+        } else {
+          if (!navigator.clipboard?.read) throw Error("The system image clipboard is unavailable. Use Paste copied pixels for an internal copy.");
+          const items = await navigator.clipboard.read(), item = items.find(item => item.types.includes("image/png"));
+          if (!item) throw Error("The system clipboard contains no PNG image.");
+          const blob = await item.getType("image/png");
+          if (blob.size > 32 * 1024 * 1024) throw Error("The clipboard image exceeds 32 MB.");
+          payload = {format:"png",bytes:new Uint8Array(await blob.arrayBuffer())};
+        }
+        const image = decodeClipboardImage(payload);
+        copied = {width:image.width,height:image.height,x:0,y:0,pixels:pixelsFromRgba(image.rgba),colorProfile:image.colorProfile || "sRGB"};
+        if (image.warnings?.length) setImportWarnings(image.warnings);
+      }
+      if (!copied) throw Error("Copy pixels inside PixelWall first.");
+      const manager = colorManager || await loadBrowserColorManager();
+      const pixels = transferPixelColors(copied.pixels,copied.colorProfile || "sRGB",documentProfile(before),manager);
+      if (docRef.current !== before || revisionRef.current !== revision || !historyValuesEqual(context,uiContextRef.current)) throw Error("The project or selection changed while reading the clipboard. Paste again.");
+      const x = localOnly ? copied.x + 1 : bounds(context.selection,before.width)?.x || 0;
+      const y = localOnly ? copied.y + 1 : bounds(context.selection,before.width)?.y || 0;
+      const next = commit({type:"image.stamp",width:copied.width,height:copied.height,pixels,x,y,transparent:"skip",frameId:context.active.frameId,layerId:context.active.layerId},"Paste image");
+      setSelection(buildSelection(next,{shape:"rect",x,y,width:copied.width,height:copied.height}));
+      setNotice(localOnly ? "Copied pixels pasted." : "System clipboard image pasted. Untagged images are treated as sRGB.");
+      canvasRef.current?.focus({preventScroll:true});
+      return next;
+    } catch (error) {if (throwOnError) throw error;report(error);return null;}
+    finally {if (ownsBusy) setBusy(false);}
   }
   function captureBrush() {
     if (!clipboard) {
-      copy();
+      void copy({system:false});
       setNotice(
         "Selection copied. Choose Use copied pixels as brush to capture it.",
       );
@@ -1355,6 +1517,7 @@ export default function Workbench() {
       height: clipboard.height,
       pixels: clipboard.pixels.map((p) => (p && p.slice(-2) !== "00" ? 1 : 0)),
       colors: clipboard.pixels,
+      colorProfile:structuredClone(clipboard.colorProfile || "sRGB"),
     });
     setTool("pencil");
     setNotice("Custom brush ready");
@@ -1362,9 +1525,9 @@ export default function Workbench() {
   function transform(operation, extra = {}) {
     if (!selection) {
       setNotice("Select pixels first.");
-      return;
+      return false;
     }
-    run(
+    const result = run(
       targetCels()
         .filter((target, index, list) => {
           const imageId = doc.frames.find((f) => f.id === target.frameId)?.cels[
@@ -1384,11 +1547,12 @@ export default function Workbench() {
           ...target,
           selection,
           operation,
-          method: operation === "rotate" ? "pixel-safe" : "nearest",
+          method: operation === "rotate" ? rotationMethod : "nearest",
           ...extra,
         })),
       "Transform selection",
     );
+    if (!result) return false;
     if (operation === "move") {
       const moved = Array(doc.width * doc.height).fill(0);
       selection.forEach((v, i) => {
@@ -1401,9 +1565,10 @@ export default function Workbench() {
       });
       setSelection(moved);
     } else setSelection(null);
+    return true;
   }
   function onKey(event) {
-    if (modal || restoringRef.current) return;
+    if (modal || restoringRef.current || luaAbortRef.current || nativeSessionRef.current?.busy || automationRef.current?.desktop.locked) return;
     if (["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName)) return;
     const modifier = event.metaKey || event.ctrlKey;
     const key = event.key.toLowerCase();
@@ -1420,7 +1585,8 @@ export default function Workbench() {
     }
     if (modifier && key === "s") {
       event.preventDefault();
-      void save().catch(() => {});
+      if (nativeSessionRef.current) void automationRef.current.desktop.action(event.shiftKey ? "saveAs" : "save").catch(report);
+      else void save().catch(() => {});
       return;
     }
     if (modifier && key === "a") {
@@ -1431,6 +1597,11 @@ export default function Workbench() {
     if (modifier && key === "c") {
       event.preventDefault();
       copy();
+      return;
+    }
+    if (modifier && key === "x") {
+      event.preventDefault();
+      void copy({cut:true});
       return;
     }
     if (modifier && key === "v") {
@@ -1491,6 +1662,10 @@ export default function Workbench() {
   }
   async function openDocument(id) {
     try {
+      if (nativeSessionRef.current?.busy) throw Error("Finish the current file operation first.");
+      if (luaAbortRef.current) throw Error("Wait for the Lua script to finish or cancel it.");
+      automationRef.current?.desktop.assertEditable();
+      setBusy(true);
       await save();
       const loaded = await storeRef.current.loadDocument(id);
       if (!loaded) throw Error("Project could not be found.");
@@ -1499,6 +1674,8 @@ export default function Workbench() {
     } catch (error) {
       analyticsRef.current.project("open", "failed");
       report(error);
+    } finally {
+      setBusy(false);
     }
   }
   async function decodeImage(file) {
@@ -1507,7 +1684,14 @@ export default function Workbench() {
       return readTga(new Uint8Array(await file.arrayBuffer()));
     if (file.name.toLowerCase().endsWith(".bmp"))
       return readBmp(new Uint8Array(await file.arrayBuffer()));
-    if (file.name.toLowerCase().endsWith(".png")) return readPng(bytes);
+    if (file.name.toLowerCase().endsWith(".png")) {
+      const image = readPng(bytes);
+      if (image.colorProfile) {
+        const manager = colorManager || await loadBrowserColorManager();
+        return {...image, rgba:manager.transformRGBA(image.rgba, image.colorProfile), colorProfile:undefined};
+      }
+      return image;
+    }
     const bitmap = await createImageBitmap(file);
     const c = document.createElement("canvas");
     c.width = bitmap.width;
@@ -1528,6 +1712,12 @@ export default function Workbench() {
   }
   async function importFiles(files, kind = importKind) {
     if (!files.length) return;
+    if (nativeSessionRef.current?.busy) { report(Error("Finish the current file operation first.")); return; }
+    if (luaAbortRef.current) { report(Error("Wait for the Lua script to finish or cancel it.")); return; }
+    if (automationRef.current?.desktop.locked) {
+      report(Error("Finish the close dialog before importing artwork."));
+      return;
+    }
     setBusy(true);
     const file = files[0],
       ext = file.name.toLowerCase().split(".").pop(),
@@ -1535,6 +1725,21 @@ export default function Workbench() {
     try {
       let next,
         warnings = [];
+      if (kind === "profile") {
+        const manager = colorManager || await loadBrowserColorManager();
+        const profile = manager.readProfile(new Uint8Array(await file.arrayBuffer()));
+        setImportedProfile(profile);
+        setProfileTarget("imported");
+        setModal("profile");
+        return;
+      }
+      if (kind === "lua") {
+        if (file.size > 256 * 1024) throw Error("Lua scripts must be 256 KiB or smaller.");
+        setLuaSource(await file.text());
+        setScriptLanguage("lua");
+        setPanel("automation");
+        return;
+      }
       if (kind === "extension") {
         const extension = validateExtension(JSON.parse(await file.text()));
         const updated = [
@@ -1551,7 +1756,7 @@ export default function Workbench() {
       }
       if (kind === "palette") {
         const imported = run(
-          { type: "palette.update", palette: parsePalette(await file.text()) },
+          { type: "palette.update", ...paletteTarget(), palette: parsePalette(await file.text()) },
           "Import palette",
         );
         analyticsRef.current.imported(kind, importFormat, files.length, 0, !imported);
@@ -1584,7 +1789,11 @@ export default function Workbench() {
           });
         }
       } else if (kind === "reference") {
+        const before = docRef.current, revision = revisionRef.current;
         const image = await decodeImage(file);
+        const manager = colorManager || await loadBrowserColorManager();
+        const workingPixels = manager.transformRGBA(image.rgba, "sRGB", documentProfile(before));
+        if (docRef.current !== before || revisionRef.current !== revision) throw Error("The project changed while reading the reference. Import it again.");
         warnings.push(...(image.warnings || []));
         const id = "reference-" + Date.now();
         const imported = run(
@@ -1598,7 +1807,7 @@ export default function Workbench() {
               layerId: id,
               width: image.width,
               height: image.height,
-              pixels: pixelsFromRgba(image.rgba),
+              pixels: pixelsFromRgba(workingPixels),
               x: 0,
               y: 0,
             },
@@ -1678,17 +1887,15 @@ export default function Workbench() {
     fileRef.current.multiple = kind === "sequence";
     fileRef.current.click();
   }
-  function exportFrameIds(options) {
-    const clip = docRef.current.clips?.find(
+  function exportFrameIds(options, source = docRef.current) {
+    if (!["gif", "sheet", "zip"].includes(options.format)) return {ids:[],loop:true};
+    const clip = source.clips?.find(
       (c) => c.id === (options.clipId || clipId),
     );
-    let ids = clip?.frameIds?.length
-      ? [...clip.frameIds]
-      : docRef.current.frames.map((f) => f.id);
-    if (clip?.direction === "reverse" || clip?.direction === "pingpong_reverse")
-      ids.reverse();
-    if (clip?.direction?.startsWith("pingpong"))
-      ids = [...ids, ...ids.slice(1, -1).reverse()];
+    if (options.clipId && !clip) throw Error("The export clip no longer exists.");
+    const ids = exportFrameTraversal(source, options.format === "gif"
+      ? {clip,playSubtags:true,clipScope:"contained"}
+      : {clip,playSubtags:false,legacyDirection:false}).map(index => source.frames[index].id);
     return { ids, loop: clip?.loop !== false };
   }
   async function exportArtwork(options = {}, source = "ui") {
@@ -1743,17 +1950,20 @@ export default function Workbench() {
         ),
       };
     const format = options.format || "png",
-      scale = clamp(Math.floor(Number(options.scale) || 1), 1, 8);
+      scale = ["project", "aseprite"].includes(format) ? 1 : validateExportScale(options.scale ?? 1);
+    const fid = options.frameId || activeRef.current.frameId;
+    const {ids, loop} = exportFrameIds(options, source);
+    const width = Math.max(1, Math.trunc(current.width * scale)), height = Math.max(1, Math.trunc(current.height * scale));
     if (PAID_FORMATS.has(format) && !(await access.requestAccess())) {
       const error = Error("Pro access is required for this export.");
       error.name = "ProExportRequired";
       throw error;
     }
+    const rendering = {colorManager:!["project", "aseprite"].includes(format) && !isSRGB(documentProfile(current)) ? colorManager || await loadBrowserColorManager() : colorManager, intent:renderingIntent};
     let bytes,
       companion,
       mime = "application/octet-stream",
       suffix = format;
-    const fid = options.frameId || activeRef.current.frameId;
     if (format === "project") {
       bytes = strToU8(JSON.stringify(current));
       suffix = "pixelwall";
@@ -1761,32 +1971,15 @@ export default function Workbench() {
     } else if (format === "aseprite") {
       bytes = writeAseprite(current);
     } else if (format === "bmp" || format === "tga") {
-      bytes = (format === "bmp" ? writeBmp : writeTga)(
-        current.width * scale,
-        current.height * scale,
-        resizeRgba(
-          renderFrame(current, fid),
-          current.width,
-          current.height,
-          scale,
-        ),
-      );
+      const image = renderScaledExportFrame(current, fid, scale, rendering);
+      bytes = (format === "bmp" ? writeBmp : writeTga)(image.width, image.height, image.rgba);
     } else if (format === "png") {
-      bytes = writePng(
-        current.width * scale,
-        current.height * scale,
-        resizeRgba(
-          renderFrame(current, fid),
-          current.width,
-          current.height,
-          scale,
-        ),
-      );
+      const image = renderScaledExportFrame(current, fid, scale, rendering);
+      bytes = writePng(image.width, image.height, image.rgba);
       mime = "image/png";
     } else if (format === "gif") {
-      const { ids, loop } = exportFrameIds(options);
       if (
-        current.width * current.height * scale * scale * ids.length >
+        width * height * ids.length >
         64 * 1024 * 1024
       )
         throw Error(
@@ -1796,14 +1989,7 @@ export default function Workbench() {
       for (let n = 0; n < ids.length; n++) {
         const f = current.frames.find((f) => f.id === ids[n]);
         entries.push({
-          width: current.width * scale,
-          height: current.height * scale,
-          rgba: resizeRgba(
-            renderFrame(current, f.id),
-            current.width,
-            current.height,
-            scale,
-          ),
+          ...renderScaledExportFrame(current, f.id, scale, rendering),
           durationMs: f.durationMs,
         });
         if (n % 4 === 0) await deferred();
@@ -1811,9 +1997,8 @@ export default function Workbench() {
       bytes = encodeGif(entries, { loop: loop ? 0 : -1 });
       mime = "image/gif";
     } else if (format === "sheet" || format === "zip") {
-      const { ids } = exportFrameIds(options);
       if (
-        current.width * current.height * scale * scale * ids.length >
+        width * height * ids.length >
         64 * 1024 * 1024
       )
         throw Error(
@@ -1822,14 +2007,7 @@ export default function Workbench() {
       const entries = ids.map((id, index) => ({
         id,
         name: `${stem(current.name)}-${String(index + 1).padStart(3, "0")}`,
-        width: current.width * scale,
-        height: current.height * scale,
-        rgba: resizeRgba(
-          renderFrame(current, id),
-          current.width,
-          current.height,
-          scale,
-        ),
+        ...renderScaledExportFrame(current, id, scale, rendering),
         durationMs: current.frames.find((f) => f.id === id).durationMs,
       }));
       const atlas = packAtlas(entries, {
@@ -1840,10 +2018,12 @@ export default function Workbench() {
         layout: options.layout || "packed",
         imageName:
           format === "sheet" ? stem(current.name) + ".png" : "sprites.png",
-        scale,
+        scale: 1,
         clips: current.clips,
-        slices: current.slices,
+        slices: scaleExportSlices(current.slices, width / current.width, height / current.height),
       });
+      atlas.meta.scale = String(scale);
+      atlas.meta.sourceSlices = current.slices;
       const png = writePng(atlas.width, atlas.height, atlas.rgba);
       if (format === "sheet") {
         companion = {
@@ -1863,7 +2043,7 @@ export default function Workbench() {
         suffix = "png";
         mime = "image/png";
       } else {
-        bytes = makeGamePackage(current, { entries, atlas });
+        bytes = makeGamePackage(current, { ...rendering, entries, atlas, projectDocument:source });
         mime = "application/zip";
       }
     } else throw Error("Unsupported export format.");
@@ -1878,7 +2058,7 @@ export default function Workbench() {
   async function doExport(options) {
     setBusy(true);
     try {
-      const result = await exportArtwork(options, "automation");
+      const result = await exportArtwork(options);
       setModal(null);
       return result;
     } catch (error) {
@@ -1890,9 +2070,96 @@ export default function Workbench() {
   }
   useEffect(() => {
     hostRef.current = {
+      desktopState: () => ({
+        loaded: !!docRef.current && !!historyRef.current,
+        id: docRef.current?.id,
+        revision: revisionRef.current,
+        canSave: !!storeRef.current,
+        busy: busyRef.current || !!luaAbortRef.current || !!nativeSessionRef.current?.busy || !!operationRef.current || restoringRef.current,
+      }),
+      saveForClose: async () => {
+        const result = await save();
+        if (!result) return null;
+        const nativeDocuments = nativeSessionRef.current ? await nativeSessionRef.current.saveAll() : [];
+        return {...result, nativeDocuments};
+      },
+      nativeRead: async (id = docRef.current?.id) => {
+        const loaded = id === docRef.current?.id
+          ? {document:docRef.current, storedRevision:storedRevisionRef.current}
+          : await storeRef.current?.loadDocument(id);
+        if (!loaded) return null;
+        return {...loaded, storedRevision:loaded.storedRevision ?? loaded.revision, revision:documentRevisionsRef.current.get(id) || 0};
+      },
+      nativeEncode: (document, format) => format === "aseprite"
+        ? writeAseprite(document) : new TextEncoder().encode(JSON.stringify(normalizeDocument(document), null, 2) + "\n"),
+      nativeDecode: (file) => {
+        if (file.format === "aseprite") {
+          const result = readAseprite(new Uint8Array(file.bytes));
+          return {...result, document:{...result.document, name:stem(file.name)}};
+        }
+        const raw = JSON.parse(new TextDecoder().decode(file.bytes));
+        return {document:raw.version === 4 && raw.format === "pixelwall-document" ? normalizeDocument(raw) : migrateLegacy(parseProject(JSON.stringify(raw))), warnings:[]};
+      },
+      nativePersistImported: async (document) => {
+        const next = {...document, id:crypto.randomUUID()};
+        const result = await storeRef.current.saveDocument(next, {expectedRevision:0, label:"Open native file"});
+        savedRevisionsRef.current.set(next.id, result.revision);
+        savedDocumentsRef.current.set(next.id, next);
+        documentRevisionsRef.current.set(next.id, 0);
+        setDocuments(await storeRef.current.listDocuments());
+        return {document:next, storedRevision:result.revision, revision:0};
+      },
+      nativeActivate: async (captured) => {
+        await activate(captured.document, captured.storedRevision, {allowNative:true});
+        setSaveStatus("Saved on this device");
+      },
+      nativeFlushRecovery: async () => {
+        automationRef.current?.desktop.assertEditable();
+        if (luaAbortRef.current || operationRef.current || restoringRef.current) throw Error("Finish the current edit or script before opening a file.");
+        if (!await save()) throw Error("Device storage is unavailable. Save a portable copy before opening another file.");
+      },
+      nativeImported: (file, warnings) => {
+        analyticsRef.current.imported("document", file.format, 1, warnings.length);
+        setImportWarnings(warnings);
+        if (warnings.length) setModal("warnings");
+        setNotice(file.changed ? "Opened the updated file. Your previous version remains in the library." : `Opened ${file.name}`);
+      },
+      nativeSaved: (result, captured) => {
+        if (docRef.current === captured.document) setSaveStatus(`Saved to ${result.name}`);
+        setNotice(`Saved ${result.name}`);
+      },
+      desktopAction: async (action) => {
+        if (busyRef.current || luaAbortRef.current || nativeSessionRef.current?.busy || operationRef.current || restoringRef.current) throw Error("Finish the current operation first.");
+        if (action === "copy" || action === "cut") return copy({cut:action === "cut",throwOnError:true});
+        if (action === "paste") return paste({throwOnError:true});
+        if (action === "new") setModal("new");
+        else if (action === "open") {
+          if (nativeSessionRef.current) await nativeSessionRef.current.open();
+          else chooseImport("document");
+        } else if (action === "export") setModal("export");
+        else if (action === "save" || action === "saveAs") {
+          if (nativeSessionRef.current) {
+            await nativeSessionRef.current.saveCurrent({saveAs:action === "saveAs"});
+            await save();
+          } else { await exportArtwork({format:"project"}); await save(); }
+        }
+        return { handled: true };
+      },
       revision: () => revisionRef.current,
       inspect: () => describeDocument(docRef.current),
       commands: () => COMMANDS,
+      colorProfile: async ({operation = "inspect", icc, intent = 1} = {}) => {
+        if (!["inspect", "assign", "convert"].includes(operation)) throw Error("Choose inspect, assign or convert.");
+        const before = docRef.current, revision = revisionRef.current;
+        const manager = colorManager || await loadBrowserColorManager();
+        if (operation !== "inspect") {
+          const profile = icc ? manager.readProfile(icc) : "sRGB";
+          const next = operation === "assign" ? manager.assignProfile(before, profile) : manager.convertDocument(before, profile, {intent});
+          commitSnapshot(next, operation === "assign" ? "Assign color profile" : "Convert color profile", before, revision);
+        }
+        return {revision:revisionRef.current,...manager.profileInfo(documentProfile(docRef.current)),profile:documentProfile(docRef.current)};
+      },
+      runLua: (options) => runLua(options),
       apply: async (commands, label) => {
         commit(commands, label);
         analyticsRef.current.automation("apply", commands.length);
@@ -1906,8 +2173,9 @@ export default function Workbench() {
       preview: async ({ frameId, scale = 1 } = {}) => {
         const current = docRef.current,
           s = clamp(scale, 1, 8);
+        const manager = colorManager || await loadBrowserColorManager();
         const rgba = resizeRgba(
-          renderFrame(current, frameId || activeRef.current.frameId),
+          manager.displayFrame(current, frameId || activeRef.current.frameId),
           current.width,
           current.height,
           s,
@@ -1954,6 +2222,7 @@ export default function Workbench() {
       },
     );
     const api = createAutomation(delegate);
+    automationRef.current = api;
     window.pixelwall = api;
     const cleanup = registerAutomation(
       document.modelContext || navigator.modelContext,
@@ -1961,9 +2230,35 @@ export default function Workbench() {
     );
     return () => {
       cleanup();
+      if (automationRef.current === api) automationRef.current = null;
       if (window.pixelwall === api) delete window.pixelwall;
     };
   }, []);
+  useEffect(() => {
+    const bridge = window.pixelwallNativeFiles;
+    if (!bridge) return;
+    const names = ["read", "encode", "decode", "persistImported", "activate", "flushRecovery", "imported", "saved"];
+    const host = Object.fromEntries(names.map(name => [name, (...args) => hostRef.current["native" + name[0].toUpperCase() + name.slice(1)](...args)]));
+    const session = createNativeDocumentSession(bridge, host);
+    nativeSessionRef.current = session;
+    const remove = bridge.onOpen(result => void session.acceptOpen(result).catch(report));
+    return () => { remove(); if (nativeSessionRef.current === session) nativeSessionRef.current = null; };
+  }, [report]);
+  useEffect(() => {
+    if (docRef.current && storeRef.current && nativeSessionRef.current && !nativeReadyRef.current) {
+      nativeReadyRef.current = true;
+      void (async () => {
+        try {
+          const result = await nativeSessionRef.current.recoverMissing();
+          if (result?.errors?.length) report(Error(result.errors.map(error => `${error.name || "Native project"}: ${error.reason} ${error.action || ""}`).join("\n")));
+        } catch (error) { report(error); }
+        finally {
+          try { await window.pixelwallNativeFiles.ready(); }
+          catch (error) { nativeReadyRef.current = false; report(error); }
+        }
+      })();
+    }
+  }, [doc?.id, report]);
   async function runBatch() {
     try {
       const parsed = JSON.parse(commandText);
@@ -1973,10 +2268,154 @@ export default function Workbench() {
       });
       setCommandResult(JSON.stringify(result, null, 2));
       setNotice("Command batch applied as one undoable edit.");
+      canvasRef.current?.focus({preventScroll:true});
     } catch (error) {
       setCommandResult(error.message);
       report(error);
     }
+  }
+  function commitSnapshot(next, label, before, revision, {allowLua = false, context} = {}) {
+    const finishingLua = allowLua && luaSavingRef.current && luaAbortRef.current;
+    if (!finishingLua) automationRef.current?.desktop.assertEditable();
+    if (nativeSessionRef.current?.busy && !finishingLua) throw Error("Finish the current file operation first.");
+    if (luaAbortRef.current && !allowLua) throw Error("Wait for the Lua script to finish or cancel it.");
+    if (docRef.current !== before || revisionRef.current !== revision || operationRef.current || restoringRef.current)
+      throw Error("The project changed while this operation was running. Run it again to apply it to the current artwork.");
+    historyRef.current.commit(next, label, context);
+    install(next, {allowLua});
+    if (context) restoreUiContext(context.afterContext);
+    setSaveStatus("Unsaved changes");
+  }
+  function guardScriptInteraction(event) {
+    if (luaAbortRef.current && !event.target.closest?.("[data-pixelwall-lua-controls]")) {event.preventDefault();event.stopPropagation();}
+  }
+  function changeIndexedMapping(rgbmap, patch = {}) {
+    setIndexedOptions(previous => {
+      const dithering = rgbmap === "pixelwall"
+        ? ({"aseprite-ordered":"ordered","aseprite-old":"ordered","aseprite-error-diffusion":"floyd-steinberg"}[previous.dithering] || previous.dithering)
+        : ({ordered:"aseprite-ordered","floyd-steinberg":"aseprite-error-diffusion"}[previous.dithering] || previous.dithering);
+      return {...previous,...patch,rgbmap,dithering,
+        fitCriteria:rgbmap === "pixelwall" ? "default" : previous.fitCriteria,
+        ditherStrength:["aseprite-ordered","aseprite-old"].includes(dithering) ? 1 : previous.ditherStrength};
+    });
+  }
+
+  async function convertIndexed() {
+    const before = docRef.current, revision = revisionRef.current;
+    try {
+      setBusy(true);
+      await deferred();
+      const next = applyCommand(before,{type:"document.colorMode",colorMode:"indexed",...indexedOptions});
+      commitSnapshot(next,"Convert indexed colors",before,revision);
+      setModal(null);
+      setNotice("Indexed colors applied. Undo restores the original artwork.");
+    } catch (error) {report(error);} finally {setBusy(false);}
+  }
+  async function changeProfile(mode) {
+    const before = docRef.current, revision = revisionRef.current;
+    try {
+      automationRef.current?.desktop.assertEditable();
+      setBusy(true);
+      const manager = colorManager || await loadBrowserColorManager();
+      const target = profileTarget === "imported" ? importedProfile : "sRGB";
+      if (!target) throw Error("Choose an ICC profile first.");
+      const next = mode === "assign" ? manager.assignProfile(before, target) : manager.convertDocument(before, target, {intent:renderingIntent});
+      commitSnapshot(next, mode === "assign" ? "Assign color profile" : "Convert color profile", before, revision);
+      setModal(null);
+      setNotice(mode === "assign" ? "Profile assigned. Pixel values are unchanged." : "Colors converted to the selected profile.");
+    } catch(error) { report(error); } finally { setBusy(false); }
+  }
+  function chooseExternalTileset(tilesetId) {
+    try {
+      automationRef.current?.desktop.assertEditable();
+      if (luaAbortRef.current || nativeSessionRef.current?.busy || busyRef.current || operationRef.current) throw Error("Finish the current operation first.");
+      externalTilesetRequestRef.current = {before:docRef.current, revision:revisionRef.current, tilesetId, context:uiContextRef.current};
+      externalTilesetInputRef.current.value = "";
+      externalTilesetInputRef.current.click();
+    } catch (error) { report(error); }
+  }
+  async function loadExternalTileset(event) {
+    const file = event.target.files?.[0], request = externalTilesetRequestRef.current;
+    externalTilesetRequestRef.current = null;
+    event.target.value = "";
+    if (!file || !request) return;
+    try {
+      setBusy(true);
+      if (file.size > 64 * 1024 * 1024) throw Error("Choose a sprite source file smaller than 64 MB.");
+      const source = readAseprite(new Uint8Array(await file.arrayBuffer()));
+      const manager = colorManager || await loadBrowserColorManager();
+      const result = resolveExternalTileset(request.before, {tilesetId:request.tilesetId, sourceDocument:source.document, colorManager:manager, intent:renderingIntent});
+      if (!historyValuesEqual(request.context, uiContextRef.current)) throw Error("The project selection changed while choosing the source. Choose it again.");
+      commitSnapshot(result.document, "Embed external tileset", request.before, request.revision, {context:{beforeContext:request.context, afterContext:request.context}});
+      setNotice(`Embedded tiles from ${file.name}. The project now contains this tileset.`);
+      if (source.warnings.length) { setImportWarnings(source.warnings); setModal("warnings"); }
+    } catch (error) { report(error); } finally { setBusy(false); }
+  }
+  async function runPackageCommand(options) {
+    const before = docRef.current, revision = revisionRef.current, context = uiContextRef.current;
+    if (!storeRef.current) throw Error("Device storage is unavailable. Save a backup before running a package.");
+    const captured = await capturePackageRun(storeRef.current, options);
+    if (docRef.current !== before || revisionRef.current !== revision || !historyValuesEqual(context,uiContextRef.current)) throw Error("The project or selection changed while loading the package. Run it again.");
+    setScriptLanguage("lua");
+    return runLua({source:captured.source}, {packageRun:captured});
+  }
+  async function runLua({source = luaSource, params = {}, timeoutMs = luaTimeout} = {}, {packageRun} = {}) {
+    automationRef.current?.desktop.assertEditable();
+    if (busyRef.current || nativeSessionRef.current?.busy || luaAbortRef.current || operationRef.current || restoringRef.current) throw Error("Finish the current operation before running Lua.");
+    const before = docRef.current, revision = revisionRef.current;
+    const beforeContext = editorUiContext(before, uiContextRef.current || {});
+    const controller = new AbortController();
+    setPlaying(false);
+    luaAbortRef.current = controller;
+    setBusy(true);
+    try {
+      const base = process.env.NEXT_PUBLIC_PIXELWALL_STANDALONE === "true" ? new URL('./runtimes/', location.href) : new URL('/runtimes/', location.origin);
+      const showScriptUi = show => async (schema, context) => {
+        if (packageRun) await assertPackageRunCurrent(storeRef.current,packageRun);
+        const answer = await show(schema,context);
+        if (packageRun) await assertPackageRunCurrent(storeRef.current,packageRun);
+        return answer;
+      };
+      const result = await runLuaScript({source, document:before, activeFrameId:activeRef.current.frameId, activeLayerId:activeRef.current.layerId, selection:beforeContext.selection == null ? null : Array.from(beforeContext.selection), range:beforeContext.range, fgColor:pixelRGBA(before, beforeContext.fgColor), bgColor:pixelRGBA(before, beforeContext.bgColor), params, timeoutMs, signal:controller.signal}, {
+        wasmUri:new URL('lua.wasm', base).href,
+        isCurrent:() => docRef.current === before && revisionRef.current === revision && historyValuesEqual(beforeContext, uiContextRef.current),
+        onDialog:showScriptUi(luaDialog.show),
+        ...(packageRun ? {plugin:packageRun.plugin,onCommand:showScriptUi(luaCommands.show)} : {}),
+      });
+      const edited = result.documents.find(document => document.id === before.id);
+      if (!edited || !result.document) throw Error("The script did not return an active project.");
+      await saveQueueRef.current.catch(() => {});
+      if (controller.signal.aborted) throw Error("Lua script cancelled. No edits were committed.");
+      if (docRef.current !== before || revisionRef.current !== revision || !historyValuesEqual(beforeContext, uiContextRef.current)) throw Error("The project or selection changed while Lua was running. Run the script again.");
+      if (!storeRef.current) throw Error("Device storage is unavailable. Save a backup before running Lua.");
+      const afterContext = editorUiContext(result.document, {selection:result.selection, range:result.range, active:result.active, fgColor:hex(result.fgColor), bgColor:hex(result.bgColor)});
+      luaSavingRef.current = true;
+      setLuaSaving(true);
+      const saved = await storeRef.current.saveDocuments(result.documents.map(document => ({document, settings:{expectedRevision:document.id === before.id ? savedRevisionsRef.current.get(document.id) : 0, label:"Lua script"}})), {settings:packageRun ? packageRunSettings(packageRun,result.plugin) : []});
+      for (const entry of saved) { savedRevisionsRef.current.set(entry.document.id, entry.revision); savedDocumentsRef.current.set(entry.document.id, entry.document); }
+      const originalAfterContext = result.document.id === before.id ? afterContext : editorUiContext(edited, beforeContext);
+      commitSnapshot(edited, "Lua script", before, revision, {allowLua:true, context:{beforeContext, afterContext:originalAfterContext}});
+      for (const entry of saved.filter(entry => entry.document.id !== before.id)) {
+        historyCacheRef.current.invalidate(entry.document.id);
+        const seed = result.created.find(document => document.id === entry.document.id);
+        if (seed) {
+          const history = createHistory(seed, {maxEntries:100, maxBytes:64 * 1024 * 1024});
+          history.commit(entry.document, "Lua script", {beforeContext:editorUiContext(seed, {fgColor:beforeContext.fgColor, bgColor:beforeContext.bgColor}), afterContext:entry.document.id === result.document.id ? afterContext : editorUiContext(entry.document, {fgColor:afterContext.fgColor, bgColor:afterContext.bgColor})});
+          historyCacheRef.current.park({history, document:entry.document, storedRevision:entry.revision});
+        }
+      }
+      storedRevisionRef.current = saved.find(entry => entry.document.id === before.id).revision;
+      setDocuments(await storeRef.current.listDocuments());
+      if (result.document.id !== before.id) {
+        const loaded = saved.find(entry => entry.document.id === result.document.id);
+        await activate(loaded.document, loaded.revision, {allowLua:true});
+      }
+      restoreUiContext(afterContext);
+      setCommandResult([...result.prints, `${result.stats.commands} editing commands applied.`].join("\n"));
+      setNotice(packageRun ? "Package command applied and preferences saved. Undo restores artwork and selection." : "Lua script applied. Undo restores the previous artwork and selection.");
+      canvasRef.current?.focus({preventScroll:true});
+      return {revision:revisionRef.current,document:describeDocument(docRef.current),prints:result.prints,stats:result.stats};
+    } finally { luaAbortRef.current = null; luaSavingRef.current = false; setLuaSaving(false); setBusy(false); }
   }
   async function showRecovery() {
     try {
@@ -2005,6 +2444,10 @@ export default function Workbench() {
     <div
       className={`workbench art-surface ph-no-capture sidebar-${settings.sidebar}`}
       onKeyDown={onKey}
+      onKeyDownCapture={guardScriptInteraction}
+      onPointerDownCapture={guardScriptInteraction}
+      onClickCapture={guardScriptInteraction}
+      onChangeCapture={guardScriptInteraction}
       role="application"
       aria-label="PixelWall editor"
     >
@@ -2039,8 +2482,8 @@ export default function Workbench() {
           />
           <IconButton
             icon={Save}
-            label="Save project backup"
-            onClick={() => void doExport({ format: "project" }).catch(() => {})}
+            label={nativeSessionRef.current ? "Save project" : "Save project backup"}
+            onClick={() => nativeSessionRef.current ? void automationRef.current.desktop.action("save").catch(report) : void doExport({ format: "project" }).catch(() => {})}
           />
           <IconButton
             icon={Undo2}
@@ -2162,11 +2605,12 @@ export default function Workbench() {
         </Field>
         <Field label="Ink">
           <select value={ink} onChange={(e) => setInk(e.target.value)}>
-            {["paint", "lighten", "darken"].map((x) => (
+            {["paint", "shading", "lighten", "darken"].map((x) => (
               <option key={x}>{x}</option>
             ))}
           </select>
         </Field>
+        {ink === "shading" && <Field label="Ramp direction"><select value={shadeStep} onChange={e => setShadeStep(+e.target.value)}><option value={-1}>Previous palette color</option><option value={1}>Next palette color</option></select></Field>}
         <Field label="Zoom">
           <select value={zoom} onChange={(e) => setZoom(+e.target.value)}>
             {Array.from({ length: 32 }, (_, index) => index + 1).map((v) => (
@@ -2306,16 +2750,14 @@ export default function Workbench() {
             </select>
             <button
               disabled={!selection}
-              onClick={() => setSelection(selection.map((v) => (v ? 0 : 1)))}
+              onClick={() => { if (!luaAbortRef.current && !nativeSessionRef.current?.busy && !automationRef.current?.desktop.locked) setSelection(selection.map((v) => (v ? 0 : 1))); }}
             >
               Invert
             </button>
-            <button disabled={!selection} onClick={copy}>
-              Copy
-            </button>
-            <button disabled={!clipboard} onClick={paste}>
-              Paste
-            </button>
+            <button data-pixelwall-clipboard="copy" disabled={!selection || busy} onClick={() => void copy()}>Copy</button>
+            <button data-pixelwall-clipboard="cut" disabled={!selection || busy} onClick={() => void copy({cut:true})}>Cut</button>
+            <button data-pixelwall-clipboard="paste" disabled={busy} onClick={() => void paste()}>Paste image</button>
+            {clipboard && <button disabled={busy} onClick={() => void paste({localOnly:true})}>Paste copied pixels</button>}
             <IconButton
               icon={FlipHorizontal}
               label="Flip selection horizontally"
@@ -2331,7 +2773,7 @@ export default function Workbench() {
             <button disabled={!selection} onClick={() => setModal("transform")}>
               Transform
             </button>
-            <button onClick={() => setSelection(null)}>Deselect</button>
+            <button onClick={() => { if (!luaAbortRef.current && !nativeSessionRef.current?.busy && !automationRef.current?.desktop.locked) setSelection(null); }}>Deselect</button>
           </div>
         </section>
         <aside
@@ -2620,6 +3062,8 @@ export default function Workbench() {
                 <button onClick={() => chooseImport("reference")}>
                   Import reference layer
                 </button>
+                <button onClick={() => run({type:"layer.flatten"}, "Rasterize layer")}>Rasterize layer or group</button>
+                <button onClick={() => run({type:"document.flatten"}, "Flatten visible layers")}>Flatten visible layers</button>
                 <button onClick={() => setModal("motion")}>
                   Animate layer…
                 </button>
@@ -2664,9 +3108,9 @@ export default function Workbench() {
                   <input
                     aria-label="Color picker"
                     type="color"
-                    value={color.slice(0, 7)}
+                    value={displayColor(color).slice(0, 7)}
                     onChange={(e) =>
-                      setColor(e.target.value + color.slice(7, 9))
+                      setColor(workingColor(e.target.value + color.slice(7, 9)))
                     }
                   />
                   <input
@@ -2681,6 +3125,13 @@ export default function Workbench() {
                     }}
                   />
                 </div>
+                <Field label="Background color">
+                  <div className="wb-color-input">
+                    <input aria-label="Background color picker" type="color" value={displayColor(bgColor).slice(0,7)} onChange={event => setBgColor(workingColor(event.target.value + bgColor.slice(7,9)))} />
+                    <input aria-label="Background hex color" value={bgColor} maxLength={9} onChange={event => setBgColor(event.target.value)} onBlur={() => setBgColor(/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(bgColor) ? bgColor.length === 7 ? bgColor + "ff" : bgColor : "#ffffffff")} />
+                  </div>
+                </Field>
+                <button onClick={() => { setColor(bgColor); setBgColor(color); }}>Swap foreground and background</button>
                 <Field label="Alpha">
                   <input
                     type="range"
@@ -2696,10 +3147,10 @@ export default function Workbench() {
                   />
                 </Field>
                 <div className="wb-palette">
-                  {doc.palette.map((c, i) => (
+                  {activePalette.map((c, i) => (
                     <button
                       key={i}
-                      style={{ background: c }}
+                      style={{ background: displayColor(c) }}
                       aria-label={`Palette color ${i}: ${c}`}
                       title={c}
                       onClick={() => setColor(c.length === 7 ? c + "ff" : c)}
@@ -2712,7 +3163,8 @@ export default function Workbench() {
                       run(
                         {
                           type: "palette.update",
-                          palette: [...doc.palette, color],
+                          ...paletteTarget(),
+                          palette: [...activePalette, color],
                         },
                         "Add palette color",
                       )
@@ -2722,7 +3174,7 @@ export default function Workbench() {
                   </button>
                   <button
                     onClick={() => {
-                      setPaletteText(doc.palette.join("\n"));
+                      setPaletteText(activePalette.join("\n"));
                       setModal("palette");
                     }}
                   >
@@ -2731,7 +3183,7 @@ export default function Workbench() {
                   <button
                     onClick={() =>
                       downloads.downloadBlob(
-                        new Blob([doc.palette.join("\n")], {
+                        new Blob([activePalette.join("\n")], {
                           type: "text/plain",
                         }),
                         stem(doc.name) + ".hex",
@@ -2744,29 +3196,24 @@ export default function Workbench() {
                 <button onClick={() => chooseImport("palette")}>
                   Import palette
                 </button>
+                <Field label="Palette changes apply to"><select value={paletteScope} onChange={e => setPaletteScope(e.target.value)}><option value="all">All frames</option><option value="frame">Current frame</option><option value="range">Selected frames</option></select></Field>
+                <button onClick={() => setModal("profile")}>Color profile: {profileName}</button>
                 <Field label="Color mode">
                   <select
                     value={doc.colorMode}
-                    onChange={(e) =>
-                      run(
-                        {
-                          type: "document.colorMode",
-                          colorMode: e.target.value,
-                        },
-                        "Convert color mode",
-                      )
-                    }
+                    onChange={event => event.target.value === "indexed" ? setModal("indexed") : run({type:"document.colorMode",colorMode:event.target.value},"Convert color mode")}
                   >
                     <option value="rgba">RGB + alpha</option>
                     <option value="indexed">Indexed</option>
                     <option value="grayscale">Grayscale</option>
                   </select>
                 </Field>
+                <button onClick={() => setModal("indexed")}>Indexed conversion options…</button>
                 <Field label="Gradient end">
                   <input
                     type="color"
-                    value={endColor.slice(0, 7)}
-                    onChange={(e) => setEndColor(e.target.value + "ff")}
+                    value={displayColor(endColor).slice(0, 7)}
+                    onChange={(e) => setEndColor(workingColor(e.target.value + "ff"))}
                   />
                 </Field>
                 <label>
@@ -2946,6 +3393,11 @@ export default function Workbench() {
             {(panel === "tiles" || pinnedPanels.includes("tiles")) && (
               <>
                 <h2>Tilesets</h2>
+                <input hidden ref={externalTilesetInputRef} type="file" accept=".aseprite,.ase" onChange={loadExternalTileset} />
+                {externalTilesets.map(link => <div className="wb-slice" key={link.tilesetId}>
+                  <span>{link.name || "External tileset"}<small>{link.sourceLabel || "Source file required"}</small></span>
+                  <button disabled={busy} onClick={() => chooseExternalTileset(link.tilesetId)}>Choose source & embed</button>
+                </div>)}
                 <button
                   onClick={() => {
                     setTool("tilePixels");
@@ -3052,7 +3504,7 @@ export default function Workbench() {
                 </label>
                 {seamless && (
                   <div className="wb-repeat-preview">
-                    <FrameThumb doc={doc} frameId={activeFrame} repeat={3} />
+                    <FrameThumb doc={doc} frameId={activeFrame} repeat={3} colorManager={colorManager} />
                   </div>
                 )}
               </>
@@ -3061,6 +3513,20 @@ export default function Workbench() {
               pinnedPanels.includes("automation")) && (
               <>
                 <h2>Scripts & commands</h2>
+                <AsepritePackagesPanel registry={asepriteRegistry} disabled={busy || !!nativeSessionRef.current?.busy || !!automationRef.current?.desktop.locked}
+                  onOpenScript={source => {setLuaSource(source);setScriptLanguage("lua");}}
+                  onRunScript={runPackageCommand}
+                  onApplyPalette={palette => {commit({type:"palette.update", ...paletteTarget(), palette}, "Extension palette");setNotice("Extension palette applied. Undo restores the previous colors.");}}
+                  onDownload={(blob,name) => downloads.downloadBlob(blob,name)} onNotice={setNotice} onError={report}/>
+                <Field label="Script type"><select value={scriptLanguage} onChange={e => setScriptLanguage(e.target.value)}><option value="commands">PixelWall commands</option><option value="lua">Lua 5.4</option></select></Field>
+                {scriptLanguage === "lua" ? <>
+                  <p>Run Lua with Sprite, Image, Color, layers, frames, palettes and transactions. Each run is undoable. See the scripting guide for supported APIs and limits.</p>
+                  <div className="wb-button-row"><button onClick={() => chooseImport("lua")}>Open Lua script</button><button onClick={() => downloads.downloadBlob(new Blob([luaSource],{type:"text/plain"}),"pixelwall-script.lua")}>Save script</button></div>
+                  <label className="wb-field"><span>Lua script</span><textarea className="wb-code" rows={16} value={luaSource} onChange={e => setLuaSource(e.target.value)} spellCheck={false}/></label>
+                  <Field label="Time limit"><select value={luaTimeout} onChange={e => setLuaTimeout(+e.target.value)}><option value={3000}>3 seconds</option><option value={10000}>10 seconds</option></select></Field>
+                  <button className="wb-primary" disabled={busy} onClick={() => void runLua().catch(error => {setCommandResult(error.message);report(error);})}>Run Lua script</button>
+                  {busy && luaAbortRef.current && <button data-pixelwall-lua-controls disabled={luaSaving} onClick={() => { if (!luaSavingRef.current) luaAbortRef.current?.abort(); }}>{luaSaving ? "Saving script results…" : "Cancel script"}</button>}
+                </> : <>
                 <button onClick={() => chooseImport("extension")}>
                   Install command extension
                 </button>
@@ -3152,6 +3618,7 @@ export default function Workbench() {
                 >
                   Command reference
                 </button>
+                </>}
                 <pre
                   className="wb-code-result"
                   tabIndex={0}
@@ -3374,7 +3841,7 @@ export default function Workbench() {
                 onClick={(e) => selectFrame(f.id, e)}
               >
                 <span>{timelinePage * 64 + i + 1}</span>
-                <FrameThumb doc={doc} frameId={f.id} />
+                <FrameThumb doc={doc} frameId={f.id} colorManager={colorManager} />
                 <small>{f.durationMs} ms</small>
               </button>
             ))}
@@ -3431,12 +3898,16 @@ export default function Workbench() {
         className="wb-hidden"
         type="file"
         aria-label="Import artwork file"
-        accept=".pixelwall,.json,.ase,.aseprite,.png,.gif,.jpg,.jpeg,.webp,.bmp,.tga,.hex,.gpl,.pal"
+        accept=".pixelwall,.json,.ase,.aseprite,.png,.gif,.jpg,.jpeg,.webp,.bmp,.tga,.hex,.gpl,.pal,.icc,.icm,.lua"
         onChange={(e) => void importFiles([...e.target.files])}
       />
+      {luaDialog.view && <LuaDialogView key={luaDialog.view.requestId} view={luaDialog.view} document={doc} colorManager={colorManager} onCancelScript={() => luaAbortRef.current?.abort()} />}
+      {luaCommands.view && <LuaCommandView key={luaCommands.view.requestId} view={luaCommands.view} />}
       {modal === "tilePixels" && tileDraft && (
         <Modal title="Edit tile pixels" onClose={() => setModal(null)}>
           <TilePixelEditor
+            colorManager={colorManager}
+            colorProfile={documentProfile(doc)}
             tile={tileDraft}
             color={color}
             onCancel={() => setModal(null)}
@@ -3482,7 +3953,7 @@ export default function Workbench() {
                   <input
                     type="number"
                     min={1}
-                    max={2048}
+                    max={LIMITS.edge}
                     required
                     value={newOptions[k]}
                     onChange={(e) =>
@@ -3518,7 +3989,7 @@ export default function Workbench() {
                 <input
                   type="number"
                   min={1}
-                  max={2048}
+                  max={LIMITS.edge}
                   value={resizeOptions[k]}
                   onChange={(e) =>
                     setResizeOptions({ ...resizeOptions, [k]: +e.target.value })
@@ -3569,8 +4040,8 @@ export default function Workbench() {
       )}
       {modal === "transform" && (
         <Modal title="Transform selection" onClose={() => setModal(null)}>
-          {Object.keys(transformOptions).map((k) => (
-            <Field key={k} label={k}>
+          {Object.entries({dx:"Move horizontally",dy:"Move vertically",scaleX:"Width multiplier",scaleY:"Height multiplier",angle:"Rotation angle"}).map(([k,label]) => (
+            <Field key={k} label={label}>
               <input
                 type="number"
                 step={k.startsWith("scale") ? 0.1 : 1}
@@ -3584,33 +4055,31 @@ export default function Workbench() {
               />
             </Field>
           ))}
+          <Field label="Rotation method"><select value={rotationMethod} onChange={event => setRotationMethod(event.target.value)}><option value="rotsprite">RotSprite · preserve pixel edges</option><option value="fast">Fast · nearest pixel</option></select></Field>
           <div className="wb-button-row">
             <button
               onClick={() => {
-                transform("move", {
+                if (transform("move", {
                   dx: transformOptions.dx,
                   dy: transformOptions.dy,
-                });
-                setModal(null);
+                })) setModal(null);
               }}
             >
               Move
             </button>
             <button
               onClick={() => {
-                transform("scale", {
+                if (transform("scale", {
                   scaleX: transformOptions.scaleX,
                   scaleY: transformOptions.scaleY,
-                });
-                setModal(null);
+                })) setModal(null);
               }}
             >
               Scale
             </button>
             <button
               onClick={() => {
-                transform("rotate", { angle: transformOptions.angle });
-                setModal(null);
+                if (transform("rotate", { angle: transformOptions.angle })) setModal(null);
               }}
             >
               Rotate
@@ -3636,6 +4105,7 @@ export default function Workbench() {
                   run(
                     {
                       type: "palette.update",
+                      ...paletteTarget(),
                       palette: paletteText.split(/[\s,]+/).filter(Boolean),
                     },
                     "Edit palette",
@@ -3652,6 +4122,7 @@ export default function Workbench() {
                   run(
                     {
                       type: "palette.remap",
+                      ...paletteTarget(),
                       palette: paletteText.split(/[\s,]+/).filter(Boolean),
                     },
                     "Remap palette",
@@ -3665,6 +4136,36 @@ export default function Workbench() {
           </div>
         </Modal>
       )}
+      {modal === "indexed" && (
+        <Modal title="Indexed color conversion" onClose={() => !busy && setModal(null)}>
+          <p>Convert every frame and embedded tile. Undo restores the original colors.</p>
+          <Field label="Palette"><select value={indexedOptions.paletteMode} onChange={event => setIndexedOptions({...indexedOptions,paletteMode:event.target.value})}><option value="existing">Use each frame’s current palette</option><option value="generate">Generate one palette for all frames</option></select></Field>
+          {indexedOptions.paletteMode === "generate" && <>
+            <Field label="Maximum colors, including transparency"><input type="number" min={2} max={256} value={indexedOptions.maxColors} onChange={event => setIndexedOptions({...indexedOptions,maxColors:Number(event.target.value)})}/></Field>
+            <label><input type="checkbox" checked={indexedOptions.withAlpha} onChange={event => setIndexedOptions({...indexedOptions,withAlpha:event.target.checked})}/>Include partial transparency in the palette</label>
+            <Field label="Palette method"><select value={indexedOptions.quantization} onChange={event => event.target.value === "median-cut" ? setIndexedOptions({...indexedOptions,quantization:event.target.value}) : changeIndexedMapping(event.target.value,{quantization:event.target.value})}><option value="median-cut">Median cut</option><option value="octree">Octree</option><option value="rgb5a3">RGB5A3</option></select></Field>
+            <p>{indexedOptions.quantization === "median-cut" ? "Builds the palette from stored artwork, including hidden layers and unused tiles." : "Builds the palette from visible, composited frames. Hidden layers and unused tiles are then mapped into it."}</p>
+          </>}
+          <Field label="Color matching"><select value={indexedOptions.rgbmap} onChange={event => changeIndexedMapping(event.target.value)}><option value="pixelwall">PixelWall RGBA</option><option value="octree">Octree</option><option value="rgb5a3">RGB5A3</option></select></Field>
+          {indexedOptions.rgbmap !== "pixelwall" && <Field label="Color distance"><select value={indexedOptions.fitCriteria} onChange={event => setIndexedOptions({...indexedOptions,fitCriteria:event.target.value})}><option value="default">Default weighted RGB</option><option value="rgb">RGB</option><option value="linearizedRGB">Linear RGB</option><option value="ciexyz">CIE XYZ</option><option value="cielab">CIE Lab</option></select></Field>}
+          <Field label="Dithering"><select value={indexedOptions.dithering} onChange={event => setIndexedOptions({...indexedOptions,dithering:event.target.value,...(["aseprite-ordered","aseprite-old"].includes(event.target.value)?{ditherStrength:1}:{})})}><option value="none">None · nearest color</option>{indexedOptions.rgbmap === "pixelwall" ? <><option value="ordered">Ordered · Bayer</option><option value="floyd-steinberg">Floyd–Steinberg</option></> : <><option value="aseprite-ordered">Ordered · Bayer</option><option value="aseprite-old">Ordered · legacy</option><option value="aseprite-error-diffusion">Error diffusion</option></>}</select></Field>
+          {["ordered","aseprite-ordered","aseprite-old"].includes(indexedOptions.dithering) && <Field label="Bayer pattern"><select value={indexedOptions.ditherMatrix} onChange={event => setIndexedOptions({...indexedOptions,ditherMatrix:event.target.value})}><option value="bayer2x2">2 × 2</option><option value="bayer4x4">4 × 4</option><option value="bayer8x8">8 × 8</option></select></Field>}
+          {!["none","aseprite-ordered","aseprite-old"].includes(indexedOptions.dithering) && <Field label={`Dither strength · ${Math.round(indexedOptions.ditherStrength * 100)}%`}><input type="range" min={0} max={1} step={0.05} value={indexedOptions.ditherStrength} onChange={event => setIndexedOptions({...indexedOptions,ditherStrength:Number(event.target.value)})}/></Field>}
+          <p>Choose the palette and pattern that suit your artwork.</p>
+          <button className="wb-primary" disabled={busy} onClick={() => void convertIndexed()}>Convert to indexed</button>
+        </Modal>
+      )}
+      {modal === "profile" && (
+        <Modal title="Color profile" onClose={() => setModal(null)}>
+          <p>Current profile: {profileName}. The canvas displays colors in sRGB.</p>
+          <Field label="Target profile"><select value={profileTarget} onChange={e => setProfileTarget(e.target.value)}><option value="sRGB">sRGB</option>{importedProfile && <option value="imported">{colorManager?.profileInfo(importedProfile).name || "Imported ICC profile"}</option>}</select></Field>
+          <button onClick={() => chooseImport("profile")}>Choose ICC profile…</button>
+          <Field label="Rendering intent"><select value={renderingIntent} onChange={e => setRenderingIntent(+e.target.value)}><option value={1}>Relative colorimetric</option><option value={0}>Perceptual</option><option value={2}>Saturation</option><option value={3}>Absolute colorimetric</option></select></Field>
+          <p>Assign changes how the existing pixel values are interpreted. Convert changes the values to preserve their appearance in the target profile.</p>
+          <p>Editable project and sprite files retain the profile. Image exports convert to sRGB.</p>
+          <div className="wb-button-row"><button disabled={busy || !colorManager} onClick={() => void changeProfile("assign")}>Assign profile</button><button className="wb-primary" disabled={busy || !colorManager} onClick={() => void changeProfile("convert")}>Convert colors</button></div>
+        </Modal>
+      )}
       {modal === "export" && (
         <Modal title="Export artwork" onClose={() => setModal(null)}>
           <Field label="Format">
@@ -3676,7 +4177,7 @@ export default function Workbench() {
             >
               <option value="png">Current frame PNG · Free</option>
               <option value="project">Editable PixelWall project · Free</option>
-              <option value="aseprite">Editable Aseprite project · Free</option>
+              <option value="aseprite">Editable sprite project · Free</option>
               <option value="bmp">Current frame BMP · Free</option>
               <option value="tga">Current frame TGA · Free</option>
               <option value="gif">Animated GIF · Pro</option>
@@ -3687,21 +4188,16 @@ export default function Workbench() {
           {!["project", "aseprite"].includes(exportOptions.format) && (
             <>
               <Field label="Scale">
-                <select
+                <input type="number" min="0.01" max="64" step="any"
                   value={exportOptions.scale}
                   onChange={(e) =>
                     setExportOptions({
                       ...exportOptions,
-                      scale: +e.target.value,
+                      scale: e.target.value,
                     })
                   }
-                >
-                  {[1, 2, 4, 8].map((v) => (
-                    <option key={v} value={v}>
-                      {v}× · {doc.width * v} × {doc.height * v}
-                    </option>
-                  ))}
-                </select>
+                />
+                <small>{Math.max(1, Math.trunc(doc.width * Number(exportOptions.scale)))} × {Math.max(1, Math.trunc(doc.height * Number(exportOptions.scale)))} pixels</small>
               </Field>
               <Field label="Clip">
                 <select
@@ -3905,20 +4401,20 @@ export default function Workbench() {
                   )}
                 </select>
               </Field>
-              <label>
+              <Field label="Repeats · 0 means continuous">
                 <input
-                  type="checkbox"
-                  checked={c.loop}
+                  type="number" min={0} max={65535} step={1}
+                  value={c.repeat ?? (c.loop === false ? 1 : 0)}
                   onChange={(e) =>
                     run({
                       type: "clip.update",
                       clipId: c.id,
-                      patch: { loop: e.target.checked },
+                      patch: { repeat: Number(e.target.value), loop: Number(e.target.value) === 0 },
                     })
                   }
                 />
-                Loop
-              </label>
+              </Field>
+              {c.direction.startsWith("pingpong") && <small>Each direction counts as one repeat.</small>}
               <button
                 onClick={() =>
                   run({
@@ -4319,17 +4815,21 @@ export default function Workbench() {
                 </span>
                 <button
                   onClick={async () => {
-                    if (restoringRef.current) return;
+                    if (restoringRef.current || automationRef.current?.desktop.locked || nativeSessionRef.current?.busy) return;
                     restoringRef.current = true;
+                    const before = docRef.current, revision = revisionRef.current;
                     try {
                       setBusy(true);
                       await save();
                       const restore = saveQueueRef.current.then(async () => {
+                        if (docRef.current !== before || revisionRef.current !== revision) throw Error("The project changed while preparing recovery. Choose the revision again.");
                         const restored = await storeRef.current.restoreRevision(
                           doc.id,
                           r.id || r.revision,
                         );
-                        await activate(restored.document, restored.revision);
+                        if (docRef.current !== before || revisionRef.current !== revision) throw Error("The project changed while restoring. Open the restored version from the library.");
+                        historyCacheRef.current.invalidate(restored.document.id);
+                        await activate(restored.document, restored.revision, {allowRecovery:true});
                       });
                       saveQueueRef.current = restore;
                       await restore;

@@ -24,10 +24,13 @@ export async function prepareOffline({root=process.cwd(),next=false,output}={}) 
   const files=(await walk(assetRoot)).filter(path=>/\.(?:m?js|css|wasm|png|svg|ico|woff2?)$/.test(path)&&!path.endsWith('/sw.js')).sort();
   if(!files.some(path=>/\.(?:m?js)$/.test(path)))throw new Error('Offline build contains no editor scripts.');
   const assets=files.map(path=>(next?'/_next/static/':'/')+urlPath(relative(assetRoot,path))).sort();
+  let runtimeFiles=[];
+  if(next){try{runtimeFiles=await walk(join(root,'public/runtimes'));}catch(error){if(error.code!=='ENOENT')throw error;}assets.push(...runtimeFiles.map(path=>'/runtimes/'+urlPath(relative(join(root,'public/runtimes'),path))));assets.sort();}
   const template=await readFile(join(root,'scripts/offline-worker.js'),'utf8');
   if(!template.includes('__PIXELWALL_BUILD_ID__'))throw new Error('Offline worker source is missing its build placeholder.');
   const hash=createHash('sha256');
   for(const path of files){hash.update(relative(assetRoot,path).split('\\').join('/'));hash.update(await readFile(path));}
+  for(const path of runtimeFiles){hash.update('/runtimes/'+relative(join(root,'public/runtimes'),path));hash.update(await readFile(path));}
   hash.update(template);
   if(next)hash.update(await readFile(join(root,'.next/BUILD_ID')));
   const buildId=hash.digest('hex').slice(0,16);

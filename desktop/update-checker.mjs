@@ -187,7 +187,7 @@ export function createFileSettingsStore(file) {
   };
 }
 
-export function createDesktopMenuTemplate({ platform, appName = 'PixelWall', automaticChecks, packaged, onCheck, onToggle, onDocumentation }) {
+export function createDesktopMenuTemplate({ platform, appName = 'PixelWall', automaticChecks, packaged, onCheck, onToggle, onDocumentation, onEditorAction = () => {} }) {
   const updateItems = [
     { label: 'Check for Updates…', click: onCheck },
     { label: 'Check for updates automatically', type: 'checkbox', checked: automaticChecks, enabled: packaged, click: item => onToggle(item.checked) },
@@ -195,7 +195,25 @@ export function createDesktopMenuTemplate({ platform, appName = 'PixelWall', aut
   const mac = platform === 'darwin';
   return [
     ...(mac ? [{ label: appName, submenu: [{ role: 'about' }, { type: 'separator' }, ...updateItems, { type: 'separator' }, { role: 'services' }, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }] }] : []),
-    { role: 'fileMenu' }, { role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' },
+    { role: 'fileMenu', submenu: [
+      { label: 'New Project…', accelerator: 'CmdOrCtrl+N', click: (_item, owner) => onEditorAction('new', owner) },
+      { label: 'Open…', accelerator: 'CmdOrCtrl+O', click: (_item, owner) => onEditorAction('open', owner) },
+      { type: 'separator' },
+      { label: 'Save', accelerator: 'CmdOrCtrl+S', click: (_item, owner) => onEditorAction('save', owner) },
+      { label: 'Save As…', accelerator: 'CmdOrCtrl+Shift+S', click: (_item, owner) => onEditorAction('saveAs', owner) },
+      { label: 'Export…', accelerator: 'CmdOrCtrl+E', click: (_item, owner) => onEditorAction('export', owner) },
+      { type: 'separator' }, { role: 'close' }, ...(!mac ? [{ role: 'quit' }] : []),
+    ] },
+    { role: 'editMenu', submenu: [
+      { label: 'Undo', accelerator: 'CmdOrCtrl+Z', click: (_item, owner) => onEditorAction('undo', owner) },
+      { label: 'Redo', accelerator: mac ? 'Cmd+Shift+Z' : 'Ctrl+Y', click: (_item, owner) => onEditorAction('redo', owner) },
+      { type: 'separator' },
+      { label: 'Cut', accelerator: 'CmdOrCtrl+X', click: (_item, owner) => onEditorAction('cut', owner) },
+      { label: 'Copy', accelerator: 'CmdOrCtrl+C', click: (_item, owner) => onEditorAction('copy', owner) },
+      { label: 'Paste', accelerator: 'CmdOrCtrl+V', click: (_item, owner) => onEditorAction('paste', owner) },
+      { role: 'selectAll' },
+    ] },
+    { role: 'viewMenu' }, { role: 'windowMenu' },
     { role: 'help', submenu: [{ label: 'PixelWall Documentation', click: onDocumentation }, ...(!mac ? [{ type: 'separator' }, ...updateItems, { type: 'separator' }, { role: 'about' }] : [])] },
   ];
 }

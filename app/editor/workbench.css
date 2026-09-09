@@ -676,6 +676,18 @@
 .wb-dialog.wide {
   width: min(650px, calc(100vw - 30px));
 }
+.wb-script-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.wb-script-controls .wb-field { min-width: 120px; margin: 0; max-width: 100%; }
+.wb-script-expand { flex: 1 1 180px; }
+.wb-script-newrow, .wb-script-separator { flex-basis: 100%; }
+.wb-script-newrow { height: 0; }
+.wb-script-color, .wb-script-slider { display: flex; align-items: center; gap: 8px; }
+.wb-script-color input:not([type="color"]) { width: 120px; }
+.wb-script-slider input { min-width: 100px; }
+.wb-script-dialog > button { margin-top: 20px; }
+.wb-script-label, .wb-script-separator { overflow-wrap: anywhere; }
+.wb-package-commands { display: grid; gap: 8px; max-height: 50vh; overflow: auto; margin-bottom: 16px; }
+.wb-package-commands button { text-align: left; overflow-wrap: anywhere; }
 .wb-dialog::backdrop {
   background: #18132d55;
   backdrop-filter: blur(3px);

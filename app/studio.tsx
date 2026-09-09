@@ -3396,7 +3396,7 @@ export default function Studio() {
                   <input type="checkbox" checked={exportIndividualFrames} onChange={(event) => setExportIndividualFrames(event.target.checked)} />
                   <span>INCLUDE INDIVIDUAL PNGS</span>
                 </label>
-                <small>PIVOT {Math.round(activePivot.x * 10) / 10}, {Math.round(activePivot.y * 10) / 10} · PHASER / PIXI / ASEPRITE JSON</small>
+                <small>PIVOT {Math.round(activePivot.x * 10) / 10}, {Math.round(activePivot.y * 10) / 10} · PHASER / PIXI / SPRITE JSON</small>
                 <small>Trimming and individual PNGs apply to the ZIP. Sheet PNGs keep full canvas cells.</small>
                 </div>
               </details>

@@ -93,28 +93,47 @@ export async function openStore(options = {}) {
     if (bytes > budgetBytes) throw new DocumentStorageError('The local library has reached its storage budget. Download a backup and remove an unneeded document before saving again. Your previous saved version is intact.', 'BUDGET_EXCEEDED');
     return { snapshots, pruned, bytes, referenced: keysIn([...heads, ...snapshots]) };
   }
-  async function persist(document, settings = {}) {
-    const prepared = await prepare(document, settings);
+  async function persistMany(entries, {settings: settingChanges = []} = {}) {
+    if (!Array.isArray(entries) || !entries.length || entries.length > 8 || new Set(entries.map(entry => entry.document?.id)).size !== entries.length)
+      throw new DocumentStorageError('Save between one and eight distinct documents.', 'INVALID_DOCUMENT');
+    if (!Array.isArray(settingChanges) || settingChanges.length > 8 || new Set(settingChanges.map(change => change?.key)).size !== settingChanges.length || settingChanges.some(change => typeof change?.key !== 'string' || !change.key || change.key.length > 240 || !Number.isSafeInteger(change.expectedRevision) || change.expectedRevision < 0))
+      throw new DocumentStorageError('Settings save guards are invalid.', 'INVALID_SETTINGS');
+    const changes = structuredClone(settingChanges);
+    const prepared = await Promise.all(entries.map(async ({document, settings = {}}) => ({document, settings, value:await prepare(document,settings)})));
     return write(async (tx) => {
-      const [heads, snapshots, infos] = await Promise.all(['documents', 'revisions', 'imageInfo'].map((name) => request(tx.objectStore(name).getAll())));
-      const previous = heads.find((item) => item.id === document.id);
-      if (settings.expectedRevision !== undefined && settings.expectedRevision !== (previous?.revision ?? 0)) throw new DocumentStorageError('A newer version was saved in another window. Open that version or save this document under a new name.', 'CONFLICT');
-      const revision = (previous?.revision ?? 0) + 1;
-      const updatedAt = now();
-      const head = { id: document.id, metadata: prepared.metadata, imageRefs: prepared.imageRefs, bytes: prepared.bytes, revision, updatedAt };
-      const snapshot = { ...head, id: `${document.id}:${revision}`, documentId: document.id, label: String(settings.label ?? 'Autosave').slice(0, 120), pinned: Boolean(settings.pinned) };
-      const candidates = [...heads.filter((item) => item.id !== document.id), head];
-      const imageInfo = new Map(infos.map((item) => [item.key, item]));
-      const existingKeys = new Set(imageInfo.keys());
-      for (const record of prepared.records.values()) imageInfo.set(record.key, { key: record.key, bytes: record.bytes });
-      const retained = prune(candidates, [...snapshots, snapshot], imageInfo);
-      tx.objectStore('documents').put(head); tx.objectStore('revisions').put(snapshot);
-      let imagesWritten = 0;
-      for (const record of prepared.records.values()) if (!existingKeys.has(record.key)) { tx.objectStore('images').put(record); tx.objectStore('imageInfo').put({ key: record.key, bytes: record.bytes }); imagesWritten++; }
-      for (const removed of retained.pruned) tx.objectStore('revisions').delete(removed.id);
-      for (const key of imageInfo.keys()) if (!retained.referenced.has(key)) { tx.objectStore('images').delete(key); tx.objectStore('imageInfo').delete(key); }
-      return { document, revision, savedAt: updatedAt, imagesWritten, bytesUsed: retained.bytes, prunedRevisions: retained.pruned };
+      const guardedSettings = await Promise.all(changes.map(async change => {
+        const previous = await request(tx.objectStore('settings').get(change.key));
+        if ((previous?.revision ?? 0) !== change.expectedRevision) throw new DocumentStorageError('The package or its settings changed in another window. Run the command again.', 'CONFLICT');
+        return {change, previous};
+      }));
+      const [heads, snapshots, infos] = await Promise.all(['documents', 'revisions', 'imageInfo'].map(name => request(tx.objectStore(name).getAll())));
+      const candidates = new Map(heads.map(head => [head.id,head])), nextSnapshots = [...snapshots], imageInfo = new Map(infos.map(item => [item.key,item]));
+      const existingKeys = new Set(imageInfo.keys()), records = new Map(), results = [];
+      for (const {document,settings,value} of prepared) {
+        const previous = candidates.get(document.id);
+        if (settings.expectedRevision !== undefined && settings.expectedRevision !== (previous?.revision ?? 0)) throw new DocumentStorageError('A newer version was saved in another window. Open that version or save this document under a new name.', 'CONFLICT');
+        const revision = (previous?.revision ?? 0)+1, updatedAt = now();
+        const head = {id:document.id,metadata:value.metadata,imageRefs:value.imageRefs,bytes:value.bytes,revision,updatedAt};
+        const snapshot = {...head,id:`${document.id}:${revision}`,documentId:document.id,label:String(settings.label ?? 'Autosave').slice(0,120),pinned:Boolean(settings.pinned)};
+        candidates.set(document.id,head);nextSnapshots.push(snapshot);
+        let imagesWritten=0;
+        for(const record of value.records.values()){imageInfo.set(record.key,{key:record.key,bytes:record.bytes});if(!existingKeys.has(record.key)&&!records.has(record.key))imagesWritten++;records.set(record.key,record);}
+        results.push({document,revision,savedAt:updatedAt,imagesWritten,head,snapshot});
+      }
+      const retained = prune([...candidates.values()],nextSnapshots,imageInfo);
+      for(const result of results){tx.objectStore('documents').put(result.head);tx.objectStore('revisions').put(result.snapshot);}
+      for(const record of records.values())if(!existingKeys.has(record.key)){tx.objectStore('images').put(record);tx.objectStore('imageInfo').put({key:record.key,bytes:record.bytes});}
+      for(const removed of retained.pruned)tx.objectStore('revisions').delete(removed.id);
+      for(const key of imageInfo.keys())if(!retained.referenced.has(key)){tx.objectStore('images').delete(key);tx.objectStore('imageInfo').delete(key);}
+      for (const {change,previous} of guardedSettings) if (Object.hasOwn(change, 'value')) tx.objectStore('settings').put({key:change.key,value:change.value,revision:nextSettingRevision(previous),updatedAt:now()});
+      return results.map(result=>{delete result.head;delete result.snapshot;return {...result,bytesUsed:retained.bytes,prunedRevisions:retained.pruned};});
     });
+  }
+  async function persist(document, settings = {}) { return (await persistMany([{document,settings}]))[0]; }
+  function nextSettingRevision(previous) {
+    const revision = (previous?.revision ?? 0) + 1;
+    if (!Number.isSafeInteger(revision) || revision < 1) throw new DocumentStorageError('The saved settings revision is invalid.', 'INVALID_SETTINGS');
+    return revision;
   }
   async function hydrate(record, tx) {
     if (!record) return null;
@@ -127,6 +146,7 @@ export async function openStore(options = {}) {
   const store = {
     listDocuments: () => read(['documents'], async (tx) => (await request(tx.objectStore('documents').getAll())).sort((a, b) => b.updatedAt - a.updatedAt).map(summary)),
     saveDocument: (document, settings) => serialize(() => persist(document, settings)),
+    saveDocuments: (entries, options) => serialize(() => persistMany(entries, options)),
     loadDocument: (id) => read(['documents', 'images'], async (tx) => hydrate(await request(tx.objectStore('documents').get(id)), tx)),
     listRevisions: (id) => read(['revisions'], async (tx) => (await request(tx.objectStore('revisions').getAll())).filter((item) => item.documentId === id).sort((a, b) => b.revision - a.revision).map(revisionSummary)),
     restoreRevision: (id, revisionId) => serialize(async () => {
@@ -147,9 +167,13 @@ export async function openStore(options = {}) {
       for (const { key } of infos) if (!referenced.has(key)) { tx.objectStore('images').delete(key); tx.objectStore('imageInfo').delete(key); }
       return { deleted: heads.some((item) => item.id === id) };
     })),
-    getSetting: (key, fallback = /** @type {any} */ (null)) => read(['settings'], async (tx) => { const item = await request(tx.objectStore('settings').get(key)); return item === undefined ? fallback : item.value; }),
-    setSetting: (key, value) => serialize(() => write(async (tx) => { tx.objectStore('settings').put({ key, value, updatedAt: now() }); return value; })),
-    deleteSetting: (key) => serialize(() => write(async (tx) => { tx.objectStore('settings').delete(key); })),
+    getSetting: (key, fallback = /** @type {any} */ (null)) => read(['settings'], async (tx) => { const item = await request(tx.objectStore('settings').get(key)); return item === undefined || item.deleted ? fallback : item.value; }),
+    getSettingsSnapshot: (keys) => read(['settings'], async (tx) => {
+      if (!Array.isArray(keys) || keys.length > 8 || keys.some(key => typeof key !== 'string' || !key || key.length > 240)) throw new DocumentStorageError('Settings snapshot keys are invalid.', 'INVALID_SETTINGS');
+      return Promise.all(keys.map(async key => {const item = await request(tx.objectStore('settings').get(key));return {key,revision:item?.revision ?? 0,exists:!!item && !item.deleted,value:item?.deleted ? undefined : item?.value};}));
+    }),
+    setSetting: (key, value) => serialize(() => write(async (tx) => { const previous = await request(tx.objectStore('settings').get(key)); tx.objectStore('settings').put({ key, value, revision:nextSettingRevision(previous), updatedAt: now() }); return value; })),
+    deleteSetting: (key) => serialize(() => write(async (tx) => { const previous = await request(tx.objectStore('settings').get(key)); tx.objectStore('settings').put({key,deleted:true,revision:nextSettingRevision(previous),updatedAt:now()}); })),
     importLegacy: async ({ storage = globalThis.localStorage, keys = LEGACY_DOCUMENT_KEYS, convert } = {}) => {
       if (typeof convert !== 'function') throw new TypeError('importLegacy requires a converter returning a v4 document');
       const results = [];

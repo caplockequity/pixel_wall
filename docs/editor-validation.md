@@ -19,7 +19,7 @@ Validated 2026-09-09. The default editor is the new workbench; the projector wor
 ## Compatibility boundaries
 
 - Native Aseprite interchange covers raster/linked cels, indexed/grayscale, groups/blends, palettes, tags, slices, precise bounds, ICC metadata and supported native tilemaps. Unsupported features fail or produce compatibility notes; retain source originals. This is not a full-parity claim.
-- Working values use sRGB; retained ICC profiles are not color-converted. The rotation helper uses pixel-safe supersampling rather than RotSprite. Aseprite Lua scripts are not supported.
+- Working values use the embedded profile, with sRGB as the default. LittleCMS handles previews and exported image colors. Lua runs supported Aseprite APIs in a bounded worker. Fast/RotSprite match the native integer-corner corpus; Aseprite UI angle rounding and the full extension API remain open parity gaps.
 - GIF has binary transparency and color quantization. PNG and editable project files retain full alpha. APNG imports are rejected; use individual PNG frames or GIF.
 - Tiled cannot represent all artwork blend modes. Packages retain native sources and record interoperability notes. Tilemaps keep source-resolution grids even when sprite frames are scaled.
 - Desktop packaging is configured for multiple platforms, but this validation produced macOS arm64 only. Signed installers and cross-platform certification remain release work.

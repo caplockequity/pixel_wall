@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "-b",
+    "--grid",
+    "2,2",
+    "basic.ase"
+  ],
+  "status": 0,
+  "stdout": "",
+  "stderr": "aseprite: Invalid option --grid\nTry \"aseprite --help\" for more information.\n"
+}

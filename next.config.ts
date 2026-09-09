@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: true,
   async redirects() {
     return [
+      { source: "/guides/aseprite-compatibility", destination: "/guides/file-compatibility", permanent: true },
       // Stripe sessions created before the studio moved retain their old return URL.
       { source: "/", has: [{ type: "query", key: "checkout" }], destination: "/editor", permanent: false },
     ];

@@ -1,0 +1,1214 @@
+{
+  "version": "Aseprite 1.3.18.5-dev",
+  "scales": [
+    0.25,
+    0.5,
+    0.67,
+    1.25,
+    1.5,
+    1.75,
+    2,
+    2.2
+  ],
+  "cases": [
+    {
+      "name": "geometry",
+      "scale": 0.25,
+      "source": "geometry.aseprite",
+      "native": "geometry-0.25.aseprite",
+      "pngs": [
+        "geometry-0.25-1.png"
+      ]
+    },
+    {
+      "name": "geometry",
+      "scale": 0.5,
+      "source": "geometry.aseprite",
+      "native": "geometry-0.5.aseprite",
+      "pngs": [
+        "geometry-0.5-1.png"
+      ]
+    },
+    {
+      "name": "geometry",
+      "scale": 0.67,
+      "source": "geometry.aseprite",
+      "native": "geometry-0.67.aseprite",
+      "pngs": [
+        "geometry-0.67-1.png"
+      ]
+    },
+    {
+      "name": "geometry",
+      "scale": 1.25,
+      "source": "geometry.aseprite",
+      "native": "geometry-1.25.aseprite",
+      "pngs": [
+        "geometry-1.25-1.png"
+      ]
+    },
+    {
+      "name": "geometry",
+      "scale": 1.5,
+      "source": "geometry.aseprite",
+      "native": "geometry-1.5.aseprite",
+      "pngs": [
+        "geometry-1.5-1.png"
+      ]
+    },
+    {
+      "name": "geometry",
+      "scale": 1.75,
+      "source": "geometry.aseprite",
+      "native": "geometry-1.75.aseprite",
+      "pngs": [
+        "geometry-1.75-1.png"
+      ]
+    },
+    {
+      "name": "geometry",
+      "scale": 2,
+      "source": "geometry.aseprite",
+      "native": "geometry-2.aseprite",
+      "pngs": [
+        "geometry-2-1.png"
+      ]
+    },
+    {
+      "name": "geometry",
+      "scale": 2.2,
+      "source": "geometry.aseprite",
+      "native": "geometry-2.2.aseprite",
+      "pngs": [
+        "geometry-2.2-1.png"
+      ]
+    },
+    {
+      "name": "tilemap",
+      "scale": 0.25,
+      "source": "tilemap.aseprite",
+      "native": "tilemap-0.25.aseprite",
+      "pngs": [
+        "tilemap-0.25-1.png"
+      ]
+    },
+    {
+      "name": "tilemap",
+      "scale": 0.5,
+      "source": "tilemap.aseprite",
+      "native": "tilemap-0.5.aseprite",
+      "pngs": [
+        "tilemap-0.5-1.png"
+      ]
+    },
+    {
+      "name": "tilemap",
+      "scale": 0.67,
+      "source": "tilemap.aseprite",
+      "native": "tilemap-0.67.aseprite",
+      "pngs": [
+        "tilemap-0.67-1.png"
+      ]
+    },
+    {
+      "name": "tilemap",
+      "scale": 1.25,
+      "source": "tilemap.aseprite",
+      "native": "tilemap-1.25.aseprite",
+      "pngs": [
+        "tilemap-1.25-1.png"
+      ]
+    },
+    {
+      "name": "tilemap",
+      "scale": 1.5,
+      "source": "tilemap.aseprite",
+      "native": "tilemap-1.5.aseprite",
+      "pngs": [
+        "tilemap-1.5-1.png"
+      ]
+    },
+    {
+      "name": "tilemap",
+      "scale": 1.75,
+      "source": "tilemap.aseprite",
+      "native": "tilemap-1.75.aseprite",
+      "pngs": [
+        "tilemap-1.75-1.png"
+      ]
+    },
+    {
+      "name": "tilemap",
+      "scale": 2,
+      "source": "tilemap.aseprite",
+      "native": "tilemap-2.aseprite",
+      "pngs": [
+        "tilemap-2-1.png"
+      ]
+    },
+    {
+      "name": "tilemap",
+      "scale": 2.2,
+      "source": "tilemap.aseprite",
+      "native": "tilemap-2.2.aseprite",
+      "pngs": [
+        "tilemap-2.2-1.png"
+      ]
+    },
+    {
+      "name": "slice",
+      "scale": 0.25,
+      "source": "slice.aseprite",
+      "native": "slice-0.25.aseprite",
+      "pngs": [
+        "slice-0.25-1.png"
+      ]
+    },
+    {
+      "name": "slice",
+      "scale": 0.5,
+      "source": "slice.aseprite",
+      "native": "slice-0.5.aseprite",
+      "pngs": [
+        "slice-0.5-1.png"
+      ]
+    },
+    {
+      "name": "slice",
+      "scale": 0.67,
+      "source": "slice.aseprite",
+      "native": "slice-0.67.aseprite",
+      "pngs": [
+        "slice-0.67-1.png"
+      ]
+    },
+    {
+      "name": "slice",
+      "scale": 1.25,
+      "source": "slice.aseprite",
+      "native": "slice-1.25.aseprite",
+      "pngs": [
+        "slice-1.25-1.png"
+      ]
+    },
+    {
+      "name": "slice",
+      "scale": 1.5,
+      "source": "slice.aseprite",
+      "native": "slice-1.5.aseprite",
+      "pngs": [
+        "slice-1.5-1.png"
+      ]
+    },
+    {
+      "name": "slice",
+      "scale": 1.75,
+      "source": "slice.aseprite",
+      "native": "slice-1.75.aseprite",
+      "pngs": [
+        "slice-1.75-1.png"
+      ]
+    },
+    {
+      "name": "slice",
+      "scale": 2,
+      "source": "slice.aseprite",
+      "native": "slice-2.aseprite",
+      "pngs": [
+        "slice-2-1.png"
+      ]
+    },
+    {
+      "name": "slice",
+      "scale": 2.2,
+      "source": "slice.aseprite",
+      "native": "slice-2.2.aseprite",
+      "pngs": [
+        "slice-2.2-1.png"
+      ]
+    },
+    {
+      "name": "linked-rgba",
+      "scale": 0.25,
+      "source": "linked-rgba.aseprite",
+      "native": "linked-rgba-0.25.aseprite",
+      "pngs": [
+        "linked-rgba-0.25-1.png",
+        "linked-rgba-0.25-2.png"
+      ]
+    },
+    {
+      "name": "linked-rgba",
+      "scale": 0.5,
+      "source": "linked-rgba.aseprite",
+      "native": "linked-rgba-0.5.aseprite",
+      "pngs": [
+        "linked-rgba-0.5-1.png",
+        "linked-rgba-0.5-2.png"
+      ]
+    },
+    {
+      "name": "linked-rgba",
+      "scale": 0.67,
+      "source": "linked-rgba.aseprite",
+      "native": "linked-rgba-0.67.aseprite",
+      "pngs": [
+        "linked-rgba-0.67-1.png",
+        "linked-rgba-0.67-2.png"
+      ]
+    },
+    {
+      "name": "linked-rgba",
+      "scale": 1.25,
+      "source": "linked-rgba.aseprite",
+      "native": "linked-rgba-1.25.aseprite",
+      "pngs": [
+        "linked-rgba-1.25-1.png",
+        "linked-rgba-1.25-2.png"
+      ]
+    },
+    {
+      "name": "linked-rgba",
+      "scale": 1.5,
+      "source": "linked-rgba.aseprite",
+      "native": "linked-rgba-1.5.aseprite",
+      "pngs": [
+        "linked-rgba-1.5-1.png",
+        "linked-rgba-1.5-2.png"
+      ]
+    },
+    {
+      "name": "linked-rgba",
+      "scale": 1.75,
+      "source": "linked-rgba.aseprite",
+      "native": "linked-rgba-1.75.aseprite",
+      "pngs": [
+        "linked-rgba-1.75-1.png",
+        "linked-rgba-1.75-2.png"
+      ]
+    },
+    {
+      "name": "linked-rgba",
+      "scale": 2,
+      "source": "linked-rgba.aseprite",
+      "native": "linked-rgba-2.aseprite",
+      "pngs": [
+        "linked-rgba-2-1.png",
+        "linked-rgba-2-2.png"
+      ]
+    },
+    {
+      "name": "linked-rgba",
+      "scale": 2.2,
+      "source": "linked-rgba.aseprite",
+      "native": "linked-rgba-2.2.aseprite",
+      "pngs": [
+        "linked-rgba-2.2-1.png",
+        "linked-rgba-2.2-2.png"
+      ]
+    },
+    {
+      "name": "linked-indexed",
+      "scale": 0.25,
+      "source": "linked-indexed.aseprite",
+      "native": "linked-indexed-0.25.aseprite",
+      "pngs": [
+        "linked-indexed-0.25-1.png",
+        "linked-indexed-0.25-2.png"
+      ]
+    },
+    {
+      "name": "linked-indexed",
+      "scale": 0.5,
+      "source": "linked-indexed.aseprite",
+      "native": "linked-indexed-0.5.aseprite",
+      "pngs": [
+        "linked-indexed-0.5-1.png",
+        "linked-indexed-0.5-2.png"
+      ]
+    },
+    {
+      "name": "linked-indexed",
+      "scale": 0.67,
+      "source": "linked-indexed.aseprite",
+      "native": "linked-indexed-0.67.aseprite",
+      "pngs": [
+        "linked-indexed-0.67-1.png",
+        "linked-indexed-0.67-2.png"
+      ]
+    },
+    {
+      "name": "linked-indexed",
+      "scale": 1.25,
+      "source": "linked-indexed.aseprite",
+      "native": "linked-indexed-1.25.aseprite",
+      "pngs": [
+        "linked-indexed-1.25-1.png",
+        "linked-indexed-1.25-2.png"
+      ]
+    },
+    {
+      "name": "linked-indexed",
+      "scale": 1.5,
+      "source": "linked-indexed.aseprite",
+      "native": "linked-indexed-1.5.aseprite",
+      "pngs": [
+        "linked-indexed-1.5-1.png",
+        "linked-indexed-1.5-2.png"
+      ]
+    },
+    {
+      "name": "linked-indexed",
+      "scale": 1.75,
+      "source": "linked-indexed.aseprite",
+      "native": "linked-indexed-1.75.aseprite",
+      "pngs": [
+        "linked-indexed-1.75-1.png",
+        "linked-indexed-1.75-2.png"
+      ]
+    },
+    {
+      "name": "linked-indexed",
+      "scale": 2,
+      "source": "linked-indexed.aseprite",
+      "native": "linked-indexed-2.aseprite",
+      "pngs": [
+        "linked-indexed-2-1.png",
+        "linked-indexed-2-2.png"
+      ]
+    },
+    {
+      "name": "linked-indexed",
+      "scale": 2.2,
+      "source": "linked-indexed.aseprite",
+      "native": "linked-indexed-2.2.aseprite",
+      "pngs": [
+        "linked-indexed-2.2-1.png",
+        "linked-indexed-2.2-2.png"
+      ]
+    },
+    {
+      "name": "linked-grayscale",
+      "scale": 0.25,
+      "source": "linked-grayscale.aseprite",
+      "native": "linked-grayscale-0.25.aseprite",
+      "pngs": [
+        "linked-grayscale-0.25-1.png",
+        "linked-grayscale-0.25-2.png"
+      ]
+    },
+    {
+      "name": "linked-grayscale",
+      "scale": 0.5,
+      "source": "linked-grayscale.aseprite",
+      "native": "linked-grayscale-0.5.aseprite",
+      "pngs": [
+        "linked-grayscale-0.5-1.png",
+        "linked-grayscale-0.5-2.png"
+      ]
+    },
+    {
+      "name": "linked-grayscale",
+      "scale": 0.67,
+      "source": "linked-grayscale.aseprite",
+      "native": "linked-grayscale-0.67.aseprite",
+      "pngs": [
+        "linked-grayscale-0.67-1.png",
+        "linked-grayscale-0.67-2.png"
+      ]
+    },
+    {
+      "name": "linked-grayscale",
+      "scale": 1.25,
+      "source": "linked-grayscale.aseprite",
+      "native": "linked-grayscale-1.25.aseprite",
+      "pngs": [
+        "linked-grayscale-1.25-1.png",
+        "linked-grayscale-1.25-2.png"
+      ]
+    },
+    {
+      "name": "linked-grayscale",
+      "scale": 1.5,
+      "source": "linked-grayscale.aseprite",
+      "native": "linked-grayscale-1.5.aseprite",
+      "pngs": [
+        "linked-grayscale-1.5-1.png",
+        "linked-grayscale-1.5-2.png"
+      ]
+    },
+    {
+      "name": "linked-grayscale",
+      "scale": 1.75,
+      "source": "linked-grayscale.aseprite",
+      "native": "linked-grayscale-1.75.aseprite",
+      "pngs": [
+        "linked-grayscale-1.75-1.png",
+        "linked-grayscale-1.75-2.png"
+      ]
+    },
+    {
+      "name": "linked-grayscale",
+      "scale": 2,
+      "source": "linked-grayscale.aseprite",
+      "native": "linked-grayscale-2.aseprite",
+      "pngs": [
+        "linked-grayscale-2-1.png",
+        "linked-grayscale-2-2.png"
+      ]
+    },
+    {
+      "name": "linked-grayscale",
+      "scale": 2.2,
+      "source": "linked-grayscale.aseprite",
+      "native": "linked-grayscale-2.2.aseprite",
+      "pngs": [
+        "linked-grayscale-2.2-1.png",
+        "linked-grayscale-2.2-2.png"
+      ]
+    },
+    {
+      "name": "reference",
+      "scale": 0.25,
+      "source": "reference.aseprite",
+      "native": "reference-0.25.aseprite",
+      "pngs": [
+        "reference-0.25-1.png"
+      ]
+    },
+    {
+      "name": "reference",
+      "scale": 0.5,
+      "source": "reference.aseprite",
+      "native": "reference-0.5.aseprite",
+      "pngs": [
+        "reference-0.5-1.png"
+      ]
+    },
+    {
+      "name": "reference",
+      "scale": 0.67,
+      "source": "reference.aseprite",
+      "native": "reference-0.67.aseprite",
+      "pngs": [
+        "reference-0.67-1.png"
+      ]
+    },
+    {
+      "name": "reference",
+      "scale": 1.25,
+      "source": "reference.aseprite",
+      "native": "reference-1.25.aseprite",
+      "pngs": [
+        "reference-1.25-1.png"
+      ]
+    },
+    {
+      "name": "reference",
+      "scale": 1.5,
+      "source": "reference.aseprite",
+      "native": "reference-1.5.aseprite",
+      "pngs": [
+        "reference-1.5-1.png"
+      ]
+    },
+    {
+      "name": "reference",
+      "scale": 1.75,
+      "source": "reference.aseprite",
+      "native": "reference-1.75.aseprite",
+      "pngs": [
+        "reference-1.75-1.png"
+      ]
+    },
+    {
+      "name": "reference",
+      "scale": 2,
+      "source": "reference.aseprite",
+      "native": "reference-2.aseprite",
+      "pngs": [
+        "reference-2-1.png"
+      ]
+    },
+    {
+      "name": "reference",
+      "scale": 2.2,
+      "source": "reference.aseprite",
+      "native": "reference-2.2.aseprite",
+      "pngs": [
+        "reference-2.2-1.png"
+      ]
+    },
+    {
+      "name": "linear",
+      "scale": 0.25,
+      "source": "../export-color/source.aseprite",
+      "native": "linear-0.25.aseprite",
+      "pngs": [
+        "linear-0.25-1.png"
+      ]
+    },
+    {
+      "name": "linear",
+      "scale": 0.5,
+      "source": "../export-color/source.aseprite",
+      "native": "linear-0.5.aseprite",
+      "pngs": [
+        "linear-0.5-1.png"
+      ]
+    },
+    {
+      "name": "linear",
+      "scale": 0.67,
+      "source": "../export-color/source.aseprite",
+      "native": "linear-0.67.aseprite",
+      "pngs": [
+        "linear-0.67-1.png"
+      ]
+    },
+    {
+      "name": "linear",
+      "scale": 1.25,
+      "source": "../export-color/source.aseprite",
+      "native": "linear-1.25.aseprite",
+      "pngs": [
+        "linear-1.25-1.png"
+      ]
+    },
+    {
+      "name": "linear",
+      "scale": 1.5,
+      "source": "../export-color/source.aseprite",
+      "native": "linear-1.5.aseprite",
+      "pngs": [
+        "linear-1.5-1.png"
+      ]
+    },
+    {
+      "name": "linear",
+      "scale": 1.75,
+      "source": "../export-color/source.aseprite",
+      "native": "linear-1.75.aseprite",
+      "pngs": [
+        "linear-1.75-1.png"
+      ]
+    },
+    {
+      "name": "linear",
+      "scale": 2,
+      "source": "../export-color/source.aseprite",
+      "native": "linear-2.aseprite",
+      "pngs": [
+        "linear-2-1.png"
+      ]
+    },
+    {
+      "name": "linear",
+      "scale": 2.2,
+      "source": "../export-color/source.aseprite",
+      "native": "linear-2.2.aseprite",
+      "pngs": [
+        "linear-2.2-1.png"
+      ]
+    },
+    {
+      "name": "flag-0",
+      "scale": 0.25,
+      "source": "flag-0.aseprite",
+      "native": "flag-0-0.25.aseprite",
+      "pngs": [
+        "flag-0-0.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-0",
+      "scale": 0.5,
+      "source": "flag-0.aseprite",
+      "native": "flag-0-0.5.aseprite",
+      "pngs": [
+        "flag-0-0.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-0",
+      "scale": 0.67,
+      "source": "flag-0.aseprite",
+      "native": "flag-0-0.67.aseprite",
+      "pngs": [
+        "flag-0-0.67-1.png"
+      ]
+    },
+    {
+      "name": "flag-0",
+      "scale": 1.25,
+      "source": "flag-0.aseprite",
+      "native": "flag-0-1.25.aseprite",
+      "pngs": [
+        "flag-0-1.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-0",
+      "scale": 1.5,
+      "source": "flag-0.aseprite",
+      "native": "flag-0-1.5.aseprite",
+      "pngs": [
+        "flag-0-1.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-0",
+      "scale": 1.75,
+      "source": "flag-0.aseprite",
+      "native": "flag-0-1.75.aseprite",
+      "pngs": [
+        "flag-0-1.75-1.png"
+      ]
+    },
+    {
+      "name": "flag-0",
+      "scale": 2,
+      "source": "flag-0.aseprite",
+      "native": "flag-0-2.aseprite",
+      "pngs": [
+        "flag-0-2-1.png"
+      ]
+    },
+    {
+      "name": "flag-0",
+      "scale": 2.2,
+      "source": "flag-0.aseprite",
+      "native": "flag-0-2.2.aseprite",
+      "pngs": [
+        "flag-0-2.2-1.png"
+      ]
+    },
+    {
+      "name": "flag-1",
+      "scale": 0.25,
+      "source": "flag-1.aseprite",
+      "native": "flag-1-0.25.aseprite",
+      "pngs": [
+        "flag-1-0.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-1",
+      "scale": 0.5,
+      "source": "flag-1.aseprite",
+      "native": "flag-1-0.5.aseprite",
+      "pngs": [
+        "flag-1-0.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-1",
+      "scale": 0.67,
+      "source": "flag-1.aseprite",
+      "native": "flag-1-0.67.aseprite",
+      "pngs": [
+        "flag-1-0.67-1.png"
+      ]
+    },
+    {
+      "name": "flag-1",
+      "scale": 1.25,
+      "source": "flag-1.aseprite",
+      "native": "flag-1-1.25.aseprite",
+      "pngs": [
+        "flag-1-1.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-1",
+      "scale": 1.5,
+      "source": "flag-1.aseprite",
+      "native": "flag-1-1.5.aseprite",
+      "pngs": [
+        "flag-1-1.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-1",
+      "scale": 1.75,
+      "source": "flag-1.aseprite",
+      "native": "flag-1-1.75.aseprite",
+      "pngs": [
+        "flag-1-1.75-1.png"
+      ]
+    },
+    {
+      "name": "flag-1",
+      "scale": 2,
+      "source": "flag-1.aseprite",
+      "native": "flag-1-2.aseprite",
+      "pngs": [
+        "flag-1-2-1.png"
+      ]
+    },
+    {
+      "name": "flag-1",
+      "scale": 2.2,
+      "source": "flag-1.aseprite",
+      "native": "flag-1-2.2.aseprite",
+      "pngs": [
+        "flag-1-2.2-1.png"
+      ]
+    },
+    {
+      "name": "flag-2",
+      "scale": 0.25,
+      "source": "flag-2.aseprite",
+      "native": "flag-2-0.25.aseprite",
+      "pngs": [
+        "flag-2-0.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-2",
+      "scale": 0.5,
+      "source": "flag-2.aseprite",
+      "native": "flag-2-0.5.aseprite",
+      "pngs": [
+        "flag-2-0.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-2",
+      "scale": 0.67,
+      "source": "flag-2.aseprite",
+      "native": "flag-2-0.67.aseprite",
+      "pngs": [
+        "flag-2-0.67-1.png"
+      ]
+    },
+    {
+      "name": "flag-2",
+      "scale": 1.25,
+      "source": "flag-2.aseprite",
+      "native": "flag-2-1.25.aseprite",
+      "pngs": [
+        "flag-2-1.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-2",
+      "scale": 1.5,
+      "source": "flag-2.aseprite",
+      "native": "flag-2-1.5.aseprite",
+      "pngs": [
+        "flag-2-1.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-2",
+      "scale": 1.75,
+      "source": "flag-2.aseprite",
+      "native": "flag-2-1.75.aseprite",
+      "pngs": [
+        "flag-2-1.75-1.png"
+      ]
+    },
+    {
+      "name": "flag-2",
+      "scale": 2,
+      "source": "flag-2.aseprite",
+      "native": "flag-2-2.aseprite",
+      "pngs": [
+        "flag-2-2-1.png"
+      ]
+    },
+    {
+      "name": "flag-2",
+      "scale": 2.2,
+      "source": "flag-2.aseprite",
+      "native": "flag-2-2.2.aseprite",
+      "pngs": [
+        "flag-2-2.2-1.png"
+      ]
+    },
+    {
+      "name": "flag-3",
+      "scale": 0.25,
+      "source": "flag-3.aseprite",
+      "native": "flag-3-0.25.aseprite",
+      "pngs": [
+        "flag-3-0.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-3",
+      "scale": 0.5,
+      "source": "flag-3.aseprite",
+      "native": "flag-3-0.5.aseprite",
+      "pngs": [
+        "flag-3-0.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-3",
+      "scale": 0.67,
+      "source": "flag-3.aseprite",
+      "native": "flag-3-0.67.aseprite",
+      "pngs": [
+        "flag-3-0.67-1.png"
+      ]
+    },
+    {
+      "name": "flag-3",
+      "scale": 1.25,
+      "source": "flag-3.aseprite",
+      "native": "flag-3-1.25.aseprite",
+      "pngs": [
+        "flag-3-1.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-3",
+      "scale": 1.5,
+      "source": "flag-3.aseprite",
+      "native": "flag-3-1.5.aseprite",
+      "pngs": [
+        "flag-3-1.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-3",
+      "scale": 1.75,
+      "source": "flag-3.aseprite",
+      "native": "flag-3-1.75.aseprite",
+      "pngs": [
+        "flag-3-1.75-1.png"
+      ]
+    },
+    {
+      "name": "flag-3",
+      "scale": 2,
+      "source": "flag-3.aseprite",
+      "native": "flag-3-2.aseprite",
+      "pngs": [
+        "flag-3-2-1.png"
+      ]
+    },
+    {
+      "name": "flag-3",
+      "scale": 2.2,
+      "source": "flag-3.aseprite",
+      "native": "flag-3-2.2.aseprite",
+      "pngs": [
+        "flag-3-2.2-1.png"
+      ]
+    },
+    {
+      "name": "flag-4",
+      "scale": 0.25,
+      "source": "flag-4.aseprite",
+      "native": "flag-4-0.25.aseprite",
+      "pngs": [
+        "flag-4-0.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-4",
+      "scale": 0.5,
+      "source": "flag-4.aseprite",
+      "native": "flag-4-0.5.aseprite",
+      "pngs": [
+        "flag-4-0.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-4",
+      "scale": 0.67,
+      "source": "flag-4.aseprite",
+      "native": "flag-4-0.67.aseprite",
+      "pngs": [
+        "flag-4-0.67-1.png"
+      ]
+    },
+    {
+      "name": "flag-4",
+      "scale": 1.25,
+      "source": "flag-4.aseprite",
+      "native": "flag-4-1.25.aseprite",
+      "pngs": [
+        "flag-4-1.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-4",
+      "scale": 1.5,
+      "source": "flag-4.aseprite",
+      "native": "flag-4-1.5.aseprite",
+      "pngs": [
+        "flag-4-1.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-4",
+      "scale": 1.75,
+      "source": "flag-4.aseprite",
+      "native": "flag-4-1.75.aseprite",
+      "pngs": [
+        "flag-4-1.75-1.png"
+      ]
+    },
+    {
+      "name": "flag-4",
+      "scale": 2,
+      "source": "flag-4.aseprite",
+      "native": "flag-4-2.aseprite",
+      "pngs": [
+        "flag-4-2-1.png"
+      ]
+    },
+    {
+      "name": "flag-4",
+      "scale": 2.2,
+      "source": "flag-4.aseprite",
+      "native": "flag-4-2.2.aseprite",
+      "pngs": [
+        "flag-4-2.2-1.png"
+      ]
+    },
+    {
+      "name": "flag-5",
+      "scale": 0.25,
+      "source": "flag-5.aseprite",
+      "native": "flag-5-0.25.aseprite",
+      "pngs": [
+        "flag-5-0.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-5",
+      "scale": 0.5,
+      "source": "flag-5.aseprite",
+      "native": "flag-5-0.5.aseprite",
+      "pngs": [
+        "flag-5-0.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-5",
+      "scale": 0.67,
+      "source": "flag-5.aseprite",
+      "native": "flag-5-0.67.aseprite",
+      "pngs": [
+        "flag-5-0.67-1.png"
+      ]
+    },
+    {
+      "name": "flag-5",
+      "scale": 1.25,
+      "source": "flag-5.aseprite",
+      "native": "flag-5-1.25.aseprite",
+      "pngs": [
+        "flag-5-1.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-5",
+      "scale": 1.5,
+      "source": "flag-5.aseprite",
+      "native": "flag-5-1.5.aseprite",
+      "pngs": [
+        "flag-5-1.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-5",
+      "scale": 1.75,
+      "source": "flag-5.aseprite",
+      "native": "flag-5-1.75.aseprite",
+      "pngs": [
+        "flag-5-1.75-1.png"
+      ]
+    },
+    {
+      "name": "flag-5",
+      "scale": 2,
+      "source": "flag-5.aseprite",
+      "native": "flag-5-2.aseprite",
+      "pngs": [
+        "flag-5-2-1.png"
+      ]
+    },
+    {
+      "name": "flag-5",
+      "scale": 2.2,
+      "source": "flag-5.aseprite",
+      "native": "flag-5-2.2.aseprite",
+      "pngs": [
+        "flag-5-2.2-1.png"
+      ]
+    },
+    {
+      "name": "flag-6",
+      "scale": 0.25,
+      "source": "flag-6.aseprite",
+      "native": "flag-6-0.25.aseprite",
+      "pngs": [
+        "flag-6-0.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-6",
+      "scale": 0.5,
+      "source": "flag-6.aseprite",
+      "native": "flag-6-0.5.aseprite",
+      "pngs": [
+        "flag-6-0.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-6",
+      "scale": 0.67,
+      "source": "flag-6.aseprite",
+      "native": "flag-6-0.67.aseprite",
+      "pngs": [
+        "flag-6-0.67-1.png"
+      ]
+    },
+    {
+      "name": "flag-6",
+      "scale": 1.25,
+      "source": "flag-6.aseprite",
+      "native": "flag-6-1.25.aseprite",
+      "pngs": [
+        "flag-6-1.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-6",
+      "scale": 1.5,
+      "source": "flag-6.aseprite",
+      "native": "flag-6-1.5.aseprite",
+      "pngs": [
+        "flag-6-1.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-6",
+      "scale": 1.75,
+      "source": "flag-6.aseprite",
+      "native": "flag-6-1.75.aseprite",
+      "pngs": [
+        "flag-6-1.75-1.png"
+      ]
+    },
+    {
+      "name": "flag-6",
+      "scale": 2,
+      "source": "flag-6.aseprite",
+      "native": "flag-6-2.aseprite",
+      "pngs": [
+        "flag-6-2-1.png"
+      ]
+    },
+    {
+      "name": "flag-6",
+      "scale": 2.2,
+      "source": "flag-6.aseprite",
+      "native": "flag-6-2.2.aseprite",
+      "pngs": [
+        "flag-6-2.2-1.png"
+      ]
+    },
+    {
+      "name": "flag-7",
+      "scale": 0.25,
+      "source": "flag-7.aseprite",
+      "native": "flag-7-0.25.aseprite",
+      "pngs": [
+        "flag-7-0.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-7",
+      "scale": 0.5,
+      "source": "flag-7.aseprite",
+      "native": "flag-7-0.5.aseprite",
+      "pngs": [
+        "flag-7-0.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-7",
+      "scale": 0.67,
+      "source": "flag-7.aseprite",
+      "native": "flag-7-0.67.aseprite",
+      "pngs": [
+        "flag-7-0.67-1.png"
+      ]
+    },
+    {
+      "name": "flag-7",
+      "scale": 1.25,
+      "source": "flag-7.aseprite",
+      "native": "flag-7-1.25.aseprite",
+      "pngs": [
+        "flag-7-1.25-1.png"
+      ]
+    },
+    {
+      "name": "flag-7",
+      "scale": 1.5,
+      "source": "flag-7.aseprite",
+      "native": "flag-7-1.5.aseprite",
+      "pngs": [
+        "flag-7-1.5-1.png"
+      ]
+    },
+    {
+      "name": "flag-7",
+      "scale": 1.75,
+      "source": "flag-7.aseprite",
+      "native": "flag-7-1.75.aseprite",
+      "pngs": [
+        "flag-7-1.75-1.png"
+      ]
+    },
+    {
+      "name": "flag-7",
+      "scale": 2,
+      "source": "flag-7.aseprite",
+      "native": "flag-7-2.aseprite",
+      "pngs": [
+        "flag-7-2-1.png"
+      ]
+    },
+    {
+      "name": "flag-7",
+      "scale": 2.2,
+      "source": "flag-7.aseprite",
+      "native": "flag-7-2.2.aseprite",
+      "pngs": [
+        "flag-7-2.2-1.png"
+      ]
+    },
+    {
+      "name": "selection-trim",
+      "scale": 1.5,
+      "source": "linked-rgba.aseprite",
+      "options": {
+        "trim": true
+      },
+      "pngs": [
+        "selection-trim-1.png",
+        "selection-trim-2.png"
+      ]
+    },
+    {
+      "name": "selection-slice",
+      "scale": 1.5,
+      "source": "slice.aseprite",
+      "options": {
+        "slice": "detail"
+      },
+      "pngs": [
+        "selection-slice-1.png"
+      ]
+    }
+  ]
+}

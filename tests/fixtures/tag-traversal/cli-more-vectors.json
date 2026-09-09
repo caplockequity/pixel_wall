@@ -1,0 +1,2621 @@
+[
+  {
+    "fixture": "nested",
+    "subtags": false,
+    "tag": null,
+    "range": null,
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-false-null-undefined-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 0,
+        "ms": 60
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      },
+      {
+        "frame": 5,
+        "ms": 110
+      },
+      {
+        "frame": 6,
+        "ms": 120
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": false,
+    "tag": null,
+    "range": null,
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-false-null-undefined-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 6
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": false,
+    "tag": null,
+    "range": null,
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/nested-false-null-undefined-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 6
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": false,
+    "tag": null,
+    "range": "2,3",
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-false-null-2_3-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": false,
+    "tag": null,
+    "range": "2,3",
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-false-null-2_3-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": false,
+    "tag": null,
+    "range": "2,3",
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--frame-range",
+      "2,3",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/nested-false-null-2_3-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 6
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": false,
+    "tag": "outer",
+    "range": null,
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--tag",
+      "outer",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-false-outer-undefined-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      },
+      {
+        "frame": 5,
+        "ms": 110
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": false,
+    "tag": "outer",
+    "range": null,
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--tag",
+      "outer",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-false-outer-undefined-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": false,
+    "tag": "outer",
+    "range": null,
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--tag",
+      "outer",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/nested-false-outer-undefined-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 6
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": false,
+    "tag": "outer",
+    "range": "2,3",
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--tag",
+      "outer",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-false-outer-2_3-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": false,
+    "tag": "outer",
+    "range": "2,3",
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--tag",
+      "outer",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-false-outer-2_3-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": false,
+    "tag": "outer",
+    "range": "2,3",
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--tag",
+      "outer",
+      "--frame-range",
+      "2,3",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/nested-false-outer-2_3-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 6
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": true,
+    "tag": null,
+    "range": null,
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--play-subtags",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-true-null-undefined-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 0,
+        "ms": 60
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      },
+      {
+        "frame": 5,
+        "ms": 110
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      },
+      {
+        "frame": 5,
+        "ms": 110
+      },
+      {
+        "frame": 6,
+        "ms": 120
+      },
+      {
+        "frame": 5,
+        "ms": 110
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      },
+      {
+        "frame": 5,
+        "ms": 110
+      },
+      {
+        "frame": 6,
+        "ms": 120
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": true,
+    "tag": null,
+    "range": null,
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--play-subtags",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-true-null-undefined-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 6
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 6
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": true,
+    "tag": null,
+    "range": null,
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--play-subtags",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/nested-true-null-undefined-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 6
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": true,
+    "tag": null,
+    "range": "2,3",
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--play-subtags",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-true-null-2_3-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": true,
+    "tag": null,
+    "range": "2,3",
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--play-subtags",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-true-null-2_3-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": true,
+    "tag": null,
+    "range": "2,3",
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--play-subtags",
+      "--frame-range",
+      "2,3",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/nested-true-null-2_3-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 6
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": true,
+    "tag": "outer",
+    "range": null,
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--play-subtags",
+      "--tag",
+      "outer",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-true-outer-undefined-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      },
+      {
+        "frame": 5,
+        "ms": 110
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      },
+      {
+        "frame": 5,
+        "ms": 110
+      },
+      {
+        "frame": 5,
+        "ms": 110
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      },
+      {
+        "frame": 5,
+        "ms": 110
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": true,
+    "tag": "outer",
+    "range": null,
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--play-subtags",
+      "--tag",
+      "outer",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-true-outer-undefined-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 1
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": true,
+    "tag": "outer",
+    "range": null,
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--play-subtags",
+      "--tag",
+      "outer",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/nested-true-outer-undefined-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 6
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": true,
+    "tag": "outer",
+    "range": "2,3",
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--play-subtags",
+      "--tag",
+      "outer",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-true-outer-2_3-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": true,
+    "tag": "outer",
+    "range": "2,3",
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--play-subtags",
+      "--tag",
+      "outer",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/nested-true-outer-2_3-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "nested",
+    "subtags": true,
+    "tag": "outer",
+    "range": "2,3",
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/nested.aseprite",
+      "--play-subtags",
+      "--tag",
+      "outer",
+      "--frame-range",
+      "2,3",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/nested-true-outer-2_3-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      },
+      {
+        "frame": 5
+      },
+      {
+        "frame": 6
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": false,
+    "tag": null,
+    "range": null,
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-false-null-undefined-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 0,
+        "ms": 60
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": false,
+    "tag": null,
+    "range": null,
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-false-null-undefined-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": false,
+    "tag": null,
+    "range": null,
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-false-null-undefined-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": false,
+    "tag": null,
+    "range": "2,3",
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-false-null-2_3-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": false,
+    "tag": null,
+    "range": "2,3",
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-false-null-2_3-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": false,
+    "tag": null,
+    "range": "2,3",
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--frame-range",
+      "2,3",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-false-null-2_3-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": false,
+    "tag": "clip",
+    "range": null,
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--tag",
+      "clip",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-false-clip-undefined-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": false,
+    "tag": "clip",
+    "range": null,
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--tag",
+      "clip",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-false-clip-undefined-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": false,
+    "tag": "clip",
+    "range": null,
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--tag",
+      "clip",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-false-clip-undefined-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": false,
+    "tag": "clip",
+    "range": "2,3",
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--tag",
+      "clip",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-false-clip-2_3-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": false,
+    "tag": "clip",
+    "range": "2,3",
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--tag",
+      "clip",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-false-clip-2_3-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": false,
+    "tag": "clip",
+    "range": "2,3",
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--tag",
+      "clip",
+      "--frame-range",
+      "2,3",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-false-clip-2_3-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": true,
+    "tag": null,
+    "range": null,
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--play-subtags",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-true-null-undefined-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 0,
+        "ms": 60
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": true,
+    "tag": null,
+    "range": null,
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--play-subtags",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-true-null-undefined-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": true,
+    "tag": null,
+    "range": null,
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--play-subtags",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-true-null-undefined-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": true,
+    "tag": null,
+    "range": "2,3",
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--play-subtags",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-true-null-2_3-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": true,
+    "tag": null,
+    "range": "2,3",
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--play-subtags",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-true-null-2_3-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": true,
+    "tag": null,
+    "range": "2,3",
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--play-subtags",
+      "--frame-range",
+      "2,3",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-true-null-2_3-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": true,
+    "tag": "clip",
+    "range": null,
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-true-clip-undefined-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": true,
+    "tag": "clip",
+    "range": null,
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-true-clip-undefined-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": true,
+    "tag": "clip",
+    "range": null,
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-true-clip-undefined-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": true,
+    "tag": "clip",
+    "range": "2,3",
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-true-clip-2_3-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": true,
+    "tag": "clip",
+    "range": "2,3",
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-true-clip-2_3-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "pingpong-3",
+    "subtags": true,
+    "tag": "clip",
+    "range": "2,3",
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/pingpong-3.aseprite",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "--frame-range",
+      "2,3",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/pingpong-3-true-clip-2_3-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": false,
+    "tag": null,
+    "range": null,
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-false-null-undefined-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 0,
+        "ms": 60
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": false,
+    "tag": null,
+    "range": null,
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-false-null-undefined-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": false,
+    "tag": null,
+    "range": null,
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/reverse-2-false-null-undefined-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": false,
+    "tag": null,
+    "range": "2,3",
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-false-null-2_3-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": false,
+    "tag": null,
+    "range": "2,3",
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-false-null-2_3-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": false,
+    "tag": null,
+    "range": "2,3",
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--frame-range",
+      "2,3",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/reverse-2-false-null-2_3-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": false,
+    "tag": "clip",
+    "range": null,
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--tag",
+      "clip",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-false-clip-undefined-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": false,
+    "tag": "clip",
+    "range": null,
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--tag",
+      "clip",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-false-clip-undefined-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": false,
+    "tag": "clip",
+    "range": null,
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--tag",
+      "clip",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/reverse-2-false-clip-undefined-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": false,
+    "tag": "clip",
+    "range": "2,3",
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--tag",
+      "clip",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-false-clip-2_3-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": false,
+    "tag": "clip",
+    "range": "2,3",
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--tag",
+      "clip",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-false-clip-2_3-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": false,
+    "tag": "clip",
+    "range": "2,3",
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--tag",
+      "clip",
+      "--frame-range",
+      "2,3",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/reverse-2-false-clip-2_3-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": true,
+    "tag": null,
+    "range": null,
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--play-subtags",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-true-null-undefined-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 0,
+        "ms": 60
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 4,
+        "ms": 100
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": true,
+    "tag": null,
+    "range": null,
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--play-subtags",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-true-null-undefined-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": true,
+    "tag": null,
+    "range": null,
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--play-subtags",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/reverse-2-true-null-undefined-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": true,
+    "tag": null,
+    "range": "2,3",
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--play-subtags",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-true-null-2_3-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": true,
+    "tag": null,
+    "range": "2,3",
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--play-subtags",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-true-null-2_3-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": true,
+    "tag": null,
+    "range": "2,3",
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--play-subtags",
+      "--frame-range",
+      "2,3",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/reverse-2-true-null-2_3-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": true,
+    "tag": "clip",
+    "range": null,
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-true-clip-undefined-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      },
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 1,
+        "ms": 70
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": true,
+    "tag": "clip",
+    "range": null,
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-true-clip-undefined-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 1
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": true,
+    "tag": "clip",
+    "range": null,
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/reverse-2-true-clip-undefined-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": true,
+    "tag": "clip",
+    "range": "2,3",
+    "format": "gif",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-true-clip-2_3-gif/animation.gif"
+    ],
+    "frames": [
+      {
+        "frame": 2,
+        "ms": 80
+      },
+      {
+        "frame": 3,
+        "ms": 90
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": true,
+    "tag": "clip",
+    "range": "2,3",
+    "format": "sequence",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "--frame-range",
+      "2,3",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-2-true-clip-2_3-sequence/frame01.png"
+    ],
+    "frames": [
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "subtags": true,
+    "tag": "clip",
+    "range": "2,3",
+    "format": "sheet",
+    "args": [
+      "--batch",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "--frame-range",
+      "2,3",
+      "--sheet-type",
+      "horizontal",
+      "--sheet",
+      "tests/fixtures/tag-traversal/exports/reverse-2-true-clip-2_3-sheet/sheet.png"
+    ],
+    "frames": [
+      {
+        "frame": 0
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 4
+      }
+    ]
+  }
+]

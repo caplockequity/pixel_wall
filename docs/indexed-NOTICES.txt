@@ -1,0 +1,82 @@
+PIXELWALL INDEXED COLOR COMPONENT NOTICES
+
+app/native-indexed.mjs is a modified portable JavaScript adaptation of the
+separately MIT-licensed Aseprite Document and Render libraries, tag v1.3.18.5.
+It contains no Aseprite application, command implementation, UI or executable.
+
+Adapted MIT source files:
+  src/doc/octree_map.h and octree_map.cpp
+  src/doc/rgbmap_rgb5a3.h and rgbmap_rgb5a3.cpp
+  src/doc/rgbmap_base.cpp, palette.cpp (findBestfit), color_scales.h
+  src/render/quantization.cpp (palette optimizer), color_histogram.h, median_cut.h
+  src/render/ordered_dither.cpp, dithering_matrix.h, error_diffusion.cpp
+
+Source URLs are https://github.com/aseprite/aseprite/blob/v1.3.18.5/ followed
+by each path above. Module licenses:
+  https://github.com/aseprite/aseprite/blob/v1.3.18.5/src/doc/LICENSE.txt
+  https://github.com/aseprite/aseprite/blob/v1.3.18.5/src/render/LICENSE.txt
+
+File notices: octree and RGB map sources Copyright (c) 2020-2024 Igara Studio S.A.;
+RGB map/color scales Copyright (c) 2001-2016 David Capello and (c) 2020-2023
+Igara Studio S.A.; palette Copyright (c) 2001-2018 David Capello and
+(c) 2018-present Igara Studio S.A.; quantization Copyright (c) 2019-present
+Igara Studio S.A. and (c) 2001-2018 David Capello; histogram Copyright (c) 2020
+Igara Studio S.A. and (c) 2001-2015 David Capello; median cut Copyright (c)
+2001-2017 David Capello; dithering Copyright (c) 2019-2022 Igara Studio S.A.
+and (c) 2017 David Capello; dithering matrix Copyright (c) 2020-2025
+Igara Studio S.A. and (c) 2017 David Capello.
+
+PixelWall modifications: pure JavaScript interface; sparse bounded histograms
+and octrees; no global image or host dependencies; explicit resource errors;
+shared operation budgets; full-composite document sampling adapter; image links,
+frame palette contexts and editable tile atlas integration. Native modes are
+separate from PixelWall's existing median-cut, ordered and diffusion algorithms.
+Reference tests and fixture generators are original PixelWall work.
+
+ASEPRITE DOCUMENT LIBRARY — MIT LICENSE
+
+Copyright (c) 2018-present Igara Studio S.A.
+Copyright (c) 2001-2018 David Capello
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+ASEPRITE RENDER LIBRARY — MIT LICENSE
+
+Copyright (c) 2019-2023  Igara Studio S.A.
+Copyright (c) 2001-2018  David Capello
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

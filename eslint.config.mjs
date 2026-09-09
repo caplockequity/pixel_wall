@@ -17,6 +17,7 @@ const eslintConfig = defineConfig([
     "desktop/release/**",
     "work/**",
     "outputs/**",
+    "public/runtimes/**",
     "next-env.d.ts",
   ]),
   { files: ["**/*.jsx"] },

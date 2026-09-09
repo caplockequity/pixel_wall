@@ -7,8 +7,8 @@ External agents use the same deterministic commands as the editor.
 
 ## Features
 
-- Rectangular documents up to 2048×2048, 256 layers and 2048 frames, bounded by 16,777,216 stored pixels.
-- RGBA, indexed and grayscale color, per-pixel alpha, palettes and remapping.
+- Rectangular documents with up to 4,194,304 canvas pixels and 65,535 pixels per edge, 256 layers and 2048 frames, bounded by 16,777,216 stored pixels. Browser canvas limits can be lower.
+- RGBA, indexed and grayscale color, ICC profile conversion, frame palettes, generated palettes, dithering and remapping.
 - Brushes, custom masks, pressure, stabilizer, symmetry, wrapping, shapes, gradients, bitmap text and pixel-perfect strokes.
 - Rectangle, ellipse, lasso, polygon and wand selections; combined masks, translation, scale, rotation and flips.
 - Groups, blend modes, reference layers, positioned and linked cels, a layer-by-frame timeline and configurable onion skin.
@@ -16,13 +16,13 @@ External agents use the same deterministic commands as the editor.
 - Native Aseprite files, editable PNG/BMP/TGA/GIF imports, image sequences and padded sprite sheets.
 - Free frame PNG/BMP/TGA and portable PixelWall/Aseprite exports. Pro GIF, packed atlas PNG+JSON and game ZIP with real Tiled assets.
 - Named slices, pivots, nine-patch metadata, layer/clip export scope, padding, extrusion, scale and power-of-two packing.
-- Local document library, bounded recoverable revisions, sparse undo, workspace preferences and custom tool shortcuts.
-- Public JavaScript API, WebMCP, portable command extensions and a dependency-free bundled CLI. No embedded AI or Lua interpreter.
+- Local document library, bounded recovery revisions, native desktop saves, session Undo across tabs, system image clipboard, workspace preferences and custom tool shortcuts.
+- Public JavaScript API, WebMCP, portable command extensions, a Lua 5.4 worker with blocking dialogs and common Image/Color APIs, and a bundled CLI. No embedded AI.
 - Offline browser and desktop builds with signed, perpetual Pro ownership licenses.
 
 See [format and CLI reference](docs/formats-cli.md) and [storage and ownership](docs/ownership-storage.md).
-Native compatibility is deliberately bounded: ICC data is retained without color conversion;
-Aseprite Lua extensions are not supported; pixel-safe rotation is not RotSprite.
+Native compatibility is tracked in [Aseprite parity](docs/aseprite-parity.md).
+ICC profiles support assignment, conversion and managed previews. Lua supports a growing Aseprite API subset; arbitrary plug-ins and exact RotSprite behavior remain incomplete.
 GIF uses binary transparency and quantizes larger palettes. PNG and project files retain full alpha.
 3D is deferred.
 
@@ -276,3 +276,5 @@ See [the search launch notes](docs/search-launch.md) for verification, productio
 checks, and the remaining account setup. Regenerate the downloadable starter
 example with `node scripts/export-demo.mjs`. After a production build, audit a
 running server with `node scripts/audit-search.mjs http://localhost:3100`.
+
+Rotation offers Fast and RotSprite using the separately MIT-licensed Aseprite Document Library algorithms. See [rotation compatibility and notices](docs/rotation.md). Rendered UI and CLI exports also accept fractional scale, with native cel/tile geometry checks.

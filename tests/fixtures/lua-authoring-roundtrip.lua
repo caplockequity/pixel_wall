@@ -1,0 +1,8 @@
+local s=app.open(app.params.input)
+assert(s.properties.count==11)
+assert(s.properties('test/plugin').enabled==true and s.properties('test/plugin').label=='extension')
+assert(s.layers[1].properties.role=='body' and s.layers[1].data=='layer text')
+assert(s.cels[1].properties.cost==2.5 and s.cels[1].data=='cel text')
+assert(s.tags[1].name=='idle' and s.tags[1].repeats==2 and s.tags[1].properties.speed==3 and s.tags[1].data=='animation')
+assert(s.slices[1].properties.note=='face' and s.slices[1].data=='slice text')
+print('native-roundtrip-ok')

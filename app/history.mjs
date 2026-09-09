@@ -5,7 +5,35 @@
 const isTyped = (value) => ArrayBuffer.isView(value) && !(value instanceof DataView);
 const isObject = (value) => value !== null && typeof value === 'object';
 const isPlain = (value) => isObject(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
-function cost(value, seen = new Set()) { if (!isObject(value)) return typeof value === 'string' ? value.length * 2 : 8; if (seen.has(value)) return 0; seen.add(value); if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return value.byteLength; return 32 + Object.entries(value).reduce((total, [key, entry]) => total + key.length * 2 + cost(entry, seen), 0); }
+function cost(value, seen = new Set()) { if (!isObject(value)) return typeof value === 'string' ? value.length * 2 : 8; if (seen.has(value)) return 0; seen.add(value); if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return value.byteLength; let total = 32; if (Array.isArray(value)) { for (let i = 0; i < value.length; i++) total += cost(value[i], seen); } else for (const key of Object.keys(value)) total += key.length * 2 + cost(value[key], seen); return total; }
+/** Equality without allocating diffs or converting large typed selection masks to JSON. */
+export function historyValuesEqual(a, b, seen = new WeakMap()) {
+  if (Object.is(a, b)) return true;
+  if (!isObject(a) || !isObject(b) || a.constructor !== b.constructor) return false;
+  if (ArrayBuffer.isView(a) || a instanceof ArrayBuffer) {
+    if (a.byteLength !== b.byteLength) return false;
+    const left = ArrayBuffer.isView(a) ? new Uint8Array(a.buffer, a.byteOffset, a.byteLength) : new Uint8Array(a);
+    const right = ArrayBuffer.isView(b) ? new Uint8Array(b.buffer, b.byteOffset, b.byteLength) : new Uint8Array(b);
+    for (let i = 0; i < left.length; i++) if (left[i] !== right[i]) return false;
+    return true;
+  }
+  if (Array.isArray(a) !== Array.isArray(b) || (!Array.isArray(a) && (!isPlain(a) || !isPlain(b)))) return false;
+  if (seen.get(a) === b) return true; seen.set(a, b);
+  if (Array.isArray(a)) { if (a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (!historyValuesEqual(a[i], b[i], seen)) return false; return true; }
+  const keys = Object.keys(a); return keys.length === Object.keys(b).length && keys.every(key => Object.hasOwn(b, key) && historyValuesEqual(a[key], b[key], seen));
+}
+function cloneContext(value) {
+  if (value === undefined) throw new TypeError('History context must be an explicit value; use null for an empty context.');
+  const seen = new Set();
+  function validate(item) {
+    if (!isObject(item) || seen.has(item)) return; seen.add(item);
+    if (typeof SharedArrayBuffer !== 'undefined' && (item instanceof SharedArrayBuffer || ArrayBuffer.isView(item) && item.buffer instanceof SharedArrayBuffer)) throw new TypeError('History UI context must not use shared mutable buffers.');
+    if (ArrayBuffer.isView(item) || item instanceof ArrayBuffer) return;
+    if (!Array.isArray(item) && !isPlain(item)) throw new TypeError('History UI context must contain plain values and typed arrays.');
+    for (const key of Object.keys(item)) validate(item[key]);
+  }
+  validate(value); return structuredClone(value);
+}
 function primitiveArray(value) { return Array.isArray(value) && value.every((item) => !isObject(item)); }
 function spans(before, after, path, patches) {
   let start = -1;
@@ -52,10 +80,10 @@ export function applyPatches(document, patches, direction = 'after') {
 }
 /** @template T
  * @param {T} initial
- * @param {{maxBytes?:number,maxEntries?:number,onPrune?:(info:{count:number,labels:string[],bytes:number})=>void}} [options]
+ * @param {{maxBytes?:number,maxEntries?:number,maxContextBytes?:number,onPrune?:(info:{count:number,labels:string[],bytes:number})=>void}} [options]
  */
-export function createHistory(initial, { maxBytes = 32 * 1024 * 1024, maxEntries = 100, onPrune } = {}) {
-  let present = initial; let past = []; let future = []; let transaction = null; let lastChange = null;
+export function createHistory(initial, { maxBytes = 32 * 1024 * 1024, maxEntries = 100, maxContextBytes = 16 * 1024 * 1024, onPrune } = {}) {
+  let present = initial; let past = []; let future = []; let transaction = null; let lastChange = null; let lastContext;
   function prune() {
     const dropped = [];
     let bytes = [...past, ...future].reduce((sum, entry) => sum + entry.bytes, 0);
@@ -63,11 +91,19 @@ export function createHistory(initial, { maxBytes = 32 * 1024 * 1024, maxEntries
     if (dropped.length) onPrune?.({ count: dropped.length, labels: dropped, bytes });
     return dropped;
   }
-  function record(before, next, label) {
-    const patches = diffDocuments(before, next); present = next;
-    if (!patches.length) { lastChange = { changed: false, recorded: false, pruned: 0 }; return present; }
+  function record(before, next, label, contexts) {
+    let context;
+    if (contexts !== undefined) {
+      if (!contexts || !Object.hasOwn(contexts, 'beforeContext') || !Object.hasOwn(contexts, 'afterContext')) throw new TypeError('Supply both beforeContext and afterContext.');
+      if (cost(contexts) > maxContextBytes) throw new RangeError('History UI context exceeds its memory limit.');
+      const equal = historyValuesEqual(contexts.beforeContext, contexts.afterContext);
+      const beforeContext = cloneContext(contexts.beforeContext), afterContext = equal ? beforeContext : cloneContext(contexts.afterContext);
+      context = { beforeContext, afterContext, changed: !equal };
+    }
+    const patches = diffDocuments(before, next); present = next; lastContext = undefined;
+    if (!patches.length && !context?.changed) { lastChange = { changed: false, recorded: false, pruned: 0 }; return present; }
     future = [];
-    const entry = { label, patches, bytes: cost(patches) };
+    const entry = { label, patches, ...(context ? { beforeContext: context.beforeContext, afterContext: context.afterContext } : {}) }; entry.bytes = cost(entry);
     past.push(entry);
     const dropped = prune();
     lastChange = { changed: true, recorded: past.includes(entry), pruned: dropped.length, bytes: entry.bytes };
@@ -81,15 +117,18 @@ export function createHistory(initial, { maxBytes = 32 * 1024 * 1024, maxEntries
     get redoLabel() { return future.at(-1)?.label ?? ''; },
     get inTransaction() { return Boolean(transaction); },
     get lastChange() { return lastChange; },
+    // Return a detached copy so applying a selection cannot mutate an older entry.
+    get lastContext() { return lastContext === undefined ? undefined : cloneContext(lastContext); },
+    get retainedBytes() { return cost({ present, past, future, transaction, lastContext }); },
     get stats() { return { undo: past.length, redo: future.length, bytes: [...past, ...future].reduce((sum, entry) => sum + entry.bytes, 0), maxBytes, maxEntries }; },
-    commit(next, label = 'Edit') { if (transaction) { present = next; return present; } return record(present, next, label); },
-    begin(label = 'Draw') { if (transaction) throw new Error('A history transaction is already active'); transaction = { before: present, label }; return present; },
+    commit(next, label = 'Edit', contexts) { if (transaction) { if (contexts !== undefined) throw new Error('Finish the current gesture before committing UI context.'); present = next; return present; } return record(present, next, label, contexts); },
+    begin(label = 'Draw') { if (transaction) throw new Error('A history transaction is already active'); lastContext = undefined; transaction = { before: present, label }; return present; },
     update(next) { if (!transaction) throw new Error('Begin a history transaction before updating it'); present = next; return present; },
     end(next = present) { if (!transaction) return present; const { before, label } = transaction; transaction = null; return record(before, next, label); },
-    cancel() { if (transaction) present = transaction.before; transaction = null; return present; },
-    undo() { if (transaction) history.end(); const entry = past.pop(); if (entry) { present = applyPatches(present, entry.patches, 'before'); future.push(entry); } return present; },
-    redo() { if (transaction) history.end(); const entry = future.pop(); if (entry) { present = applyPatches(present, entry.patches, 'after'); past.push(entry); } return present; },
-    reset(next) { present = next; past = []; future = []; transaction = null; lastChange = null; return present; },
+    cancel() { if (transaction) present = transaction.before; transaction = null; lastContext = undefined; return present; },
+    undo() { if (transaction) history.end(); lastContext = undefined; const entry = past.pop(); if (entry) { present = applyPatches(present, entry.patches, 'before'); lastContext = entry.beforeContext; future.push(entry); } return present; },
+    redo() { if (transaction) history.end(); lastContext = undefined; const entry = future.pop(); if (entry) { present = applyPatches(present, entry.patches, 'after'); lastContext = entry.afterContext; past.push(entry); } return present; },
+    reset(next) { present = next; past = []; future = []; transaction = null; lastChange = null; lastContext = undefined; return present; },
   };
   return history;
 }

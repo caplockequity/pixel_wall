@@ -1,0 +1,72 @@
+[
+  {
+    "fixture": "reverse-2",
+    "format": "bmp",
+    "subtags": true,
+    "tag": "clip",
+    "args": [
+      "--batch",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-bitmap-bmp/frame01.bmp"
+    ],
+    "frames": [
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 1
+      }
+    ]
+  },
+  {
+    "fixture": "reverse-2",
+    "format": "tga",
+    "subtags": true,
+    "tag": "clip",
+    "args": [
+      "--batch",
+      "--play-subtags",
+      "--tag",
+      "clip",
+      "tests/fixtures/tag-traversal/reverse-2.aseprite",
+      "--save-as",
+      "tests/fixtures/tag-traversal/exports/reverse-bitmap-tga/frame01.tga"
+    ],
+    "frames": [
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 1
+      },
+      {
+        "frame": 3
+      },
+      {
+        "frame": 2
+      },
+      {
+        "frame": 1
+      }
+    ]
+  }
+]

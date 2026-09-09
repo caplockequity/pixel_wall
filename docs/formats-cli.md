@@ -44,13 +44,13 @@ Aseprite tilemap images use width/height in **tiles** and `pixels:[]`. A tileset
 
 Explicit limitations:
 
-- ICC/fixed-gamma profiles are preserved, but the editor previews/edits sRGB channel values without ICC conversion. The import result warns about this; callers must display it. This is not a color-managed parity claim.
-- External tilesets are preserved as links but are not fetched automatically; the import warns. A preview needs the external image to show their pixels.
+- ICC/fixed-gamma profiles are preserved and used by LittleCMS for previews and rendered exports. `color-management.mjs` exposes assign/convert operations; raw `readAseprite` and `readPng` return working values and profile metadata without implicitly converting. The editor and CLI convert imported PNG data to sRGB.
+- External tilesets are preserved as links and are never fetched automatically. The Tiles panel can resolve a user-chosen matching Aseprite source and embed it in one Undo action; see [external tilesets](external-tilesets.md).
 - Unknown chunk types remain in project metadata; native export is blocked while any are present, because relocating unknown chunks could change their meaning. Save project JSON to preserve them.
 - Native tags require contiguous frame ranges. Noncontiguous/reordered clip sequences must use rendered animation exports or be rearranged first. Native writing rejects lossy conversion.
-- Aseprite extension properties are opaque and preserved; the editor does not expose their custom fields.
+- Native user/extension property maps are preserved and exposed by the supported Lua Properties API. Unsupported typed values fail explicitly on access/edit rather than being reinterpreted.
 - Edited tilemap layers cannot switch tilesets between frames in Aseprite. Export fails explicitly for this case.
-- PNG decoding supports all standard color types, 1/2/4/8/16-bit depths where legal, PNG filters, palette transparency and Adam7. Sixteen-bit channels are reduced to eight-bit with a warning. ICC/gamma metadata is not converted, with a warning. APNG is explicitly rejected; use PNG frames or GIF.
+- PNG decoding supports all standard color types, 1/2/4/8/16-bit depths where legal, PNG filters, palette transparency and Adam7. Sixteen-bit channels are reduced to eight-bit with a warning. ICC/gamma metadata is returned for explicit conversion by the editor/CLI. APNG is explicitly rejected; use PNG frames or GIF.
 
 ## CLI
 
@@ -108,3 +108,23 @@ Final integration notes: `packAtlas(...,{scale})` records the rendered sprite sc
 The CLI accepts the exact `pixelwall-pro-license.txt` ownership download, including its explanatory heading and instructions. File parsing extracts a single bounded PW2 code and rejects malformed, oversized or ambiguous files; direct tokens and environment tokens are unchanged. Signature verification remains mandatory after extraction. The test suite exercises the actual ownership-download text format with a signed fixture token.
 
 Native Aseprite tile editing now uses `sourceRect` tile descriptors with stable `asepriteTileId` values. Round-trip tests cover editing only one imported frame, manual edits to a shared atlas tile, rotation/flip preservation, and unchanged original tile IDs/counts. New indexed Aseprite exports reserve a transparent palette entry without converting opaque palette index zero to transparency; a full palette without an available transparent slot fails explicitly.
+
+## Ordered input selectors
+
+Export options retain their existing global behavior by default. Add `--ordered-inputs` to snapshot selection settings when each input filename appears. For example, this selects the `idle` tag from one sprite and `run` from another:
+
+```sh
+pixelwall export --ordered-inputs --tag idle hero.aseprite --tag run enemy.aseprite --format atlas --out sprites.png --license license.txt
+```
+
+Selections persist until changed. Repeated `--layer` / `--import-layer` and `--ignore-layer` accumulate for later files; scalar selectors replace earlier values. This renders all visible layers of `hero`, then only `Body` for `enemy`:
+
+```sh
+pixelwall export --ordered-inputs hero.aseprite --layer Body enemy.aseprite --format png --out-dir frames
+```
+
+Captured settings: layer includes/exclusions, `--all-layers`, `--split-layers`, `--split-tags`, `--split-slices`, `--tag` / `--clip` / `--frame-tag`, `--frame-range`, `--frame`, and `--slice`. Boolean selectors accept `=false` for later inputs. Place a setting before every file it should affect; settings after the last input affect no inputs in this mode. `--ordered-inputs=false` restores default global behavior.
+
+Packing, metadata/filename templates, crop, trim, scale, license and output paths remain global. Native editable outputs still preserve complete projects and reject scoped selections. Existing output-collision checks, no-overwrite directory behavior, ICC compositing, and signed Pro gating are unchanged.
+
+The independent Aseprite 1.3.18.5 corpus in `tests/fixtures/cli-scopes` contains original CC0 sprites and 22 ordered-selector cases. Each compares frame count, source order, every pixel, dimensions and timing. Native filenames are retained in the reference file for inspection, but differences in filename inference and atlas placement remain. PixelWall still reports unknown layers/tags explicitly; the oracle sometimes falls back to all visible artwork for unmatched names. Ordered mode now applies each scale immediately to earlier inputs and final crop regions to rendered outputs. Fractional scaling, grid extraction and finite subtag playback are supported. Intermediate save-as sequencing remains outside the contract. See [ordered transforms](cli-ordered-transforms.md). See the [official Aseprite CLI documentation](https://www.aseprite.org/docs/cli/) for its option-order rules.

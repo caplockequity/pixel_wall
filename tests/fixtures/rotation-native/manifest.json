@@ -1,0 +1,22 @@
+{
+  "fixturesLicense": "CC0-1.0",
+  "origin": "Original synthetic numerical pixels, adapters and test drivers. Native executable not redistributed.",
+  "oracle": "Aseprite 1.3.18.5-dev, locally compiled MIT Document Library",
+  "upstreamSource": "https://github.com/aseprite/aseprite/releases/download/v1.3.18.5/Aseprite-v1.3.18.5-Source.zip",
+  "algorithmLicense": "MIT",
+  "upstreamFiles": {
+    "src/doc/README.md": "871c7ce0a1db7ee0191d7f814df81985b56c28662f0e9835c9f23a36cf6a79e9",
+    "src/doc/LICENSE.txt": "8860cf3b09d8f113173212954c5f6800a3522865ca05e6c51e40856cdc694b8a",
+    "src/doc/algorithm/rotate.cpp": "0ebfc932351642ebf6325afbccaa733e312d22bd28a46465ffc54f575697c7b0",
+    "src/doc/algorithm/rotsprite.cpp": "6a426ea05fa617f345e2d5a1e529c63684037f2ca901934244d8117dd41a2987",
+    "src/fixmath/fixmath.h": "e07a730f98933db96b90f22df9b64f287ad683eb926eda0ed2f8e0c5df6e15ae",
+    "docs/LICENSES.md": "8088f92e5888ee0f111edf55832240b2afb145e9a81e22f2998e2899b5664c65"
+  },
+  "sha256": {
+    "README.md": "cd66d67710814326f70c8614974dd96b636d58c34da8ec3ce0a037dc58082e4d",
+    "extended-vectors.json": "3c0668a98e0189042c4ee42c0c188bb583c44ef0996e9268814fd3fe5c060bae",
+    "generate.mjs": "2dc9579450488f55729c0050466ede74dee72d468ca299c972946eea3b64c828",
+    "oracle.cpp": "936df371eaace5f584ab79f970ec8ad48cb4814e466a1e2f7243971e7d491ba3",
+    "original-vectors.json": "8bcde163aa1b79c519d07f700e49e639c9c866c09ce699f38f444cb0a9df9175"
+  }
+}

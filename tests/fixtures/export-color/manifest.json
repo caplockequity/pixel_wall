@@ -1,0 +1,28 @@
+{
+  "license": "CC0-1.0",
+  "origin": "Original numerical fixture authored for PixelWall interoperability verification on 2026-09-09. No vendor sample art, profiles, or implementation code included.",
+  "oracle": {
+    "version": "Aseprite 1.3.18.5-dev",
+    "apiVersion": 41,
+    "officialSource": "https://github.com/aseprite/aseprite/releases/download/v1.3.18.5/Aseprite-v1.3.18.5-Source.zip",
+    "build": "Self-built macOS arm64 oracle; executable not redistributed."
+  },
+  "primaryDocs": [
+    "https://github.com/aseprite/api/blob/main/api/image.md#imagedrawsprite",
+    "https://github.com/aseprite/api/blob/main/api/sprite.md#spriteconvertcolorspace",
+    "https://github.com/aseprite/api/blob/main/api/colorspace.md"
+  ],
+  "method": "Create two original black/white layers in the independent linear ICC, save native source, render with Image(sprite.spec):drawSprite, assign that source profile to a new single-cel sprite, call convertColorSpace(sRGB), save expected PNG and JSON. This pins composite-then-convert behavior; it does not claim native default PNG export automatically converts to sRGB.",
+  "reproduce": [
+    "python3 create-linear-profile.py",
+    "aseprite --batch --script-param directory=/absolute/path/to/fixture-folder --script /absolute/path/to/fixture-folder/generate.lua"
+  ],
+  "sha256": {
+    "create-linear-profile.py": "849927d3cd76c6cbbabc7e16961b3050cf4f344e2f141a9507bef4ac2e3a7839",
+    "expected.json": "81ded0daaf41ed2530aefcd745d0d027b7cee2508eeb9c292b6be43004ecf0c4",
+    "expected.png": "62082c9cdf49b0975b3f12e5ac7301fe963105344bd589fbacac2f0aae4f0639",
+    "generate.lua": "d175b5577cdf6097cedce563e8fbd308db501089decf10a40026ad8d0c856c98",
+    "linear.icc": "00d53729aac66d3276ce776deb51a859915b4d0b6e190732cc40fd6b87833e00",
+    "source.aseprite": "01ef96689f7c7dae00de643f643989f20fe202d7e19997c3e89b139f91bfb908"
+  }
+}

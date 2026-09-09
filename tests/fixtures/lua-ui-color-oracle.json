@@ -1,0 +1,16 @@
+{
+  "origin": "Original independent black-box script; no Aseprite implementation copied",
+  "referenceSource": "https://github.com/aseprite/aseprite/releases/tag/v1.3.18.5",
+  "referenceVersion": "1.3.18.5-dev",
+  "luaVersion": "5.4.6",
+  "scriptSha256": "d4477e84eaf290f9871c674abb1c4a766ba1c3de763f15aa79e96f5437e942a5",
+  "stdout": [
+    "assigned\t10\t20\t30\t40\t50\t60\t70\t80",
+    "local-copy-edit\t10\t20\t30\t40\t50\t60\t70\t80",
+    "member-edit\t10\t20\t30\t40\t50\t60\t70\t80",
+    "failed-transaction\t110\t120\t130\t140\t150\t160\t170\t180",
+    "indexed\t11\t22\t33\t44\t150\t160\t170\t180",
+    "grayscale\t11\t22\t33\t44\t91\t91\t91\t73"
+  ],
+  "deliberateDifference": "PixelWall restores staged colors on failed app.transaction; the native oracle leaves UI colors changed."
+}

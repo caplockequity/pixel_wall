@@ -1,0 +1,2 @@
+local s=Sprite(1,1);for i=1,7 do if i>1 then s:newEmptyFrame() end;local im=Image(1,1);im:drawPixel(0,0,app.pixelColor.rgba(i*30,0,0,255));s:newCel(s.layers[1],i,im);s.frames[i].duration=(5+i)*.01 end
+local a=s:newTag(2,6);a.name='outer';a.aniDir=AniDir.PING_PONG;a.repeats=3;local b=s:newTag(3,4);b.name='inner';b.aniDir=AniDir.REVERSE;b.repeats=2;local c=s:newTag(5,7);c.name='overlap';c.aniDir=AniDir.PING_PONG_REVERSE;c.repeats=2;s:saveAs(app.params.path);s:close()

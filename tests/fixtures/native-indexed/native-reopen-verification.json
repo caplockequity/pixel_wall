@@ -1,0 +1,677 @@
+{
+  "reference": "Aseprite 1.3.18.5-dev API41",
+  "jobs": 118,
+  "frames": 134,
+  "captures": [
+    {
+      "job": "job-001",
+      "frame": 1,
+      "sha256": "40a42f8a591985ba504f30fff6a453a52286f83e4774a3635a8e03e8693621d9"
+    },
+    {
+      "job": "job-002",
+      "frame": 1,
+      "sha256": "97d4a2b321106ad595f2dd073eb709b3f9696c964c6cdad3b2686ca7f08a9481"
+    },
+    {
+      "job": "job-003",
+      "frame": 1,
+      "sha256": "d2b5282d4f5e5e848ba5b03f4438769c3ddcfb7fd44d4b75c6e4fd8d7d3f1be3"
+    },
+    {
+      "job": "job-004",
+      "frame": 1,
+      "sha256": "bc80f29b842a7b5e64abf119c59bd341dd3d1fb2a9bae3dd4f382326aa577b71"
+    },
+    {
+      "job": "job-005",
+      "frame": 1,
+      "sha256": "ae6cbe0e536b7c0f56e429db2af78938e7cbbcb9793ab6953457ca01e771d9fe"
+    },
+    {
+      "job": "job-006",
+      "frame": 1,
+      "sha256": "522844286cb27f7681e92f48394bce323ab7aaaa854276676f5e0605bb259072"
+    },
+    {
+      "job": "job-007",
+      "frame": 1,
+      "sha256": "8dacf72fe99e21036324cdc408b1b9ea765949b910e6ce0511b8273f5de2af0a"
+    },
+    {
+      "job": "job-008",
+      "frame": 1,
+      "sha256": "1d9d643e1100d251949b835a826da65a032394dcea6ce26237d80fa0b2deb982"
+    },
+    {
+      "job": "job-009",
+      "frame": 1,
+      "sha256": "51d9f460bd5e8ab99663ed534bcc39558435ab02560815bbcb7e496b4d16cfd7"
+    },
+    {
+      "job": "job-010",
+      "frame": 1,
+      "sha256": "dcf6da1bdc24afe5e92c0c66a534e180bee955e62d206a455cd234214cb430ea"
+    },
+    {
+      "job": "job-011",
+      "frame": 1,
+      "sha256": "f2e8eace2745ca4161726b02b07eaa40200480c09a42c44f58ca98725a21f049"
+    },
+    {
+      "job": "job-012",
+      "frame": 1,
+      "sha256": "f2e8719bffe2d9a4ade10abb5812049d1518883458d8a47ef4238dfe53f74494"
+    },
+    {
+      "job": "job-013",
+      "frame": 1,
+      "sha256": "249a5f2d8ce54d028f639a1ce219dfd853fb2aad2d147f1d2b572e52cf30208e"
+    },
+    {
+      "job": "job-014",
+      "frame": 1,
+      "sha256": "a55334c870f1dc24bc19dbaac5835789322e5f8e3eac4a09281de6106f481a52"
+    },
+    {
+      "job": "job-015",
+      "frame": 1,
+      "sha256": "9bbb877c9c42f1d485a829919f4de5a0c553ecb08801c426ef023d029c040055"
+    },
+    {
+      "job": "job-016",
+      "frame": 1,
+      "sha256": "2f6e2a9d2e6f3f263a3c45cd47696384e89926bbd03b8c61310e2bff624d73fe"
+    },
+    {
+      "job": "job-017",
+      "frame": 1,
+      "sha256": "749230c1d210825e21fd1c298cde1cbcbcfbfc4276d613eb907a2bed37888ae6"
+    },
+    {
+      "job": "job-018",
+      "frame": 1,
+      "sha256": "c6f1051f4dc84d287a644683fe653fa473009cafa8e6e0e6ea4f160e453b9b96"
+    },
+    {
+      "job": "job-019",
+      "frame": 1,
+      "sha256": "8b034aafa6942f80ec2dd55ef7227bea37384e9b4ee7401c8cda5a62623100e0"
+    },
+    {
+      "job": "job-020",
+      "frame": 1,
+      "sha256": "3d44bd1c63fab3df7532f2f0dcc382e99f237af5559f2752398bd30b381fb79a"
+    },
+    {
+      "job": "job-021",
+      "frame": 1,
+      "sha256": "de8a4db88f8e7ede75d3aa0604c39529492edb744124736edcd796c1627020d8"
+    },
+    {
+      "job": "job-022",
+      "frame": 1,
+      "sha256": "e867991a4237077970890dde48ade66b5b6b4067b4a142e2ffb982a9e4d7bb5a"
+    },
+    {
+      "job": "job-023",
+      "frame": 1,
+      "sha256": "40fe8a88899a2a34ed5aaaba91689327a40db54326d549b3150c982cc262cc85"
+    },
+    {
+      "job": "job-024",
+      "frame": 1,
+      "sha256": "bd8226c8aa597130e343bfba53d2f18c89fc85ba0e77049c9709fa69d260a90c"
+    },
+    {
+      "job": "job-025",
+      "frame": 1,
+      "sha256": "93e064cfa50f2a4b289c824f34d6fd4b46b6c2cb085dd4829ec65a70d539d05c"
+    },
+    {
+      "job": "job-026",
+      "frame": 1,
+      "sha256": "93e064cfa50f2a4b289c824f34d6fd4b46b6c2cb085dd4829ec65a70d539d05c"
+    },
+    {
+      "job": "job-027",
+      "frame": 1,
+      "sha256": "93e064cfa50f2a4b289c824f34d6fd4b46b6c2cb085dd4829ec65a70d539d05c"
+    },
+    {
+      "job": "job-028",
+      "frame": 1,
+      "sha256": "33fa2d75926accbe5927d5f03cca2860ff9099662b4d7969db7b21f5fbe4b3ed"
+    },
+    {
+      "job": "job-029",
+      "frame": 1,
+      "sha256": "33fa2d75926accbe5927d5f03cca2860ff9099662b4d7969db7b21f5fbe4b3ed"
+    },
+    {
+      "job": "job-030",
+      "frame": 1,
+      "sha256": "33fa2d75926accbe5927d5f03cca2860ff9099662b4d7969db7b21f5fbe4b3ed"
+    },
+    {
+      "job": "job-031",
+      "frame": 1,
+      "sha256": "33fa2d75926accbe5927d5f03cca2860ff9099662b4d7969db7b21f5fbe4b3ed"
+    },
+    {
+      "job": "job-032",
+      "frame": 1,
+      "sha256": "ccc6635eb5df7b0a0db91c3736bc1b1076eaa8db50411d84004a8033aff47eb5"
+    },
+    {
+      "job": "job-032",
+      "frame": 2,
+      "sha256": "ccc6635eb5df7b0a0db91c3736bc1b1076eaa8db50411d84004a8033aff47eb5"
+    },
+    {
+      "job": "job-033",
+      "frame": 1,
+      "sha256": "a0a4b2d67892fc213a8ae99fe1de2c81f1a4e741e693bea335be19513e66d545"
+    },
+    {
+      "job": "job-033",
+      "frame": 2,
+      "sha256": "a0a4b2d67892fc213a8ae99fe1de2c81f1a4e741e693bea335be19513e66d545"
+    },
+    {
+      "job": "job-034",
+      "frame": 1,
+      "sha256": "6e9500648c06b4a8261264dd29c63ac44408d883af05f15a0ecc9ea8f061a7a6"
+    },
+    {
+      "job": "job-034",
+      "frame": 2,
+      "sha256": "6e9500648c06b4a8261264dd29c63ac44408d883af05f15a0ecc9ea8f061a7a6"
+    },
+    {
+      "job": "job-035",
+      "frame": 1,
+      "sha256": "2b01728805ccbf81c22f88cbd1c79aa22a43bcfe0bc76da8af27e4054555f1f0"
+    },
+    {
+      "job": "job-035",
+      "frame": 2,
+      "sha256": "2b01728805ccbf81c22f88cbd1c79aa22a43bcfe0bc76da8af27e4054555f1f0"
+    },
+    {
+      "job": "job-036",
+      "frame": 1,
+      "sha256": "0749f199a7f6d3d3f7531fa8cc2ed8586ac5913ed0a9752fce91faf1a510a030"
+    },
+    {
+      "job": "job-037",
+      "frame": 1,
+      "sha256": "dc0d01c61deba3ade218f59746d1f587263f4aef7d94a28f135cb138c61ea683"
+    },
+    {
+      "job": "job-038",
+      "frame": 1,
+      "sha256": "a8a37d0d9bc28a20e3e8dca0a1f87c542c1fe51ef823c2b0b70daa822f4763f3"
+    },
+    {
+      "job": "job-039",
+      "frame": 1,
+      "sha256": "fc49a5dabe6e9d86b6bef604f4386f838e84b2457ee289c129e00c0a5e3790b7"
+    },
+    {
+      "job": "job-040",
+      "frame": 1,
+      "sha256": "59192cc860ed117bbf96dc1d93d1c739d2c4de172576d6e1cd51950914e151ae"
+    },
+    {
+      "job": "job-041",
+      "frame": 1,
+      "sha256": "4348b6206d7cc2f51eb599db07ae655427ce8ff1de6539598058744671a4c08f"
+    },
+    {
+      "job": "job-042",
+      "frame": 1,
+      "sha256": "0844e5f633b27bb24e74b388fc4c44ee4a122d920ac6ab2819d951c85f20a80a"
+    },
+    {
+      "job": "job-043",
+      "frame": 1,
+      "sha256": "7d0d2c675cb36a5f299840e2f1dbe28547cae2936a0b62de59865952105c8028"
+    },
+    {
+      "job": "job-044",
+      "frame": 1,
+      "sha256": "4ccec975db1cf03a1fe59d97a525de701e8419c2dbff6c42e96db6fe5953f311"
+    },
+    {
+      "job": "job-045",
+      "frame": 1,
+      "sha256": "6c487b84a9141c59303e5fad2b9d0ccb5dcccbc4c12af16e07b6efb166a6f9df"
+    },
+    {
+      "job": "job-046",
+      "frame": 1,
+      "sha256": "fb304370f55dc2ef16ecc34c91d0e51850fcd802491479fcce771c965570055b"
+    },
+    {
+      "job": "job-046",
+      "frame": 2,
+      "sha256": "fb304370f55dc2ef16ecc34c91d0e51850fcd802491479fcce771c965570055b"
+    },
+    {
+      "job": "job-046",
+      "frame": 3,
+      "sha256": "8fc3cb017eb40b5afe7bcdf0d04b234caa680b22c778149ca23d581736cbafaa"
+    },
+    {
+      "job": "job-047",
+      "frame": 1,
+      "sha256": "b31cb870c17c9448fc595367e3d0fe2011c18dafa8f97f00cfe4b256f966cc83"
+    },
+    {
+      "job": "job-048",
+      "frame": 1,
+      "sha256": "cac27429c74b64f74ab75808ab322fd1f3ee6127d21c13e63e5ffe07a0a518db"
+    },
+    {
+      "job": "job-049",
+      "frame": 1,
+      "sha256": "f9dbce52d160da8ae546cbf345cb328a98394ccad22c3a7af29c65eaae6292b8"
+    },
+    {
+      "job": "job-050",
+      "frame": 1,
+      "sha256": "6213a1061c778cf551141a0780f5d26b9de420d3e174e251eb6c2a8ca496097f"
+    },
+    {
+      "job": "job-051",
+      "frame": 1,
+      "sha256": "faee1bf6955326687ce04b32b2e627556c3a12cb03e8ef1a4c89201cd1afe9f4"
+    },
+    {
+      "job": "job-052",
+      "frame": 1,
+      "sha256": "105331f8995e2f4c10d1a8f647a79a73fc14d46fa319b30ec2c7e68c2fe4718a"
+    },
+    {
+      "job": "job-053",
+      "frame": 1,
+      "sha256": "b9ac5205bafb20bdfeb19c90ec7af0df43e8b0ef81bd533c936889b45e190eda"
+    },
+    {
+      "job": "job-054",
+      "frame": 1,
+      "sha256": "7fbaf2cf81273efeb6da17d72de8e6d7a80e11004b61cd2203c0713442d084e1"
+    },
+    {
+      "job": "job-055",
+      "frame": 1,
+      "sha256": "580c174c20e62bf886e1f5a3ebb14e8d95442d77c468356249f5469cd8421496"
+    },
+    {
+      "job": "job-056",
+      "frame": 1,
+      "sha256": "3089e600cdc86e00deb0bf82481e25b43c8b8a72fe3cc1e5b8ec4a1606fa3a39"
+    },
+    {
+      "job": "job-057",
+      "frame": 1,
+      "sha256": "f68dd01e8b05f7a176b26c0a648c6f47355c8573a84a62a765d6535b78c336d4"
+    },
+    {
+      "job": "job-058",
+      "frame": 1,
+      "sha256": "02d23ba96dd247893026cd7faa4d7b3599a7e9a652a1be19b92cedfa9549912a"
+    },
+    {
+      "job": "job-058",
+      "frame": 2,
+      "sha256": "02d23ba96dd247893026cd7faa4d7b3599a7e9a652a1be19b92cedfa9549912a"
+    },
+    {
+      "job": "job-058",
+      "frame": 3,
+      "sha256": "ba526b944bf6e5924db41bc082fa31342c81de7adf89d962f76a030000b0c9fc"
+    },
+    {
+      "job": "job-059",
+      "frame": 1,
+      "sha256": "45b8d102ab59875f385777e2014fc34a54148d7ab982ccb496ef501fc1940a02"
+    },
+    {
+      "job": "job-060",
+      "frame": 1,
+      "sha256": "984ea1839dc7e322285c422558375c05503bc1b37c73f0a80fb61827a72adeed"
+    },
+    {
+      "job": "job-061",
+      "frame": 1,
+      "sha256": "c450b6bc520cb2ca3c66615985006610933092e6c342c7282bb0603562bfdbeb"
+    },
+    {
+      "job": "job-062",
+      "frame": 1,
+      "sha256": "b2ad1de5ae9d0b73bfd60261d008b5c5a378773cb437ab660296d1c95b536805"
+    },
+    {
+      "job": "job-063",
+      "frame": 1,
+      "sha256": "dec39e81764a2afa1608e4cd785faa7c1bf95e007491633159a171e2b8f9bd2e"
+    },
+    {
+      "job": "job-064",
+      "frame": 1,
+      "sha256": "dbcd13e7158ed5a61a952775e0a7c4ff4026e4f64598cad6db7891a054e539db"
+    },
+    {
+      "job": "job-065",
+      "frame": 1,
+      "sha256": "102c7768bdb903e119399d8b0634553f6ac824521f32ccfcd9073b663ef004ad"
+    },
+    {
+      "job": "job-066",
+      "frame": 1,
+      "sha256": "00de138f6078a1c55c92aa21ff12b8e7dc8c14abef711074619c61c23e0c35ee"
+    },
+    {
+      "job": "job-067",
+      "frame": 1,
+      "sha256": "c480885aac0117034667311d6726ecdd78530b335ced924c41003895e67dfadd"
+    },
+    {
+      "job": "job-068",
+      "frame": 1,
+      "sha256": "3e00b1a74df6dc8d33923ef1577f29ac3a5d3c17aa006b69e1b5e2861e6f6c6a"
+    },
+    {
+      "job": "job-069",
+      "frame": 1,
+      "sha256": "dba9738e41c2872116acc28987a6ed50a3dce443f34fb64bafbbac40fa897ac8"
+    },
+    {
+      "job": "job-070",
+      "frame": 1,
+      "sha256": "d1929f17448b18c2ba193b9efa28a8e3a9ec091b8a68bf31093ad78aec66fb8f"
+    },
+    {
+      "job": "job-071",
+      "frame": 1,
+      "sha256": "8aaf101d32ac295bb9034f1459a16598fb888f2d4bd944f573f1d9f2598eda25"
+    },
+    {
+      "job": "job-072",
+      "frame": 1,
+      "sha256": "08e979d2efc60103f2fc519c1b90058ae86d59d681ec0a7ac04f1ff87d977f84"
+    },
+    {
+      "job": "job-073",
+      "frame": 1,
+      "sha256": "f555860982876df80904ef069d564c34b290098b83811c7f316976c8ab74bb0c"
+    },
+    {
+      "job": "job-074",
+      "frame": 1,
+      "sha256": "58c3c1e36122a394a7ca27f608c5cbec841a54dbc1688c0c883d1a4e8eb146d7"
+    },
+    {
+      "job": "job-075",
+      "frame": 1,
+      "sha256": "0cce2a962101a7f8fca94585585de0bde7e77528b7943191546205ab197973f9"
+    },
+    {
+      "job": "job-076",
+      "frame": 1,
+      "sha256": "4eb33fd47247d7459f38c549686a999cbc1e6c3aa2f7bc163acef3da6fd7fdf9"
+    },
+    {
+      "job": "job-077",
+      "frame": 1,
+      "sha256": "a0632df926a8f0902f6106c41dc4646e70d4bc86211f0e23b80e8606dfe59b53"
+    },
+    {
+      "job": "job-078",
+      "frame": 1,
+      "sha256": "7a69cab22d6fb25bd6259ada6be6fcd3bfd1fd28d5107922ee109eeac6438ee8"
+    },
+    {
+      "job": "job-079",
+      "frame": 1,
+      "sha256": "1388ba93e48dcd13c1ba3087cd9ebc53a1c2bcfa709cf691b8e0d9ae16ac4101"
+    },
+    {
+      "job": "job-080",
+      "frame": 1,
+      "sha256": "08938d9c856bf97a3800bf0b15120b62d0a71d7ceb790949f18bad79511e4c47"
+    },
+    {
+      "job": "job-081",
+      "frame": 1,
+      "sha256": "ece82769f7fdaa921f7409f5c2bdb1868e8b4621681131a0da609cc37fb2beaf"
+    },
+    {
+      "job": "job-082",
+      "frame": 1,
+      "sha256": "d5e5b098c728a4a20f09e1d02e9f7081e3544624cb6be1b241f5aa4b42a8f8c2"
+    },
+    {
+      "job": "job-083",
+      "frame": 1,
+      "sha256": "f77e5521ffe7a09e0e42f74d391233be8f3906f33d8fa0c9d53831470d526538"
+    },
+    {
+      "job": "job-084",
+      "frame": 1,
+      "sha256": "2fe648b6da76690aacc87e46af6126c701acf709e3f57931ce90e6bfd6b7a497"
+    },
+    {
+      "job": "job-085",
+      "frame": 1,
+      "sha256": "2fe648b6da76690aacc87e46af6126c701acf709e3f57931ce90e6bfd6b7a497"
+    },
+    {
+      "job": "job-086",
+      "frame": 1,
+      "sha256": "2fe648b6da76690aacc87e46af6126c701acf709e3f57931ce90e6bfd6b7a497"
+    },
+    {
+      "job": "job-087",
+      "frame": 1,
+      "sha256": "33fa2d75926accbe5927d5f03cca2860ff9099662b4d7969db7b21f5fbe4b3ed"
+    },
+    {
+      "job": "job-088",
+      "frame": 1,
+      "sha256": "33fa2d75926accbe5927d5f03cca2860ff9099662b4d7969db7b21f5fbe4b3ed"
+    },
+    {
+      "job": "job-089",
+      "frame": 1,
+      "sha256": "33fa2d75926accbe5927d5f03cca2860ff9099662b4d7969db7b21f5fbe4b3ed"
+    },
+    {
+      "job": "job-090",
+      "frame": 1,
+      "sha256": "33fa2d75926accbe5927d5f03cca2860ff9099662b4d7969db7b21f5fbe4b3ed"
+    },
+    {
+      "job": "job-091",
+      "frame": 1,
+      "sha256": "ec45115debc1042553f55624d6b6253962168bb1ccc79affb8e2b8df9d5a4cb3"
+    },
+    {
+      "job": "job-091",
+      "frame": 2,
+      "sha256": "ec45115debc1042553f55624d6b6253962168bb1ccc79affb8e2b8df9d5a4cb3"
+    },
+    {
+      "job": "job-092",
+      "frame": 1,
+      "sha256": "f740890f2226811efe5aeef3d2e77a45bfbb48572879e346664f6f8defa7d57a"
+    },
+    {
+      "job": "job-092",
+      "frame": 2,
+      "sha256": "f740890f2226811efe5aeef3d2e77a45bfbb48572879e346664f6f8defa7d57a"
+    },
+    {
+      "job": "job-093",
+      "frame": 1,
+      "sha256": "17d38b056bf864764db558d2d591c973b73d7fe776aa859ead3fd135a628f849"
+    },
+    {
+      "job": "job-093",
+      "frame": 2,
+      "sha256": "17d38b056bf864764db558d2d591c973b73d7fe776aa859ead3fd135a628f849"
+    },
+    {
+      "job": "job-094",
+      "frame": 1,
+      "sha256": "00be4139833ae4e717abb0f35cee19887857e930e0ffda726d9580a7047c74e4"
+    },
+    {
+      "job": "job-094",
+      "frame": 2,
+      "sha256": "00be4139833ae4e717abb0f35cee19887857e930e0ffda726d9580a7047c74e4"
+    },
+    {
+      "job": "job-095",
+      "frame": 1,
+      "sha256": "91ad03a2bc4cb4c47b0bcc1fc15ffd6e42afd7d9851921fd2c3a74b4daeb4241"
+    },
+    {
+      "job": "job-096",
+      "frame": 1,
+      "sha256": "293180cfafc82be1406b64e638ec0d1b7bcd6c18c4a82ed81437209cc55d3f38"
+    },
+    {
+      "job": "job-097",
+      "frame": 1,
+      "sha256": "b8fc0d4c2c49a38bc0b4c2e821936542c6fa50b2e03b8aea565bb62ccdbd4376"
+    },
+    {
+      "job": "job-098",
+      "frame": 1,
+      "sha256": "fb671590304f583db30f69bd89902ccb82785091149ec0485359617f81460268"
+    },
+    {
+      "job": "job-099",
+      "frame": 1,
+      "sha256": "109d9f250e36b98e07e9de41fda06f614cacf762f1c89cb94e23c440174539b5"
+    },
+    {
+      "job": "job-100",
+      "frame": 1,
+      "sha256": "0d2d0bb95dbc67082f91256b156f68055ada731658f80477bf9fa27038372af8"
+    },
+    {
+      "job": "job-101",
+      "frame": 1,
+      "sha256": "6c0628d19e0147f7e10f6dfdd96c64bdca1715b95de1d4953249d3e5b6b142c6"
+    },
+    {
+      "job": "job-102",
+      "frame": 1,
+      "sha256": "a760850716c4ad82e8beae42f312b97c451ebaab138f1e632ada1acbc79191d1"
+    },
+    {
+      "job": "job-103",
+      "frame": 1,
+      "sha256": "b824f4da202308d7c4edc088a9b4f5c763ce11f75a585e2aaeb6fe7cebe316b0"
+    },
+    {
+      "job": "job-104",
+      "frame": 1,
+      "sha256": "905c9b6d3e1b9b6ce06da33548dc7a7eb64dd75143c1a7b06951b362e5b9e039"
+    },
+    {
+      "job": "job-105",
+      "frame": 1,
+      "sha256": "9cfc3998cdaee28f80f53cb5ec1195c51854a37999731f67037b857d976cf036"
+    },
+    {
+      "job": "job-105",
+      "frame": 2,
+      "sha256": "9cfc3998cdaee28f80f53cb5ec1195c51854a37999731f67037b857d976cf036"
+    },
+    {
+      "job": "job-105",
+      "frame": 3,
+      "sha256": "e77b8d865540adcf0805c7c0612e68294f88c8432e4c55ca4d37a852540b8052"
+    },
+    {
+      "job": "job-106",
+      "frame": 1,
+      "sha256": "74927c4296769247786eaa0aeced9034894bca1bf25a6d414eda2a337660cca9"
+    },
+    {
+      "job": "job-107",
+      "frame": 1,
+      "sha256": "c9bbef732089f4a6f61e8fd271e7d648421dd9b09c7e2062c2ec7f4e9cd6f2d7"
+    },
+    {
+      "job": "job-108",
+      "frame": 1,
+      "sha256": "46d97efec3547d70522d5856d165ca74205b25bc0a63f434b05ca3f4cc821a3d"
+    },
+    {
+      "job": "job-109",
+      "frame": 1,
+      "sha256": "2490cb05ecfacc2e270ccd4574cca23fbc4ce37d4cd33c5d6a674eb2587e4032"
+    },
+    {
+      "job": "job-110",
+      "frame": 1,
+      "sha256": "899bc9ea70688dea122f4ea1bf9939be19c109f04166ac1c75391cd17a400a24"
+    },
+    {
+      "job": "job-111",
+      "frame": 1,
+      "sha256": "fb834c3b2c649282e736e088f1964bbb92cd2eda00f9fc4038a84a198ace44ea"
+    },
+    {
+      "job": "job-112",
+      "frame": 1,
+      "sha256": "bf701b57340696b59ef1184b41b211d417f3e3a7f48142f8014240e46601d592"
+    },
+    {
+      "job": "job-113",
+      "frame": 1,
+      "sha256": "eafc95ede83685e1036556a0074b00d248bf157822b92fc29efc99c57b758142"
+    },
+    {
+      "job": "job-114",
+      "frame": 1,
+      "sha256": "440c15c97855183caf8cf9e98de3285d808649bae403d47aeafbddff2cea25a7"
+    },
+    {
+      "job": "job-115",
+      "frame": 1,
+      "sha256": "2f280f26cf4cc681343e1d8de9751b60ea784fc66e6abf1c64c2ff5eff702af0"
+    },
+    {
+      "job": "job-116",
+      "frame": 1,
+      "sha256": "f85d6e50740b9693eadaadaead201dc918c7b02c1d70b611a18fdd9dc26c4f47"
+    },
+    {
+      "job": "job-117",
+      "frame": 1,
+      "sha256": "3e2cbb3baf9a62ed595c52fc25f900577e8bb9ba8adc790f5263a8144a6f25e4"
+    },
+    {
+      "job": "job-117",
+      "frame": 2,
+      "sha256": "3e2cbb3baf9a62ed595c52fc25f900577e8bb9ba8adc790f5263a8144a6f25e4"
+    },
+    {
+      "job": "job-117",
+      "frame": 3,
+      "sha256": "0a06e6aea60756b5ac167e398cf952b4cf30cd725225cf43cd52e239193ab1f2"
+    },
+    {
+      "job": "job-118",
+      "frame": 1,
+      "sha256": "fb2c2aa3dd2988bf83d5f769708652b1110c12214b2959c4c464188e280122cb"
+    }
+  ]
+}

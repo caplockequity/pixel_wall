@@ -1,0 +1,80 @@
+PIXELWALL ROTATION COMPONENT NOTICES
+
+PixelWall's app/rotation-raster.mjs is a modified portable JavaScript adaptation
+of the separately MIT-licensed Aseprite Document Library rotation algorithms.
+It is not the Aseprite application and does not include its user interface.
+
+Adapted files (Aseprite tag v1.3.18.5):
+  src/doc/algorithm/rotate.cpp
+  src/doc/algorithm/rotsprite.cpp
+Sources:
+  https://github.com/aseprite/aseprite/blob/v1.3.18.5/src/doc/algorithm/rotate.cpp
+  https://github.com/aseprite/aseprite/blob/v1.3.18.5/src/doc/algorithm/rotsprite.cpp
+  https://github.com/aseprite/aseprite/blob/v1.3.18.5/src/doc/LICENSE.txt
+
+Original rotation code by Shawn Hargreaves (Allegro).
+Flipping routines by Andrew Geers.
+Optimized by Sven Sandberg.
+C++ templates by David Capello.
+RotSprite source copyright (c) 2020-2023 Igara Studio S.A.
+RotSprite source copyright (c) 2001-2018 David Capello.
+
+PixelWall modifications: JavaScript typed arrays; explicit validation and limits;
+owned scratch buffers instead of static image buffers; transparent patch output;
+source mask coverage; format adapters and tests. Fixed-point helpers independently
+express the arithmetic/rounding of Allegro-derived fixmath. No trigonometric
+lookup tables or Aseprite application code are included.
+
+ASEPRITE DOCUMENT LIBRARY — MIT LICENSE
+
+Copyright (c) 2018-present Igara Studio S.A.
+Copyright (c) 2001-2018 David Capello
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+ALLEGRO 4 / FIXED-POINT ARITHMETIC ORIGIN
+
+Retained from upstream docs/LICENSES.md:
+https://github.com/aseprite/aseprite/blob/v1.3.18.5/docs/LICENSES.md#allegro-4
+
+Allegro is gift-ware. It was created by a number of people working in
+cooperation, and is given to you freely as a gift. You may use,
+modify, redistribute, and generally hack it about in any way you like,
+and you do not have to give us anything in return.
+
+However, if you like this product you are encouraged to thank us by
+making a return gift to the Allegro community. This could be by
+writing an add-on package, providing a useful bug report, making an
+improvement to the library, or perhaps just releasing the sources of
+your program so that other people can learn from them. If you
+redistribute parts of this code or make a game using it, it would be
+nice if you mentioned Allegro somewhere in the credits, but you are
+not required to do this. We trust you not to abuse our generosity.
+
+By Shawn Hargreaves, 18 October 1998.
+
+DISCLAIMER: THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE AND
+NON-INFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR ANYONE
+DISTRIBUTING THE SOFTWARE BE LIABLE FOR ANY DAMAGES OR OTHER
+LIABILITY, WHETHER IN CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
