@@ -1,4 +1,5 @@
 import releaseData from "../../../public/desktop/latest.json";
+import firstDesktopRelease from "../../../public/desktop/releases/0.2.0.json";
 import { pageMetadata, SITE_URL } from "../../site";
 import { StructuredData } from "../../structured-data";
 import "./downloads.css";
@@ -21,8 +22,8 @@ type Release = {
 };
 const release: Release = releaseData;
 const platforms: { key: Platform; family: string; label: string; detail: string; fileType: string; install: string }[] = [
-  { key: "darwin-arm64", family: "macOS", label: "Mac · Apple silicon", detail: "For Macs with an Apple chip. Check Apple menu → About This Mac if you’re unsure.", fileType: "ZIP", install: "Open the ZIP, then move PixelWall to your Applications folder." },
-  { key: "darwin-x64", family: "macOS", label: "Mac · Intel", detail: "For Macs with an Intel processor. Check Apple menu → About This Mac if you’re unsure.", fileType: "ZIP", install: "Open the ZIP, then move PixelWall to your Applications folder." },
+  { key: "darwin-arm64", family: "macOS", label: "Mac · Apple silicon", detail: "For Apple silicon Macs running macOS 12 or newer. Check Apple menu → About This Mac if you’re unsure.", fileType: "ZIP", install: "Open the ZIP, then move PixelWall to your Applications folder." },
+  { key: "darwin-x64", family: "macOS", label: "Mac · Intel", detail: "For Intel Macs running macOS 12 or newer. Check Apple menu → About This Mac if you’re unsure.", fileType: "ZIP", install: "Open the ZIP, then move PixelWall to your Applications folder." },
   { key: "win32-x64", family: "Windows", label: "Windows · 64-bit", detail: "For Windows PCs with a 64-bit Intel or AMD processor.", fileType: "EXE", install: "Run the downloaded installer and follow the setup steps." },
   { key: "linux-x64", family: "Linux", label: "Linux · AppImage", detail: "For 64-bit Linux computers with an Intel or AMD processor.", fileType: "AppImage", install: "Allow the downloaded file to run as a program in its file permissions, then open it." },
 ];
@@ -106,7 +107,7 @@ export default function DownloadsPage() {
       <div className="downloads-update-copy">
         <p>The desktop app checks for new releases when you’re online. You can also choose <strong>Check for Updates</strong> from the app menu. When an update is ready, PixelWall offers a download link; you download and install it yourself.</p>
         <p>Updates do not install automatically or restart your editing session. Your artwork is not uploaded, and you can keep drawing offline.</p>
-        <p><strong>Using version 0.1.0?</strong> Download and install this release once to add the update checker. Earlier copies cannot check for it themselves.</p>
+        <p><strong>Using version 0.1.0 or 0.2.0?</strong> Download and install this release once to get the working update checker.</p>
         <p>Before replacing the app, save your work, download a <strong>.pixelwall</strong> backup, and quit PixelWall. Keep your Pro ownership-license file too. Replacing the app preserves its normal local library; removing app data or changing devices does not move that library for you.</p>
         <a className="text-link" href={publicLink("/guides/offline-and-downloads")}>Offline use, projects, and ownership licenses →</a>
       </div>
@@ -124,5 +125,9 @@ export default function DownloadsPage() {
       <div><p className="eyebrow">RELEASE NOTES</p><h2 id="release-notes-heading">PixelWall {release.version}</h2><p className="fine-print"><time dateTime={release.publishedAt}>{releaseDate(release.publishedAt)}</time></p></div>
       <div>{release.releaseNotes.length ? <ul>{release.releaseNotes.map((note, index) => <li key={`${index}-${note}`}>{note}</li>)}</ul> : <p>This release is ready to download above.</p>}<a className="text-link" href={publicLink("/support")}>Need a hand? Get support →</a></div>
     </section>
+    {release.version !== firstDesktopRelease.version ? <section className="downloads-release-notes" id="release-0-2-0" aria-labelledby="previous-release-heading">
+      <div><p className="eyebrow">PREVIOUS RELEASE</p><h2 id="previous-release-heading">PixelWall 0.2.0</h2></div>
+      <div><p>The first desktop release for Mac, Windows, and Linux added update controls and public download links. Version 0.2.1 fixes its update connection. If you have 0.2.0, install the latest release above once.</p></div>
+    </section> : null}
   </main>;
 }

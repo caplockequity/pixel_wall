@@ -8,12 +8,12 @@ The wrapper disables Node access, uses context isolation and Chromium sandboxing
 
 ## Desktop releases and updates
 
-Version 0.2.0 adds a delayed background update check, no more than once per day,
+Version 0.2.1 includes a delayed background update check, no more than once per day,
 and a **Check for Updates…** menu item. macOS places it in the PixelWall menu;
 Windows and Linux place it in Help. Automatic checks can be disabled in that menu.
 Network failures remain silent during background checks and never block editing.
 The app opens a download or release-notes page when requested; it never installs
-an update, restarts, or edits artwork. Existing 0.1.0 users must install this build
+an update, restarts, or edits artwork. Existing 0.1.0 and 0.2.0 users must install this build
 once to acquire the checker.
 
 The feed is `https://www.pixelwall.dev/desktop/latest.json`. Only canonical public
@@ -41,3 +41,15 @@ To publish the next desktop release:
 The website's `/downloads/desktop/<version>/<filename>` routes point only to those
 PixelWall release assets. Public pages, desktop menus, update feeds, and downloaded
 licenses use `pixelwall.dev`. The separate Sites preview remains private.
+
+Before shipping a changed updater connection, run the real Electron transport
+regression from the repository root:
+
+```sh
+desktop/node_modules/.bin/electron --headless scripts/verify-desktop-transport.mjs
+```
+
+It opens no editor window and sends requests only to a temporary loopback server.
+It verifies the production fetch wiring, response URL, streaming body, redirect
+rejection, omitted credentials, and cancellation. The updater uses Node's native
+HTTPS client; it does not inherit Chromium's system/PAC proxy configuration.
