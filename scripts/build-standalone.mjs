@@ -6,6 +6,7 @@ import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { standaloneConfig } from '../standalone/vite.config.mjs';
+import { assertPublicArtifact } from './package-downloads.mjs';
 const ownRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sourceRoot = resolve(process.env.PIXELWALL_SOURCE_ROOT ?? ownRoot);
 const webOut = join(sourceRoot, 'dist/standalone');
@@ -18,7 +19,7 @@ async function walk(folder) { const found = []; for (const item of await readdir
 const files = (await walk(webOut)).sort();
 const assets = files.map((path) => './' + relative(webOut, path).split('\\').join('/'));
 const hash = createHash('sha256');
-for (const path of files) { const content = await readFile(path); hash.update(relative(webOut,path)); hash.update(content); if (/\.(?:js|html)$/.test(path) && /PIXELWALL_OFFLINE_PRIVATE_JWK|STRIPE_SECRET_KEY|BEGIN PRIVATE KEY/.test(content.toString())) throw new Error('A server-secret reference appeared in the standalone bundle.'); }
+for (const path of files) { const content = await readFile(path); assertPublicArtifact(path, content); hash.update(relative(webOut,path)); hash.update(content); }
 const buildId = hash.digest('hex').slice(0,16);
 const worker = `const CACHE='pixelwall-standalone-${buildId}';const ASSETS=${JSON.stringify(assets)};
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));

@@ -29,7 +29,7 @@ GIF uses binary transparency and quantizes larger palettes. PNG and project file
 ## Download builds
 
 `npm run build:standalone` builds the local browser app, bundled CLI and Electron app assets.
-Set `PIXELWALL_STANDALONE_SITE_URL` to the HTTPS storefront before building a private distribution.
+All browser and desktop downloads use https://www.pixelwall.dev for checkout, ownership-license conversion and documentation. Private preview addresses are never used in distributed copies.
 `npm run package:downloads` prepares the browser and CLI ZIP files for the website.
 The desktop wrapper has separate packaging scripts in `desktop/package.json`.
 Distribution signing and notarization require release credentials; local macOS builds are unsigned.

@@ -4,7 +4,8 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 export async function standaloneConfig({ sourceRoot = process.env.PIXELWALL_SOURCE_ROOT ?? resolve(here, '..'), outDir = resolve(sourceRoot, 'dist/standalone') } = {}) {
-  const storefront = new URL(process.env.PIXELWALL_STANDALONE_SITE_URL ?? 'https://www.pixelwall.dev');
+  // Every distributed copy links to the public project, including private previews.
+  const storefront = new URL('https://www.pixelwall.dev');
   if (storefront.protocol !== 'https:') throw new Error('Standalone checkout requires an explicit HTTPS storefront URL.');
   let publicKeys = {};
   try { publicKeys = (await import(pathToFileURL(resolve(sourceRoot, 'app/license-public-keys.mjs')).href)).PINNED_PUBLIC_KEYS ?? {}; } catch (error) { if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error; }

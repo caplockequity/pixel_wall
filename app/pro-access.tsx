@@ -11,7 +11,7 @@ class PurchaseError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
 }
 const STANDALONE = process.env.NEXT_PUBLIC_PIXELWALL_STANDALONE === "true";
-const STOREFRONT = process.env.NEXT_PUBLIC_PIXELWALL_SITE_URL ?? "https://www.pixelwall.dev";
+const STOREFRONT = "https://www.pixelwall.dev";
 async function billing(action: string, payload?: object): Promise<BillingReply> {
   if (STANDALONE) {
     if (action === "status") return { pro: false, checkoutAvailable: true, mode: "live" };
@@ -179,7 +179,7 @@ export function ProDialog({ access, beforeCheckout }: { access: ProAccess; befor
     else if (!access.open && dialog.current?.open) dialog.current.close();
   }, [access.open]);
   function recoveryDownloadUrl() {
-    const content = `PixelWall Pro — perpetual ownership license\n\n${access.recoveryCode}\n\nKeep this file private. Anyone with this code can use your Pro access. PW2 ownership licenses work offline in a downloaded or installed PixelWall build; PW1 codes need one online conversion.\nTo restore: open PixelWall, choose Pro, then Restore Pro.\nStore: ${window.location.origin}\nMode: ${access.mode ?? "unknown"}\nSupport: contact@caplock.ai\nThis code restores Pro access, not your artwork. Use Save Project to back up artwork.\n`;
+    const content = `PixelWall Pro — perpetual ownership license\n\n${access.recoveryCode}\n\nKeep this file private. Anyone with this code can use your Pro access. PW2 ownership licenses work offline in a downloaded or installed PixelWall build; PW1 codes need one online conversion.\nTo restore: open PixelWall, choose Pro, then Restore Pro.\nStore: ${STOREFRONT}\nMode: ${access.mode ?? "unknown"}\nSupport: contact@caplock.ai\nThis code restores Pro access, not your artwork. Use Save Project to back up artwork.\n`;
     return `data:text/plain;charset=utf-8,${encodeURIComponent(content)}`;
   }
   return <dialog ref={dialog} className="pro-dialog ph-no-capture" aria-labelledby="pro-title" onCancel={access.close} onClose={access.close}>

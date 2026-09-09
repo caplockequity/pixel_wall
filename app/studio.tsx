@@ -3031,7 +3031,7 @@ export default function Studio() {
         trim: shouldTrim,
         tilemap: selectedClip === null ? { ...tilemap, cells: [...tilemap.cells] } : undefined,
         basename: projectName,
-        app: window.location.origin,
+        app: "https://www.pixelwall.dev",
         includeIndividualFrames: format === "package" && exportIndividualFrames,
         maxTextureSize: 16_384,
         maxSheetPixels: 16_777_216,

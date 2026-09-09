@@ -16,8 +16,8 @@ export const CLIP_DIRECTIONS = Object.freeze([
   "pingpong_reverse",
 ]);
 
-// Keep the default deployment-neutral. Callers may pass `app: location.origin`
-// when they want the current self-hosted URL recorded in the manifest.
+// Keep the library default deployment-neutral. The PixelWall UI records its
+// canonical public storefront in exported manifests.
 const DEFAULT_APP_IDENTIFIER = "PixelWall";
 const DEFAULT_FPS = 8;
 

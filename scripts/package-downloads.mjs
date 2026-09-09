@@ -5,6 +5,9 @@ import {zipSync,strToU8} from 'fflate';
 
 export function assertPublicArtifact(path,data) {
   const text=new TextDecoder().decode(data);
+  if (/\b[\w.-]+\.(?:chatgpt|chatgpt-team)\.site\b/i.test(text)) {
+    throw new Error(`Private Sites link in downloadable file: ${path}`);
+  }
   if (/PIXELWALL_OFFLINE_PRIVATE_JWK|STRIPE_SECRET_KEY|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----|(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}|whsec_[A-Za-z0-9]{16,}|["']?d["']?\s*:\s*["'][A-Za-z0-9_-]{32,}["']/.test(text)) {
     throw new Error(`Server-secret material or reference in downloadable file: ${path}`);
   }
