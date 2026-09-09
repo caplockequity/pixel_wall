@@ -1,0 +1,91 @@
+name: Desktop build candidates
+
+on:
+  push:
+    branches: [codex/desktop-updates]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-candidates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: ${{ matrix.platform }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            platform: windows
+            arch: x64
+            builder-args: --win nsis --x64
+            extension: exe
+          - runner: ubuntu-latest
+            platform: linux
+            arch: x64
+            builder-args: --linux AppImage --x64
+            extension: AppImage
+    defaults:
+      run:
+        shell: bash
+    env:
+      CI: 'true'
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - name: Check out the requested commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Node.js 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - name: Read the release version
+        id: release
+        run: echo "version=$(node -p "require('./desktop/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Install the editor build dependencies
+        run: npm ci
+      - name: Build the standalone editor and bundled CLI
+        run: npm run build:standalone
+      - name: Validate and package public web and CLI downloads
+        run: npm run package:downloads
+      - name: Install the pinned desktop build dependencies
+        working-directory: desktop
+        run: npm ci
+      - name: Build the desktop candidate without publishing
+        working-directory: desktop
+        run: npm run dist -- ${{ matrix.builder-args }} --publish never
+      - name: Validate the packaged application and write checksums
+        run: node scripts/verify-desktop-release.mjs --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --version ${{ steps.release.outputs.version }}
+      - name: Upload the desktop candidate and validation report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: PixelWall-${{ steps.release.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            desktop/release/PixelWall-${{ steps.release.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.extension }}
+            desktop/release/PixelWall-${{ steps.release.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.extension }}.sha256
+            desktop/release/validation-${{ matrix.platform }}-${{ matrix.arch }}.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Upload validated standalone and CLI archives
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: PixelWall-${{ steps.release.outputs.version }}-web-and-cli
+          path: |
+            public/downloads/pixelwall-standalone.zip
+            public/downloads/pixelwall-cli.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

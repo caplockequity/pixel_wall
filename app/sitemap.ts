@@ -4,5 +4,5 @@ import { PREVIEW_DEPLOYMENT, SITE_URL } from "./site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   if (PREVIEW_DEPLOYMENT) return [];
-  return ["", "/editor", "/guides", ...pages.map((page) => `/${page.slug}`)].map((path) => ({ url: `${SITE_URL}${path}` }));
+  return ["", "/editor", "/guides", "/downloads", ...pages.map((page) => `/${page.slug}`)].map((path) => ({ url: `${SITE_URL}${path}` }));
 }

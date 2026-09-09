@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "version": "0.2.0",
+  "publishedAt": "2026-09-09",
+  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-2-0",
+  "releaseNotes": [
+    "Check for desktop updates automatically, or choose Check for Updates from the app menu.",
+    "Download a new version when you are ready. Updates never install or restart the app automatically.",
+    "Desktop downloads are available for Apple silicon and Intel Macs, Windows 64-bit, and Linux 64-bit.",
+    "Desktop store, help, and download links use pixelwall.dev. Existing artwork and Pro licenses stay on your device."
+  ],
+  "downloads": {
+    "darwin-arm64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.2.0/PixelWall-0.2.0-mac-arm64.zip",
+      "filename": "PixelWall-0.2.0-mac-arm64.zip",
+      "signed": false
+    },
+    "darwin-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.2.0/PixelWall-0.2.0-mac-x64.zip",
+      "filename": "PixelWall-0.2.0-mac-x64.zip",
+      "signed": false
+    },
+    "win32-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.2.0/PixelWall-0.2.0-windows-x64.exe",
+      "filename": "PixelWall-0.2.0-windows-x64.exe",
+      "signed": false
+    },
+    "linux-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.2.0/PixelWall-0.2.0-linux-x64.AppImage",
+      "filename": "PixelWall-0.2.0-linux-x64.AppImage",
+      "signed": false
+    }
+  }
+}

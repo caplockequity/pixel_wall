@@ -1,6 +1,6 @@
 {
   "name": "pixelwall-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "PixelWall local desktop studio",
   "private": true,
   "type": "module",
@@ -19,6 +19,7 @@
     "productName": "PixelWall",
     "files": [
       "main.mjs",
+      "update-checker.mjs",
       "app/**/*",
       "package.json"
     ],
@@ -28,16 +29,23 @@
         "zip"
       ],
       "category": "public.app-category.graphics-design",
-      "icon": "../public/pixelwall-icon-512.png"
+      "icon": "../public/pixelwall-icon-512.png",
+      "artifactName": "PixelWall-${version}-mac-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "notarize": false
     },
     "win": {
       "target": "nsis",
-      "icon": "../public/pixelwall-icon-512.png"
+      "icon": "../public/pixelwall-icon-512.png",
+      "artifactName": "PixelWall-${version}-windows-${arch}.${ext}"
     },
     "linux": {
       "target": "AppImage",
       "category": "Graphics",
-      "icon": "../public/pixelwall-icon-512.png"
+      "icon": "../public/pixelwall-icon-512.png",
+      "artifactName": "PixelWall-${version}-linux-${arch}.${ext}"
     },
     "directories": {
       "output": "release"

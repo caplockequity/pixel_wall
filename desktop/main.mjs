@@ -1,7 +1,8 @@
-import { app, BrowserWindow, protocol, net, shell, session, dialog } from 'electron';
+import { app, BrowserWindow, protocol, net, shell, session, dialog, Menu } from 'electron';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, resolve, sep } from 'node:path';
 import { access } from 'node:fs/promises';
+import { createUpdateController, createFileSettingsStore, createDesktopMenuTemplate } from './update-checker.mjs';
 const folder = join(dirname(fileURLToPath(import.meta.url)), 'app');
 protocol.registerSchemesAsPrivileged([{ scheme: 'pixelwall', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
 app.setName('PixelWall');
@@ -48,6 +49,33 @@ else {
     }
     openWindow();
     app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) openWindow(); });
+    async function updateDialog(event) {
+      const owner = BrowserWindow.getFocusedWindow() ?? (window && !window.isDestroyed() ? window : undefined);
+      const show = options => owner ? dialog.showMessageBox(owner, options) : dialog.showMessageBox(options);
+      if (event.kind === 'available') {
+        const notes = event.manifest.releaseNotes.map(note => `• ${note}`).join('\n');
+        const answer = await show({ type: 'info', title: 'PixelWall update available', message: `PixelWall ${event.manifest.version} is available`, detail: `You have version ${event.currentVersion}.\n\n${notes || 'A new desktop release is available.'}\n\nDownload opens the release in your browser.`, buttons: ['Download', 'Later', 'Release notes'], defaultId: 0, cancelId: 1, noLink: true });
+        return answer.response === 0 ? 'download' : answer.response === 2 ? 'notes' : 'later';
+      }
+      if (event.kind === 'current') await show({ type: 'info', title: 'PixelWall is up to date', message: `PixelWall ${event.currentVersion} is up to date`, buttons: ['OK'] });
+      else if (event.kind === 'unsupported') await show({ type: 'info', title: 'No desktop update available', message: 'No update download is available for this computer yet.', detail: `Platform: ${event.target}\nCurrent version: ${event.currentVersion}`, buttons: ['OK'] });
+      else if (event.kind === 'error') await show({ type: 'warning', title: 'Update check unavailable', message: event.message, buttons: ['OK'] });
+      return 'later';
+    }
+    const updater = createUpdateController({
+      currentVersion: app.getVersion(), platform: process.platform, arch: process.arch, packaged: app.isPackaged,
+      fetch: (url, options) => net.fetch(url, options),
+      ...createFileSettingsStore(join(app.getPath('userData'), 'update-checker.json')),
+      notify: updateDialog, openExternal: url => shell.openExternal(url),
+    });
+    const updateSettings = await updater.start();
+    Menu.setApplicationMenu(Menu.buildFromTemplate(createDesktopMenuTemplate({
+      platform: process.platform, appName: app.name, packaged: app.isPackaged, automaticChecks: updateSettings.automaticChecks,
+      onCheck: () => { void updater.check({ manual: true }); },
+      onToggle: enabled => { void updater.setAutomaticChecks(enabled); },
+      onDocumentation: () => { void shell.openExternal('https://www.pixelwall.dev/guides/offline-and-downloads').catch(() => {}); },
+    })));
+    app.on('will-quit', () => updater.dispose());
   }).catch((error) => { dialog.showErrorBox('PixelWall could not start', error.message); app.quit(); });
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 }

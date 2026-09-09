@@ -1,0 +1,44 @@
+.downloads-header { max-width: 900px; padding-bottom: 48px; }
+.download-release-line { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 24px; font-size: .85rem; color: #514b60; }
+.download-release-line a { font-weight: 700; }
+.download-version { border: 1px solid #171628; padding: 5px 10px; background: #ece6fc; color: #171628; font-family: var(--font-geist-mono), monospace; font-size: .78rem; }
+.downloads-section-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 24px; }
+.downloads-section-heading h2 { margin-bottom: 0; }
+.downloads-section-heading > a { font-size: .88rem; }
+.desktop-download-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.desktop-download-card { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; border: 2px solid #171628; padding: clamp(24px, 3vw, 36px); background: #fffcf4; }
+.download-card-top { display: flex; justify-content: space-between; align-items: baseline; width: 100%; gap: 16px; margin-bottom: 14px; }
+.download-card-top .eyebrow { margin-bottom: 0; color: #6848b2; }
+.download-file-type { font-family: var(--font-geist-mono), monospace; font-size: .72rem; border: 1px solid #17162840; padding: 3px 8px; color: #514b60; }
+.desktop-download-card h3 { font-size: clamp(1.45rem, 2.5vw, 1.85rem); }
+.download-platform-detail { min-height: 3.3em; color: #454055; max-width: 43ch; }
+.download-platform-button { width: 100%; justify-content: space-between; margin-top: 10px; }
+.public-site .download-file-info { font-size: .78rem; line-height: 1.65; margin: 18px 0 14px; color: #514b60; }
+.public-site .download-install-note { margin: 0; font-size: .9rem; line-height: 1.65; }
+.public-site .download-signing-note { margin: 14px 0 0; padding-left: 12px; border-left: 3px solid #c09223; color: #51421f; font-size: .82rem; line-height: 1.65; }
+.download-checksum { width: 100%; border-top: 1px solid #17162825; padding-top: 14px; margin-top: 20px; font-size: .8rem; }
+.download-checksum summary { cursor: pointer; font-weight: 600; }
+.public-site .download-checksum p { margin: 12px 0 5px; color: #514b60; font-size: .7rem; }
+.download-checksum code { display: block; overflow-wrap: anywhere; font-family: var(--font-geist-mono), monospace; font-size: .72rem; }
+.download-unavailable { padding: 16px 0; color: #514b60; }
+.public-site .downloads-free-note { margin-top: 24px; max-width: 85ch; }
+.downloads-update-section { display: grid; grid-template-columns: .85fr 1.4fr; gap: 48px; margin-top: 56px; padding: clamp(28px, 4vw, 48px); border: 1px solid #171628; background: #ece6fc; scroll-margin-top: 24px; }
+.downloads-update-copy p { max-width: 68ch; }
+.downloads-update-copy p:last-of-type { margin-bottom: 24px; }
+.downloads-other-section { padding-block: 56px; }
+.downloads-other-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+.downloads-other-grid article { border-top: 2px solid #171628; padding-top: 24px; }
+.downloads-other-grid .eyebrow { margin-bottom: 16px; }
+.downloads-other-grid p:not(.eyebrow) { color: #454055; }
+.downloads-release-notes { display: grid; grid-template-columns: .85fr 1.4fr; gap: 48px; border-top: 2px solid #171628; padding-top: 40px; scroll-margin-top: 24px; }
+.downloads-release-notes ul { margin: 0 0 28px; padding-left: 1.3em; }
+.downloads-release-notes li { padding-left: 4px; margin-bottom: 12px; }
+.downloads-release-notes .eyebrow { margin-bottom: 16px; }
+@media (max-width: 720px) {
+  .desktop-download-grid, .downloads-update-section, .downloads-other-grid, .downloads-release-notes { grid-template-columns: 1fr; }
+  .download-platform-detail { min-height: 0; }
+  .downloads-update-section, .downloads-release-notes { gap: 16px; }
+  .downloads-update-section { margin-top: 40px; }
+  .downloads-other-section { padding-block: 40px; }
+  .downloads-release-notes h2 { margin-bottom: .3em; }
+}
