@@ -92,6 +92,7 @@ export default function DownloadsPage() {
               <p className="download-file-info">Version {release.version}{size ? ` · ${size}` : ""}{mac ? <> · <span>{artifact.signed === true ? (artifact.notarized === true ? "Signed & notarized" : "Signed for macOS") : artifact.signed === false ? "Unsigned build" : "Signing status not listed"}</span></> : null}</p>
               <p className="download-install-note">{platform.install}</p>
               {mac && artifact.signed === false ? <p className="download-signing-note">This build is not signed with an Apple Developer ID. macOS may prevent it from opening. <a href={publicLink("/support")}>Get help</a>.</p> : null}
+              {platform.key === "win32-x64" && artifact.signed === false ? <p className="download-signing-note">The Windows installer is unsigned. Windows may show an unknown-publisher warning.</p> : null}
               {artifact.sha256 ? <details className="download-checksum"><summary>File checksum</summary><p>SHA-256</p><code>{artifact.sha256}</code></details> : null}
             </> : <p className="download-unavailable">This download is being prepared. <a href={publicLink("/editor")}>Use the browser editor</a> in the meantime.</p>}
           </article>;
