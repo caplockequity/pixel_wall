@@ -24,7 +24,7 @@ const release: Release = releaseData;
 const platforms: { key: Platform; label: string; detail: string; hint: string }[] = [
   { key: "darwin-arm64", label: "Mac · Apple silicon", detail: "Apple M-series chips · macOS 12+", hint: "Move the app to Applications." },
   { key: "darwin-x64", label: "Mac · Intel", detail: "Intel processor · macOS 12+", hint: "Move the app to Applications." },
-  { key: "win32-x64", label: "Windows", detail: "64-bit Intel or AMD PC", hint: "Windows may show an unknown-publisher notice." },
+  { key: "win32-x64", label: "Windows", detail: "64-bit Intel or AMD PC", hint: "Open the download to install PixelWall." },
   { key: "linux-x64", label: "Linux", detail: "64-bit Intel or AMD PC", hint: "Allow the file to run as a program." },
 ];
 const releaseId = `release-${release.version.replace(/[^a-zA-Z0-9]+/g, "-")}`;

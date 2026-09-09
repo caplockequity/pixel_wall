@@ -1321,10 +1321,10 @@
         ]
       },
       {
-        "heading": "Desktop release status",
+        "heading": "Use the desktop app",
         "paragraphs": [
-          "The source includes an Electron desktop wrapper around the same standalone editor. An unsigned macOS arm64 app can be built locally; an unsigned local build is not a notarized public installer. No Windows, Linux, or signed macOS release is implied by the browser/CLI download links above.",
-          "The desktop app stores its documents in its own application profile. Move work using native project files and restore the ownership license in that profile."
+          "Get the Mac, Windows, or Linux app from the Downloads page. It includes the same drawing and animation studio and works offline.",
+          "Your desktop projects stay on your device. To move artwork between the browser and desktop app, save and open .pixelwall project files, then restore Pro with your ownership license."
         ]
       },
       {
