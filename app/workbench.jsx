@@ -665,7 +665,7 @@ export default function Workbench() {
       const migrations = await store.importLegacy({
         convert: (raw) => {
           const parsed = parseProject(JSON.stringify(raw));
-          return migrateLegacy(parsed.project || parsed);
+          return migrateLegacy(parsed);
         },
       });
       if (migrations.some((r) => r.status === "failed"))
@@ -678,7 +678,11 @@ export default function Workbench() {
         );
       const list = await store.listDocuments();
       setDocuments(list);
-      const last = await store.getSetting("activeDocument", list[0]?.id);
+      const preferredLegacy = migrations.find((r) => r.documentId)?.documentId;
+      const last = await store.getSetting(
+        "activeDocument",
+        preferredLegacy || list[0]?.id,
+      );
       const loaded =
         (last ? await store.loadDocument(last) : null) ||
         (list[0] ? await store.loadDocument(list[0].id) : null);
@@ -1593,7 +1597,7 @@ export default function Workbench() {
           next = normalizeDocument(raw);
         else {
           const parsed = parseProject(JSON.stringify(raw));
-          next = migrateLegacy(parsed.project || parsed);
+          next = migrateLegacy(parsed);
         }
       } else {
         const image = await decodeImage(file);

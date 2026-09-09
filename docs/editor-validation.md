@@ -11,6 +11,8 @@ Validated 2026-09-09. The default editor is the new workbench; the projector wor
 - The downloaded browser app saved a new rectangular drawing, then reloaded it successfully with its local HTTP server stopped. Its service worker supplied the app shell; IndexedDB retained the artwork.
 - The user's existing live PW1 recovery proof was checked against the existing purchase and converted to a signed PW2 ownership license. No new purchase was created. The shipped public key verified it.
 - The actual bundled CLI exported PNG, native Aseprite, two-frame GIF, atlas and game ZIP. GIF frames, atlas pixels and ZIP assets were decoded for validation. Premium exports used the live ownership license; forged or absent proofs are separately rejected by tests.
+- The published private workbench reopened the existing 16-frame, three-layer Solar Fury project and exported its GIF using existing Pro access. Its PW2 license also restored Pro and exported a GIF in the cached standalone browser app while that app's local server was stopped.
+- First-time migration prefers the newest supported legacy save (v3 before v2/v1) while retaining all recoverable documents. Legacy editor metadata stays attached to the migrated source.
 - The macOS arm64 desktop app builds successfully. Earlier desktop validation exercised drawing, persistence and reopening. The release is unsigned; no signing/notarization credentials are present.
 - Timeline redraw comparison: on a local 64-frame 128×128 fixture, full thumbnail rendering took about 264 ms; comparison plus the changed thumbnail took about 4.1 ms. This is a specific local measurement, not a performance guarantee at the document limits.
 
