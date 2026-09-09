@@ -29,6 +29,16 @@ const platforms: { key: Platform; family: string; label: string; detail: string;
 ];
 const releaseId = `release-${release.version.replace(/[^a-zA-Z0-9]+/g, "-")}`;
 const publicLink = (path: string) => `${SITE_URL}${path}`;
+const launchNotes = [
+  { title: "Drawing tools", detail: "Pixel-perfect brushes, custom brush masks, symmetry, shapes, gradients, bitmap text, selections, and transforms." },
+  { title: "Color and layers", detail: "RGBA, indexed, and grayscale editing, with palettes, layer groups, blend modes, and reference layers." },
+  { title: "Animation", detail: "A layer-and-frame timeline, linked cels, frame timing, animation clips, onion skin, and editable frames created with tween and particle tools." },
+  { title: "Tiles and maps", detail: "Independent tilesets, tilemap layers, and Manual, Auto, and Stack tile editing." },
+  { title: "File compatibility", detail: "Native PixelWall projects, supported Aseprite import and export, PNG/BMP/TGA/GIF imports, sprite-sheet slicing, and image sequences." },
+  { title: "Exports", detail: "Free native project and individual PNG/BMP/TGA exports. Pro adds animated GIFs, sprite atlases with JSON, Tiled game packages, and saved export presets." },
+  { title: "Local ownership", detail: "A document library with recovery versions, portable project backups, downloadable browser and CLI bundles, and offline Pro ownership licenses." },
+  { title: "Free automation", detail: "JavaScript commands, a scripting API, WebMCP, extensions, and a local CLI. External tools can control PixelWall; no AI runs inside the app." },
+];
 
 function downloadUrl(download: Download) {
   const url = new URL(download.url);
@@ -72,7 +82,7 @@ export default function DownloadsPage() {
       <p className="eyebrow">PIXELWALL, ON YOUR COMPUTER</p>
       <h1>Your studio.<br />Your own device.</h1>
       <p className="lede">Draw pixel art, animate a character, and build your game’s tiles on Mac, Windows, or Linux. Your artwork stays on your device. No AI runs inside PixelWall.</p>
-      <div className="download-release-line"><span className="download-version">Version {release.version}</span><time dateTime={release.publishedAt}>{releaseDate(release.publishedAt)}</time><a href={`#${releaseId}`}>What’s new ↓</a></div>
+      <div className="download-release-line"><span className="download-version">Version {release.version}</span><time dateTime={release.publishedAt}>{releaseDate(release.publishedAt)}</time><a href="#release-history">Release history ↓</a></div>
     </header>
 
     <section aria-labelledby="desktop-downloads-heading">
@@ -121,13 +131,31 @@ export default function DownloadsPage() {
       </div>
     </section>
 
-    <section className="downloads-release-notes" id={releaseId} aria-labelledby="release-notes-heading">
-      <div><p className="eyebrow">RELEASE NOTES</p><h2 id="release-notes-heading">PixelWall {release.version}</h2><p className="fine-print"><time dateTime={release.publishedAt}>{releaseDate(release.publishedAt)}</time></p></div>
+    <section className="downloads-history" id="release-history" aria-labelledby="release-history-heading">
+      <header className="downloads-section-heading">
+        <h2 id="release-history-heading">Release history.</h2>
+        <nav className="downloads-release-nav" aria-label="Release versions">
+          <a href={`#${releaseId}`}>{release.version} · Latest</a>
+          {release.version !== firstDesktopRelease.version ? <a href="#release-0-2-0">0.2.0</a> : null}
+          <a href="#release-0-1-0">0.1.0 · Launch</a>
+        </nav>
+      </header>
+    <article className="downloads-release-notes" id={releaseId} aria-labelledby="release-notes-heading">
+      <div><p className="eyebrow">LATEST RELEASE</p><h3 id="release-notes-heading">PixelWall {release.version}</h3><p className="fine-print"><time dateTime={release.publishedAt}>{releaseDate(release.publishedAt)}</time></p></div>
       <div>{release.releaseNotes.length ? <ul>{release.releaseNotes.map((note, index) => <li key={`${index}-${note}`}>{note}</li>)}</ul> : <p>This release is ready to download above.</p>}<a className="text-link" href={publicLink("/support")}>Need a hand? Get support →</a></div>
-    </section>
-    {release.version !== firstDesktopRelease.version ? <section className="downloads-release-notes" id="release-0-2-0" aria-labelledby="previous-release-heading">
-      <div><p className="eyebrow">PREVIOUS RELEASE</p><h2 id="previous-release-heading">PixelWall 0.2.0</h2></div>
+    </article>
+    {release.version !== firstDesktopRelease.version ? <article className="downloads-release-notes" id="release-0-2-0" aria-labelledby="previous-release-heading">
+      <div><p className="eyebrow">PREVIOUS RELEASE</p><h3 id="previous-release-heading">PixelWall 0.2.0</h3></div>
       <div><p>The first desktop release for Mac, Windows, and Linux added update controls and public download links. Version 0.2.1 fixes its update connection. If you have 0.2.0, install the latest release above once.</p></div>
-    </section> : null}
+    </article> : null}
+    <article className="downloads-release-notes" id="release-0-1-0" aria-labelledby="launch-release-heading">
+      <div><p className="eyebrow">LAUNCH RELEASE</p><h3 id="launch-release-heading">PixelWall 0.1.0</h3><p className="fine-print">The original 2D studio.</p></div>
+      <div>
+        <p>Draw pixel art, animate sprites, and build tilemaps in one studio, with local projects and free automation.</p>
+        <ul>{launchNotes.map(note => <li key={note.title}><strong>{note.title}.</strong> {note.detail}</li>)}</ul>
+        <a className="text-link" href={publicLink("/editor")}>Open the editor →</a>
+      </div>
+    </article>
+    </section>
   </main>;
 }
