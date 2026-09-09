@@ -3,14 +3,17 @@ import assert from "node:assert/strict";
 import { webcrypto, createHmac, createHash } from "node:crypto";
 import { billingConfig, createBillingService } from "../app/billing-core.mjs";
 
-const env = { STRIPE_MODE: "test", STRIPE_SECRET_KEY: "sk_test_example", STRIPE_PRICE_ID: "price_pro", PIXELWALL_LICENSE_SECRET: "test-signing-secret-that-is-long-enough", STRIPE_WEBHOOK_SECRET: "whsec_example", PIXELWALL_SITE_URL: "https://pixelwall.example" };
+const pair = await webcrypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+const privateJwk = await webcrypto.subtle.exportKey('jwk', pair.privateKey);
+const publicJwk = await webcrypto.subtle.exportKey('jwk', pair.publicKey);
+const env = { PIXELWALL_LICENSE_KEY_ID: 'test', PIXELWALL_OFFLINE_PRIVATE_JWK: JSON.stringify(privateJwk), PIXELWALL_LICENSE_PUBLIC_KEYS: JSON.stringify({test:publicJwk}), STRIPE_MODE: "test", STRIPE_SECRET_KEY: "sk_test_example", STRIPE_PRICE_ID: "price_pro", PIXELWALL_LICENSE_SECRET: "test-signing-secret-that-is-long-enough", STRIPE_WEBHOOK_SECRET: "whsec_example", PIXELWALL_SITE_URL: "https://pixelwall.example" };
 const id = "cs_test_example12345678";
 const claim = "a".repeat(64);
 const clock = 1788894000000;
 function setup(overrides = {}) {
   const state = {
     calls: [], outage: false,
-    price: { active: true, type: "one_time", currency: "usd", unit_amount: 1900, livemode: false },
+    price: { active: true, type: "one_time", currency: "usd", unit_amount: 1500, livemode: false },
     purchase: { id, mode: "payment", livemode: false, metadata: { app: "pixelwall-pro-v1" }, status: "complete", payment_status: "paid", client_reference_id: createHash("sha256").update(claim).digest("hex"), line_items: { has_more: false, data: [{ price: { id: env.STRIPE_PRICE_ID }, quantity: 1 }] }, payment_intent: { status: "succeeded", latest_charge: { id: "ch_example", status: "succeeded", paid: true, amount: 1900, amount_refunded: 0, refunded: false, disputed: false } } },
     dispute: "needs_response",
   };
@@ -91,7 +94,7 @@ test("successful purchase claims Pro and restores on another browser", async () 
   const response = await request("claim", { sessionId: id }, `pixelwall_checkout=${claim}`);
   assert.equal(response.status, 200);
   const { recoveryCode } = await response.json();
-  assert.match(recoveryCode, /^PW1\.test\.cs_test_/);
+  assert.match(recoveryCode, /^PW2\./);
   const restored = await request("restore", { code: recoveryCode });
   assert.equal(restored.status, 200);
   const cookie = restored.headers.get("set-cookie").split(";")[0];

@@ -7,12 +7,15 @@
   },
   "scripts": {
     "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext dev",
-    "build": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
+    "build": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build && node scripts/prepare-offline.mjs",
     "build:vercel": "node scripts/prepare-vercel-build.mjs && next build",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "npm run build && node --test tests/*.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "build:standalone": "node scripts/build-standalone.mjs",
+    "preview:standalone": "node scripts/serve-standalone.mjs",
+    "package:downloads": "node scripts/package-downloads.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -22,7 +25,8 @@
     "next": "16.2.6",
     "posthog-js": "^1.420.0",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "omggif": "^1.0.10"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
@@ -41,14 +45,14 @@
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "16.4.0",
-    "omggif": "^1.0.10",
     "react-server-dom-webpack": "19.2.6",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "typescript-eslint": "8.59.3",
     "vinext": "1.0.0-beta.2",
     "vite": "8.0.13",
-    "wrangler": "4.92.0"
+    "wrangler": "4.92.0",
+    "fake-indexeddb": "^6.2.4"
   },
   "type": "module"
 }

@@ -2,29 +2,36 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type ReadyFile = { url: string; filename: string };
+type DownloadItem = { url: string; filename: string };
+type ReadyFile = DownloadItem & { companions?: DownloadItem[] };
 
 export function useDownload() {
   const [readyFile, setReadyFile] = useState<ReadyFile | null>(null);
-  const currentUrl = useRef<string | null>(null);
-  useEffect(() => () => { if (currentUrl.current) URL.revokeObjectURL(currentUrl.current); }, []);
+  const currentUrls = useRef<string[]>([]);
+  useEffect(() => () => { currentUrls.current.forEach(url => URL.revokeObjectURL(url)); }, []);
 
   function downloadBlob(blob: Blob, filename: string) {
-    if (currentUrl.current) URL.revokeObjectURL(currentUrl.current);
-    const url = URL.createObjectURL(blob);
-    currentUrl.current = url;
-    setReadyFile({ url, filename });
+    downloadFiles([{blob,filename}]);
+  }
+  function downloadFiles(files: {blob: Blob; filename: string}[]) {
+    if (!files.length) return;
+    currentUrls.current.forEach(url => URL.revokeObjectURL(url));
+    const items = files.map(({blob,filename}) => ({url: URL.createObjectURL(blob),filename}));
+    currentUrls.current = items.map(item => item.url);
+    setReadyFile({...items[0],companions:items.slice(1)});
     // Try the usual automatic download, and retain a visible native link for
     // browsers that require a fresh user gesture after asynchronous exports.
-    const link = document.createElement("a");
-    link.href = url; link.download = filename;
-    document.body.append(link); link.click(); link.remove();
+    for (const {url,filename} of items) {
+      const link = document.createElement("a");
+      link.href = url; link.download = filename;
+      document.body.append(link); link.click(); link.remove();
+    }
   }
   function dismissDownload() {
-    if (currentUrl.current) URL.revokeObjectURL(currentUrl.current);
-    currentUrl.current = null; setReadyFile(null);
+    currentUrls.current.forEach(url => URL.revokeObjectURL(url));
+    currentUrls.current = []; setReadyFile(null);
   }
-  return { readyFile, downloadBlob, dismissDownload };
+  return { readyFile, downloadBlob, downloadFiles, dismissDownload };
 }
 
 export function DownloadReady({ file, onDismiss }: { file: ReadyFile | null; onDismiss: () => void }) {
@@ -34,6 +41,7 @@ export function DownloadReady({ file, onDismiss }: { file: ReadyFile | null; onD
     <p role="status">Your file is ready</p>
     <small>{file.filename}</small>
     <a href={file.url} download={file.filename}>DOWNLOAD FILE</a>
+    {file.companions?.map(item => <a key={item.url} href={item.url} download={item.filename}>DOWNLOAD {item.filename}</a>)}
     <span>Use this if the download hasn’t started.</span>
   </aside>;
 }

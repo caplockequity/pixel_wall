@@ -1,3 +1,6 @@
+import { verifyOfflineLicense } from "./offline-license.mjs";
+import { offlineSigningConfig, signOfflineLicense } from "./offline-license-server.mjs";
+
 // Stripe is the durable purchase record. Artwork never enters these endpoints.
 const COOKIE = "pixelwall_pro";
 const CLAIM_COOKIE = "pixelwall_checkout";
@@ -52,8 +55,11 @@ export function billingConfig(env) {
       if (url.protocol === "https:") origins.push(url.origin);
     } catch { /* Only explicitly configured HTTPS storefronts are accepted. */ }
   }
+  const historicalPrices = (env.STRIPE_HISTORICAL_PRICE_IDS ?? "").split(",").map((id) => id.trim()).filter((id) => /^price_[a-zA-Z0-9]+$/.test(id));
+  const acceptedPrices = new Set([price, ...historicalPrices]);
+  const offline = offlineSigningConfig(env);
   const ready = Boolean(origin && new RegExp(`^(?:sk|rk)_${mode}_`).test(secret) && /^price_[a-zA-Z0-9]+$/.test(price) && signingSecret.length >= 32);
-  return { mode, secret, price, signingSecret, webhookSecret, origin, origins, ready, automaticTax: env.STRIPE_AUTOMATIC_TAX === "true" };
+  return { mode, secret, price, acceptedPrices, offline, signingSecret, webhookSecret, origin, origins, ready, automaticTax: env.STRIPE_AUTOMATIC_TAX === "true" };
 }
 
 export function createBillingService({ env, fetch: fetcher = globalThis.fetch, crypto = globalThis.crypto, now = Date.now }) {
@@ -89,7 +95,7 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
   }
   async function priceDetails() {
     const price = await stripe(`prices/${config.price}`);
-    if (!price.active || price.type !== "one_time" || price.currency !== "usd" || price.unit_amount !== 1900 || price.livemode !== (config.mode === "live")) {
+    if (!price.active || price.type !== "one_time" || price.currency !== "usd" || price.unit_amount !== 1500 || price.livemode !== (config.mode === "live")) {
       throw new BillingError("Pro checkout is being configured. Please try again later.", 503, "price_mismatch");
     }
     return { amount: price.unit_amount, currency: price.currency };
@@ -97,7 +103,7 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
   async function readPurchase(id) {
     if (!SESSION_PATTERN.test(id) || !id.startsWith(`cs_${config.mode}_`)) throw new BillingError("This recovery code is not valid for this store.", 403, "invalid_license");
     const session = await stripe(`checkout/sessions/${id}`, { "expand[0]": "payment_intent.latest_charge", "expand[1]": "line_items" });
-    if (session.livemode !== (config.mode === "live") || session.mode !== "payment" || session.metadata?.app !== APP || session.line_items?.has_more || session.line_items?.data?.length !== 1 || session.line_items.data[0].price?.id !== config.price || session.line_items.data[0].quantity !== 1) {
+    if (session.livemode !== (config.mode === "live") || session.mode !== "payment" || session.metadata?.app !== APP || session.line_items?.has_more || session.line_items?.data?.length !== 1 || !config.acceptedPrices.has(session.line_items.data[0].price?.id) || session.line_items.data[0].quantity !== 1) {
       throw new BillingError("This purchase does not include PixelWall Pro.", 403, "wrong_product");
     }
     if (session.status !== "complete") throw new BillingError("Stripe is still confirming checkout. Try again in a moment.", 409, "payment_pending");
@@ -127,10 +133,24 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
     return `${prefix}.${await hmac(config.signingSecret, prefix, crypto)}`;
   }
   async function checkLicense(code) {
+    if (code.startsWith("PW2.")) {
+      const claims = await verifyOfflineLicense(code, { publicKeys: config.offline.publicKeys, mode: config.mode, crypto });
+      if (!claims) throw new BillingError("That offline license is not valid for this store.", 403, "invalid_license");
+      await readPurchase(claims.purchaseId);
+      return code;
+    }
     const match = CODE_PATTERN.exec(code);
     if (!match || match[1] !== config.mode || !equal(await licenseFor(match[2]), code)) throw new BillingError("That recovery code is not valid. Copy the complete code from your purchase.", 403, "invalid_license");
     await readPurchase(match[2]);
     return code;
+  }
+  async function entitlementFor(code) {
+    if (!config.offline.ready) return {};
+    const claims = code.startsWith("PW2.") ? await verifyOfflineLicense(code, { publicKeys: config.offline.publicKeys, mode: config.mode, crypto }) : null;
+    const purchaseId = claims?.purchaseId ?? CODE_PATTERN.exec(code)?.[2];
+    if (!purchaseId) throw new BillingError("The purchase code is invalid.", 403, "invalid_license");
+    const offlineLicense = claims ? code : await signOfflineLicense(purchaseId, { ...config.offline, mode: config.mode, crypto, now });
+    return { offlineLicense };
   }
   async function boundedBody(request, limit) {
     if (Number(request.headers.get("content-length")) > limit) throw new BillingError("Request too large.", 413);
@@ -169,21 +189,35 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
     let event;
     try { event = JSON.parse(body); } catch { throw new BillingError("Invalid payment notification."); }
     if (event.livemode !== (config.mode === "live")) throw new BillingError("Payment mode mismatch.", 400);
-    // No local entitlement cache to update: every protected operation reads current
-    // Stripe payment/refund/dispute status. Duplicate and reordered events are harmless.
+    // Online checks observe current Stripe payment/refund/dispute status. Offline
+    // licenses deliberately have no expiry; immediate offline revocation is impossible.
+    // Duplicate and reordered events remain harmless.
     return response({ received: true });
   }
   async function handle(request) {
     const action = new URL(request.url).pathname.split("/").at(-1);
+    const exchangeHeaders = action === "exchange" ? { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" } : {};
     try {
+      // A submitted recovery code authenticates this portable exchange. It never
+      // reads/sets cookies, accepts a session ID, or creates a purchase.
+      if (action === "exchange" && request.method === "OPTIONS") return new Response(null, { status: 204, headers: exchangeHeaders });
+      if (action === "exchange" && request.method === "POST") {
+        requireReady();
+        if (!config.offline.ready) throw new BillingError("Offline ownership conversion is being configured. Keep your existing recovery code.", 503, "offline_not_configured");
+        const payload = await jsonBody(request);
+        const code = typeof payload?.code === "string" ? payload.code.trim() : "";
+        await checkLicense(code);
+        const entitlement = await entitlementFor(code);
+        return response({ pro: true, recoveryCode: entitlement.offlineLicense, ...entitlement }, 200, exchangeHeaders);
+      }
       if (request.method === "POST" && action === "webhook") return await webhook(request);
       if (request.method === "GET" && action === "status") {
         if (!config.ready) return response({ pro: false, checkoutAvailable: false, mode: config.mode });
         const code = cookie(request, COOKIE);
-        if (!code) return response({ pro: false, checkoutAvailable: true, mode: config.mode });
-        try { await checkLicense(code); return response({ pro: true, checkoutAvailable: true, mode: config.mode }); }
+        if (!code) return response({ pro: false, checkoutAvailable: config.offline.ready, mode: config.mode });
+        try { await checkLicense(code); return response({ pro: true, checkoutAvailable: config.offline.ready, mode: config.mode, ...await entitlementFor(code) }); }
         catch (error) {
-          if (error instanceof BillingError && [403, 404].includes(error.status)) return response({ pro: false, checkoutAvailable: true, mode: config.mode, reason: error.code }, 200, { "Set-Cookie": setCookie(COOKIE, "", 0) });
+          if (error instanceof BillingError && [403, 404].includes(error.status)) return response({ pro: false, checkoutAvailable: config.offline.ready, mode: config.mode, reason: error.code }, 200, { "Set-Cookie": setCookie(COOKIE, "", 0) });
           throw error;
         }
       }
@@ -195,14 +229,15 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
         const code = cookie(request, COOKIE);
         if (!code) throw new BillingError("This export is included in PixelWall Pro.", 402, "pro_required");
         await checkLicense(code);
-        return response({ pro: true });
+        return response({ pro: true, ...await entitlementFor(code) });
       }
       if (action === "checkout") {
         const active = cookie(request, COOKIE);
         if (active) {
-          try { await checkLicense(active); return response({ pro: true }); }
+          try { await checkLicense(active); return response({ pro: true, ...await entitlementFor(active) }); }
           catch (error) { if (!(error instanceof BillingError) || ![403, 404].includes(error.status)) throw error; }
         }
+        if (!config.offline.ready) throw new BillingError("Pro ownership licenses are being configured. Existing purchases are preserved.", 503, "offline_not_configured");
         await priceDetails();
         const existingClaim = checkoutClaim(request);
         let claim = existingClaim.secret;
@@ -242,7 +277,8 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
         const session = await readPurchase(id);
         if (!equal(session.client_reference_id ?? "", await hash(claim, crypto))) throw new BillingError("This checkout belongs to a different browser. Use your recovery code to restore Pro.", 403, "claim_mismatch");
         const code = await licenseFor(id);
-        const result = response({ pro: true, recoveryCode: code }, 200, { "Set-Cookie": setCookie(COOKIE, code) });
+        const entitlement = await entitlementFor(code);
+        const result = response({ pro: true, recoveryCode: entitlement.offlineLicense ?? code, ...entitlement }, 200, { "Set-Cookie": setCookie(COOKIE, entitlement.offlineLicense ?? code) });
         // Keep the short-lived claim cookie so a reload can recover the code if the
         // first response or download was interrupted. It cannot claim another buyer.
         return result;
@@ -251,17 +287,18 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
         const payload = await jsonBody(request);
         const code = typeof payload?.code === "string" ? payload.code.trim() : "";
         await checkLicense(code);
-        return response({ pro: true }, 200, { "Set-Cookie": setCookie(COOKIE, code) });
+        return response({ pro: true, ...await entitlementFor(code) }, 200, { "Set-Cookie": setCookie(COOKIE, code) });
       }
       if (action === "recovery") {
         const code = await checkLicense(cookie(request, COOKIE));
-        return response({ recoveryCode: code });
+        const entitlement = await entitlementFor(code);
+        return response({ recoveryCode: entitlement.offlineLicense ?? code, ...entitlement });
       }
       if (action === "logout") return response({ pro: false }, 200, { "Set-Cookie": setCookie(COOKIE, "", 0) });
       return response({ error: "Not found." }, 404);
     } catch (error) {
-      if (error instanceof BillingError) return response({ error: error.message, code: error.code }, error.status);
-      return response({ error: "We couldn’t complete that request. Please try again.", code: "billing_unavailable" }, 503);
+      if (error instanceof BillingError) return response({ error: error.message, code: error.code }, error.status, exchangeHeaders);
+      return response({ error: "We couldn’t complete that request. Please try again.", code: "billing_unavailable" }, 503, exchangeHeaders);
     }
   }
   return { handle, checkLicense, licenseFor, readPurchase };

@@ -2,125 +2,168 @@
   {
     "slug": "sprite-sheet-maker",
     "title": "Make a sprite sheet from your pixel-art frames",
-    "description": "Draw and organize pixel-art frames in your browser. Export sprite sheets or PNG-and-JSON packages with PixelWall Pro, a $19 one-time purchase.",
+    "description": "Create trimmed sprite atlases with padding, edge extrusion, and animation metadata. PixelWall Pro costs $15 once; drawing and native saves are free.",
     "eyebrow": "SPRITE SHEETS",
-    "intro": "Draw a character, create its animation frames, and arrange them in a horizontal, vertical, or compact grid sheet. PixelWall Pro exports a PNG sheet or a ZIP with the sheet and animation metadata. Drawing and editing are free.",
+    "intro": "Draw and organize frames in the editor, then export a packed, horizontal, vertical, or grid atlas. Pro includes a PNG atlas with JSON metadata and a game package ZIP. Choose trimming, padding, and edge extrusion for your game pipeline.",
     "sections": [
       {
-        "heading": "How it works",
+        "heading": "Make a sprite atlas",
         "steps": [
           {
             "title": "Create your frames",
-            "text": "Open New Project, choose a canvas size, and draw your first sprite. In Animate, use Duplicate frame to make variations or New Frame to start another image."
+            "text": "Choose New project in the header, enter Width and Height, and draw a pose. Use + Frame, Duplicate, or Duplicate linked in the timeline."
           },
           {
-            "title": "Organize an animation",
-            "text": "Set a clip Name, choose its From and To frames, and adjust each frame's Duration. Select frames in the timeline to edit them."
+            "title": "Define a clip",
+            "text": "Select frames in the timeline. Open Edit clips, choose Create clip from selected frames, and set its Name, Direction, and Loop. Duration ms edits selected frames."
           },
           {
-            "title": "Choose the sheet layout",
-            "text": "Open Export → Sprite Sheet & Package Settings. Choose an Animation, a Layout, and Padding px."
+            "title": "Set the export",
+            "text": "Open Export. Choose Sprite atlas PNG or Game package ZIP, set Scale and Clip, then choose Layout, padding, extrude, Trim transparent edges, and Power-of-two dimensions."
           },
           {
-            "title": "Download your sheet or package",
-            "text": "With Pro, choose Sprite Sheet for a PNG with full-size frame cells. Choose Sprite Package for a ZIP containing the sheet and JSON, with optional individual PNGs and transparent-edge trimming."
+            "title": "Keep the metadata",
+            "text": "Sprite atlas PNG creates image and JSON downloads. Allow both downloads and keep them together. Game package ZIP keeps its atlas, JSON, rendered frames, editable project, and any tilemap assets in one archive."
           }
+        ]
+      },
+      {
+        "heading": "Trimming and playback",
+        "paragraphs": [
+          "Trimming removes transparent borders and records each frame’s original size and offset in JSON. Edge extrusion repeats border pixels outside the frame rectangle; padding separates entries. Packed layout does not rotate sprites.",
+          "The editor exports the selected clip’s playback sequence, including reverse and ping-pong order. The default Clip choice uses the active clip when one exists. Choose a clip containing all required frames when you want the complete animation. Atlas JSON includes source IDs and durations; it is not the classic editor’s older Phaser-specific animation recipe schema."
         ]
       },
       {
         "heading": "What is included",
         "paragraphs": [
-          "Drawing, frame editing, individual frame PNGs, and editable .pixelwall backups are free. Sprite sheets, sprite packages, and named export presets require Pro: $19 USD once. The editor supports up to 64 frames and four layers. Trimming applies to the ZIP package; standalone sheet PNGs keep the full canvas size for every frame."
+          "Drawing, animation editing, scripting and the command API are free. Editable .pixelwall and supported .aseprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
+          "The current editor accepts canvases from 1 × 1 through 2048 × 2048, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. These are validation limits, not a promise that every maximum-size combination will be responsive on your device; memory and export budgets also apply."
+        ],
+        "links": [
+          {
+            "href": "/guides/export-formats",
+            "label": "Read the current export format reference"
+          },
+          {
+            "href": "/guides/command-line",
+            "label": "Automate sheets and atlases with the CLI"
+          }
         ]
       }
     ],
     "faqs": [
       {
-        "question": "Can I edit an existing sprite sheet?",
-        "answer": "Yes, for supported strips. Open Reference → Load Image and load a horizontal or vertical strip of 2–64 square frames without spacing. If its frame size matches a supported canvas size, choose Import … Editable Frames. Save your current project first: importing replaces its artwork, layers, and clips. Multi-row atlases and padded sheets are not supported by automatic import."
+        "question": "Can I make a sprite sheet without an account?",
+        "answer": "Yes. Drawing, frames, layers, scripts, and project files are free without an account. Sprite sheet and atlas downloads require Pro, a $15 one-time purchase."
       },
       {
-        "question": "Does the package include JSON?",
-        "answer": "Yes. Sprite Package includes a JSON manifest with frame rectangles, clips, pivots, and Phaser/Pixi/Aseprite-style metadata. Check the import requirements of your chosen engine. This is not a native .aseprite project file."
+        "question": "Does the PNG include animation timing?",
+        "answer": "The pixels do not. Keep the accompanying JSON, which records frame rectangles and durations. The game ZIP keeps metadata and images together."
       },
       {
-        "question": "Can I download a single sprite for free?",
-        "answer": "Yes. Select a frame, then choose Export → Current Frame to download its PNG at the canvas's native size. The exported image combines the visible artwork layers."
+        "question": "Can I use the older Phaser or PixiJS examples?",
+        "answer": "Yes. Those existing guides identify the classic export workflow at /editor/classic. Its animation recipe schema differs from the current atlas JSON."
       }
     ],
     "related": [
+      "guides/export-formats",
       "pixel-art-animation",
-      "pixel-art-tracing",
-      "tileset-maker",
-      "guides/getting-started"
+      "guides/command-line"
     ]
   },
   {
     "slug": "pixel-art-animation",
     "title": "Animate pixel art one frame at a time",
-    "description": "Animate pixel art with onion skin, named clips, and frame timing. Draw and preview free; export animated GIFs with PixelWall Pro for $19 once.",
+    "description": "Animate pixel art with onion skin, named clips, and frame timing. Draw and preview free; export animated GIFs with PixelWall Pro for $15 once.",
     "eyebrow": "ANIMATION",
-    "intro": "Turn a still sprite into a moving character in your browser. Duplicate frames, use onion skin to guide the next pose, and organize movements into named clips. Drawing and playback are free; animated GIF and sprite-sheet downloads are included in Pro.",
+    "intro": "Build animation with editable layers, per-frame timing, and named clips. Duplicate a pose, use onion skin to compare neighboring frames, and preview forward, reverse, or ping-pong playback. Editing is free; Pro adds GIF and atlas exports.",
     "sections": [
       {
-        "heading": "How it works",
+        "heading": "Animate a sprite",
         "steps": [
           {
-            "title": "Draw a starting pose",
-            "text": "Create a project and draw a sprite. Open Animate to see its frame in the timeline."
+            "title": "Draw a pose",
+            "text": "Create a project and draw on the active image layer. The timeline is always below the canvas."
           },
           {
-            "title": "Make the next pose",
-            "text": "Choose Duplicate frame, then change a few pixels. Turn on Onion above the canvas to see the previous frame as a guide."
+            "title": "Add frames",
+            "text": "Use + Frame for a blank frame or Duplicate for an independent copy. Duplicate linked reuses the same cel image; edits to linked copies affect the shared pixels until you choose Unlink selected cels."
           },
           {
-            "title": "Set the movement",
-            "text": "Give the clip a Name, choose its From and To frames, and set Duration per frame or an FPS preset for the clip."
+            "title": "Use onion skin",
+            "text": "Open the Effects panel. Set Previous onion frames, Next onion frames, and Onion opacity to compare neighboring poses. Onion overlays do not appear in exports."
           },
           {
-            "title": "Preview the loop",
-            "text": "Choose a Play direction, such as Forward or Ping-Pong, set Loop, and press the play button. Add or adjust frames until the movement reads clearly."
+            "title": "Set timing and clips",
+            "text": "Select frames using Shift for a range or Command/Ctrl for individual selection. Adjust Duration ms. Open Edit clips to create a clip from selected frames, name it, and choose Direction and Loop."
           },
           {
-            "title": "Save or export",
-            "text": "Use Save Project to keep an editable backup. With Pro, open Export, choose a GIF Size of 1×, 2×, 4×, or 8×, then choose Animated GIF."
+            "title": "Preview and export",
+            "text": "Press Play animation or Space. Open Export, choose Animated GIF, then set Scale and Clip. Save an editable project backup as well."
           }
         ]
       },
       {
-        "heading": "What is included",
+        "heading": "Procedural 2D motion",
         "paragraphs": [
-          "Creating animations, onion skin, clips, playback, and project backups are free. Animated GIFs, sprite sheets, and sprite packages require Pro: $19 USD once. The editor supports up to 64 frames and four layers. GIF uses up to 256 colors per frame and on/off transparency. Its timing is rounded to hundredths of a second, with a 20 ms minimum per frame."
+          "Effects → Motion and particles opens controls for baked position animation and deterministic particles on selected frames. The results are editable cels. Keep separate frames or an undo point before applying a bake.",
+          "These are ordinary 2D drawing operations. PixelWall does not generate artwork with embedded AI, and it does not currently provide a 3D model rendering workflow."
+        ]
+      },
+      {
+        "heading": "Timing, color, and capacity",
+        "paragraphs": [
+          "The current GIF encoder reserves a transparent entry and keeps up to 255 distinct opaque colors per frame. More colorful frames are quantized to a 216-color RGB grid. Alpha below 128 becomes transparent; other pixels become opaque.",
+          "GIF delays round to 10 ms units with a 10 ms minimum in the current encoder. Some viewers impose a longer minimum. The editor limits the complete scaled GIF sequence to 67,108,864 output pixels; choose a smaller scale or shorter clip when needed.",
+          "The current editor accepts canvases from 1 × 1 through 2048 × 2048, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. These are validation limits, not a promise that every maximum-size combination will be responsive on your device; memory and export budgets also apply."
         ]
       }
     ],
     "faqs": [
       {
-        "question": "Can one project contain an idle animation and a walk animation?",
-        "answer": "Yes. Use Add animation clip, give each clip a name, and choose its frame range. Select the clip you want to preview from Clip."
+        "question": "Is animation editing free?",
+        "answer": "Yes. Frames, timing, clips, linked cels, onion skin, playback, and 2D motion editing are free. Pro unlocks the listed batch and animation exports."
       },
       {
-        "question": "Which animation does the GIF export?",
-        "answer": "The active clip. GIF export follows that clip's frame timing, playback direction, and loop setting. The separate Animation choice in sprite-sheet settings controls sheet and package exports."
+        "question": "Does a linked duplicate make a separate drawing?",
+        "answer": "It shares the cel image. Use an ordinary Duplicate or Unlink selected cels when the pixels must diverge."
       },
       {
-        "question": "Can I export an animation for a game?",
-        "answer": "Yes. Pro offers Sprite Sheet for a PNG arranged in full-size cells and Sprite Package for a sheet plus JSON metadata. Choose the format your game's import workflow expects."
+        "question": "Do imported GIFs keep layers?",
+        "answer": "No. A GIF contains rendered frames, palette colors, transparency, and timing. It does not carry your original editable layer structure."
       }
     ],
     "related": [
       "sprite-sheet-maker",
-      "pixel-art-tracing",
-      "guides/getting-started"
+      "guides/export-formats",
+      "guides/scripting"
     ]
   },
   {
     "slug": "pixel-art-tracing",
-    "title": "Trace your reference into pixel art",
-    "description": "Load a reference image, align it behind a pixel grid, and draw over it in your browser. Trace for free and download your finished sprite as a PNG.",
+    "title": "Trace a reference with the classic pixel-art projector",
+    "description": "Use the classic PixelWall reference projector to align a photo or sketch, then draw pixels on separate layers. Reference tracing and PNG saves are free.",
     "eyebrow": "REFERENCE TRACING",
-    "intro": "Place a photo, sketch, or sprite behind the canvas, then draw the pixels yourself. PixelWall's reference projector lets you adjust the image's position, size, and opacity while your artwork stays on separate layers.",
+    "intro": "The adjustable photo and sketch projector is in the classic editor. Open it below to position a reference behind a square pixel canvas, then trace by hand. The current editor also supports reference layers, with a different layer-based workflow.",
     "sections": [
+      {
+        "heading": "Open the matching editor",
+        "paragraphs": [
+          "The steps on this page describe the classic Reference panel, Image Scale, Move Image, and Add Trace Frame controls. They are available at /editor/classic. Use a separate project backup when moving between classic projects and the current v4 editor.",
+          "In the current editor, choose Reference or Layers → Import reference layer. Adjust its layer opacity and cel offsets. Reference layers remain visible in the editor preview and stay in editable projects. Rendered exports omit them by default; enable Include reference layers when you deliberately want them in the output."
+        ],
+        "links": [
+          {
+            "href": "/editor/classic",
+            "label": "Open the classic reference projector"
+          },
+          {
+            "href": "/editor",
+            "label": "Open the current editor"
+          }
+        ]
+      },
       {
         "heading": "How it works",
         "steps": [
@@ -168,9 +211,9 @@
       }
     ],
     "related": [
-      "pixel-art-animation",
-      "sprite-sheet-maker",
-      "guides/getting-started"
+      "guides/getting-started",
+      "guides/aseprite-compatibility",
+      "guides/offline-and-downloads"
     ]
   },
   {
@@ -178,58 +221,90 @@
     "title": "Draw your tiles and build a map with them",
     "description": "Draw pixel-art tiles, check repeating seams, and paint a tilemap in your browser. Tiled-compatible map packages are included in PixelWall Pro.",
     "eyebrow": "TILESETS & MAPS",
-    "intro": "Make ground, wall, or background tiles as pixel-art frames, then paint with them in Tilemap Lab. Check a tile's repeat while drawing and keep its artwork and map together in one editable project.",
+    "intro": "Create independent tilesets from selected frames, then paint reusable tiles on tilemap layers. Tiles can be flipped or rotated in quarter turns. Keep the editable map and source tiles together in a .pixelwall project or a Pro game package.",
     "sections": [
       {
-        "heading": "How it works",
+        "heading": "Build a tileset and map",
         "steps": [
           {
-            "title": "Draw a tile",
-            "text": "Start a project at your chosen tile size. Draw the first tile, then use New Frame or Duplicate frame in Animate for additional tiles."
+            "title": "Draw source tiles",
+            "text": "Use one canvas-sized tile per frame. Select the frames to include in your tileset."
           },
           {
-            "title": "Check the repeat",
-            "text": "Open Layers and turn on Seam Check to see the active tile repeated in a 3 × 3 preview. Link Edges links opposite border edits while you draw."
+            "title": "Create the tileset",
+            "text": "Open Tiles, choose Create tileset from frames…, and confirm Create from selected frames. The tileset stores independent image records; later changes to the source animation frames do not automatically redraw those tile records."
           },
           {
-            "title": "Set up the map",
-            "text": "Open Tilemap and choose the map's Width and Height in cells."
+            "title": "Make room for the map",
+            "text": "If needed, resize the canvas after creating the tileset so multiple tiles fit. Canvas resizing changes the document bounds; tiles retain their own dimensions."
           },
           {
-            "title": "Paint with your frames",
-            "text": "Select a frame in the timeline, return to Tilemap Lab, choose Paint, and place that tile. Use Erase to remove map cells. Editing the source frame updates its placed copies."
+            "title": "Paint a tilemap layer",
+            "text": "In Tiles, choose the tileset and Add tilemap layer. Select a tile, then draw on the canvas. Use Erase tile, Flip horizontally, Flip vertically, and Rotation for cell edits."
           },
           {
-            "title": "Save or export",
-            "text": "Use Save Project to keep the editable tiles and map. With Pro, choose Export → Tilemap Package for a ZIP containing the Tiled-compatible map, tileset PNG, preview PNG, and frame-mapping JSON."
+            "title": "Inspect and export",
+            "text": "Use Seamless preview to inspect repetition of the rendered frame. Save the native project. With Pro, choose Export → Game package ZIP to include independent tilesets and Tiled-compatible map files."
           }
         ]
       },
       {
-        "heading": "What is included",
+        "heading": "Edit a reused tile",
         "paragraphs": [
-          "Tile drawing, seam preview, linked edges, map painting, individual frame PNGs, and project backups are free. The Tiled-compatible tilemap ZIP requires Pro: $19 USD once. A map can be up to 64 × 64 cells. All tiles use the project's square canvas size, and the editor supports up to 64 frames. Paint at least one map cell before exporting a tilemap package."
+          "Choose Tiles → Edit tile pixels…, then click a painted tilemap cell. Edit the original tile pixels in the small canvas; the cell keeps its rotation and flip settings.",
+          "Tile edit mode controls reuse: Auto reuses a matching tile or adds a new one; Manual updates every use of the tile; Stack always adds a new tile. Choose Apply tile pixels to commit the change. Source animation frames remain independent from the copied tileset."
+        ]
+      },
+      {
+        "heading": "What the package preserves",
+        "paragraphs": [
+          "The game ZIP includes manifest.json, sprites.png, sprites.json, rendered frame PNGs, and the editable project. Projects with tilemap data also include maps/ files and tilesets/ files. Tiled maps group layers by tile dimensions for each animation frame.",
+          "The export carries tile IDs, quarter-turn and flip flags, layer opacity, visibility, names, and source metadata. Its manifest reports unsupported Tiled blend modes. Collision objects and animated-tile definitions are not generated; the rendered frame PNGs and native project retain the full artwork."
+        ]
+      },
+      {
+        "heading": "Classic Tilemap Lab",
+        "paragraphs": [
+          "The older frame-as-tile Tilemap Lab remains in the classic editor, including its original one-map export workflow. It is distinct from independent tilesets and tilemap layers in the current editor."
+        ],
+        "links": [
+          {
+            "href": "/editor/classic",
+            "label": "Open classic Tilemap Lab"
+          },
+          {
+            "href": "/guides/tiled-tilemaps",
+            "label": "Open the current Tiled package guide"
+          }
+        ]
+      },
+      {
+        "heading": "Capacity",
+        "paragraphs": [
+          "Drawing, animation editing, scripting and the command API are free. Editable .pixelwall and supported .aseprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
+          "The current editor accepts canvases from 1 × 1 through 2048 × 2048, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. These are validation limits, not a promise that every maximum-size combination will be responsive on your device; memory and export budgets also apply.",
+          "A tilemap layer can contain up to 1,048,576 cells, with no more than 2048 rows or columns. Browser memory can become a practical limit earlier."
         ]
       }
     ],
     "faqs": [
       {
-        "question": "Does Seam Check fix a tile automatically?",
-        "answer": "No. It repeats the active tile so you can spot visible joins. You edit the pixels; Link Edges helps keep opposite borders connected while drawing."
+        "question": "Will editing a source frame update every tile?",
+        "answer": "Current-editor tilesets are independent copies created from frames. To change a reused tile, choose Edit tile pixels…, click a tilemap cell, and use Manual to update every use or Auto/Stack to keep an independent variant. The classic Tilemap Lab has a separate frame-linked workflow."
       },
       {
-        "question": "Which frames go into the exported tileset?",
-        "answer": "The tilemap package includes all project frames in a stable tileset, including frames not yet placed in the map. Its mapping file connects exported tiles to their source frames. For a sheet of animation frames, use Sprite Sheet or Sprite Package instead."
+        "question": "Does PixelWall export Tiled maps?",
+        "answer": "Pro Game package ZIP exports Tiled-compatible orthogonal maps and external image-collection tilesets when the document contains tilemap layers. Keep the archive folder structure intact."
       },
       {
-        "question": "Does the map include collisions or animated tiles?",
-        "answer": "The current export is a static tile layer with its tileset and placement data. Add collision shapes, object layers, or animated-tile behavior in Tiled or your game engine."
+        "question": "Can I import a Tiled map back into PixelWall?",
+        "answer": "Direct Tiled map round-trip import is not currently offered. Keep the .pixelwall source project."
       }
     ],
     "related": [
-      "sprite-sheet-maker",
-      "pixel-art-animation",
-      "guides/getting-started"
+      "guides/tiled-tilemaps",
+      "guides/export-formats",
+      "guides/scripting"
     ]
   },
   {
@@ -237,153 +312,218 @@
     "title": "Draw and save your first PixelWall sprite",
     "description": "Make your first pixel-art sprite in PixelWall. Learn the canvas, drawing tools, layers, PNG export, and editable project backups in five short steps.",
     "eyebrow": "GETTING STARTED",
-    "intro": "Start with a small canvas and a simple shape, such as a coin or heart. You can draw, use layers, and download a PNG without an account or purchase. This guide takes you from a blank project to an image you can keep.",
+    "intro": "Start with a small canvas and a simple coin or heart. The current editor keeps multiple local documents, shows layers and a timeline, and lets you save native projects or individual raster frames for free.",
     "sections": [
       {
-        "heading": "Your first sprite, step by step",
+        "heading": "Your first sprite",
         "steps": [
           {
-            "title": "Start a blank project",
-            "text": "Choose New Project, enter a project name, select 16 × 16, and choose Create Project. Leave the backup option selected if you want to keep the project already open."
+            "title": "Create a small project",
+            "text": "Choose New project in the header. Enter a name, Width 16, Height 16, and a color mode. RGBA is a straightforward starting point. Confirm the new project."
           },
           {
-            "title": "Place your first pixels",
-            "text": "Choose Pencil or press P, select a color, and draw an outline. Use Eraser (E) to remove pixels and Fill (F) to fill a connected area. Undo lets you revise a stroke."
+            "title": "Place pixels",
+            "text": "Choose Pencil or press B, then choose a color in Colors and draw an outline. Eraser is E, Fill is F, and Sample color is I. Undo reverses a completed edit."
           },
           {
-            "title": "Make the canvas comfortable",
-            "text": "Use + and − to zoom. Choose Hand (H) to move the view and Fit (0) to see the whole canvas. Zoom changes the view, not your artwork's pixel dimensions."
+            "title": "Adjust the view",
+            "text": "Use the Zoom dropdown or Fit. Hand (H) pans the view. Zoom does not alter the saved pixel dimensions."
           },
           {
-            "title": "Add color and detail",
-            "text": "In Layers, choose Add layer if you want to separate details from the base artwork. The eye shows or hides a layer; the lock protects it from edits. You can create up to four layers."
+            "title": "Use layers",
+            "text": "Open Layers to add an image layer or group. Use the eye and lock controls to manage visibility and editing. Adjust opacity, blending, group membership, and cel X/Y offsets as needed."
           },
           {
-            "title": "Download both versions",
-            "text": "Choose Export → Current Frame for the finished PNG. Choose Save Project for a .pixelwall file that preserves editable frames, layers, and any reference. Later, use Open Project to continue working."
+            "title": "Keep both files",
+            "text": "Choose Save project backup in the header for a .pixelwall file. Export → Current frame PNG makes a finished raster image. Open project or image imports a saved native file or a supported image."
           }
         ]
       },
       {
-        "heading": "What is included",
+        "heading": "Save and recover",
         "paragraphs": [
-          "Drawing, layers, reference tools, animation and tilemap editing, individual frame PNGs, autosave, and project files are free. Pro is $19 USD once for animated GIFs, sprite sheets, sprite and tilemap ZIP packages, and named export presets. The editor supports square canvas presets from 8 × 8 through 256 × 256, up to 64 frames, and four layers."
+          "The document tabs keep separate projects on this device. Look for Saved on this device after a change. Recovery lists saved revisions; restoring one creates a new current revision while keeping recoverable history.",
+          "Local autosave is not cloud sync. If saving reports a storage or conflict error, keep the editor open and download a .pixelwall backup. Browser or operating-system cleanup can remove local storage."
+        ]
+      },
+      {
+        "heading": "What is free and how large can I work?",
+        "paragraphs": [
+          "Drawing, animation editing, scripting and the command API are free. Editable .pixelwall and supported .aseprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
+          "The current editor accepts canvases from 1 × 1 through 2048 × 2048, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. These are validation limits, not a promise that every maximum-size combination will be responsive on your device; memory and export budgets also apply."
+        ]
+      },
+      {
+        "heading": "Keyboard and workspace preferences",
+        "paragraphs": [
+          "Open Workspace settings to change tool shortcuts, sidebar position, and timeline height. Choose Floating to move the panel area, or dock it left or right. Pin panel keeps a section open while you switch tabs. Command/Ctrl+Z undoes, Command/Ctrl+S saves locally, and Command/Ctrl+K opens command search. Tool shortcuts apply when you are not typing in a field."
+        ],
+        "links": [
+          {
+            "href": "/guides/scripting",
+            "label": "Try a drawing command batch"
+          },
+          {
+            "href": "/pixel-art-tracing",
+            "label": "Find the classic reference projector"
+          }
         ]
       }
     ],
     "faqs": [
       {
-        "question": "Where is my project saved?",
-        "answer": "Your current project autosaves in this browser. Browser storage is not an online account or cloud backup; clearing it can remove your work. Keep a downloaded Save Project backup for anything you want to preserve or move to another device."
+        "question": "Which key selects Pencil?",
+        "answer": "B in the current editor. The classic editor has its older controls and shortcuts."
       },
       {
-        "question": "What is the difference between Save Project and Export?",
-        "answer": "Save Project downloads editable .pixelwall data, including your reference image. Export downloads finished artwork: a PNG, GIF, sprite sheet, or game package. Exported artwork leaves out the projected reference."
+        "question": "Do I need Pro to save editable work?",
+        "answer": "No. Native PixelWall and supported Aseprite exports are free, as are individual PNG, BMP, and TGA frames."
       },
       {
-        "question": "How do I turn this sprite into an animation?",
-        "answer": "Open Animate, use Duplicate frame, and change a few pixels in the new frame. Turn on Onion for a guide, then press the play button. Animation editing and preview are free; GIF and sprite-sheet export require Pro."
+        "question": "Where are my documents saved?",
+        "answer": "In IndexedDB on this browser and device. Download a project backup to move or independently preserve your work."
       }
     ],
     "related": [
-      "pixel-art-tracing",
-      "pixel-art-animation",
-      "sprite-sheet-maker",
-      "tileset-maker",
-      "guides/desert-signal"
+      "guides/export-formats",
+      "guides/offline-and-downloads",
+      "pixel-art-animation"
     ]
   },
   {
     "slug": "guides/export-formats",
     "title": "Pixel art export formats",
-    "description": "Choose the right PixelWall export: transparent PNG, sprite sheet, animated GIF, sprite atlas package, Tiled tilemap package, or editable project backup.",
+    "description": "Compare native PixelWall, Aseprite, PNG, BMP, TGA, GIF, atlas, and game ZIP exports, including compatibility and memory limits.",
     "eyebrow": "Export reference",
-    "intro": "Choose a format for the next step in your project. Current-frame PNGs and editable project backups are free. GIFs, sprite sheets, sprite packages, tilemap packages, and saved export presets require Pro.",
+    "intro": "Choose an editable project for future changes, a raster frame for a finished image, or a Pro batch format for an animation or game pipeline. Current-editor and classic package schemas differ; use the matching guide.",
     "sections": [
       {
-        "heading": "Choose your export",
+        "heading": "Current editor export choices",
         "items": [
-          "Current Frame: one transparent PNG at the canvas dimensions, ready to share or import into another tool.",
-          "Sprite Sheet: one PNG with full canvas cells in horizontal, vertical, or compact-grid layout.",
-          "Sprite Package: a ZIP with a sheet PNG, JSON atlas metadata, and optional individual PNGs. Use it for named animations, trimming, pivots, and per-frame timing.",
-          "Animated GIF: the active clip at 1×, 2×, 4×, or 8× size, following its timing, direction, and loop setting.",
-          "Tilemap Package: a ZIP with Tiled map JSON, a tileset PNG, a flattened preview PNG, and PixelWall mapping JSON.",
-          "Save Project: an editable .pixelwall file, including the reference image, for backups and moving artwork between browsers."
+          "Editable PixelWall project · Free: a v4 .pixelwall document with frames, layers, clips, palettes, linked image references, tilesets, and metadata.",
+          "Editable Aseprite project · Free: a native .aseprite file for supported document features. Review import/export warnings and keep the .pixelwall source.",
+          "Current frame PNG, BMP, or TGA · Free: the active rendered frame at the selected scale. Native projects retain information that raster images flatten.",
+          "Animated GIF · Pro: the chosen clip and playback order with rounded GIF timing and limited color/transparency.",
+          "Sprite atlas PNG · Pro: an atlas PNG plus a separate JSON download describing rectangles, trimming offsets, source IDs, and durations. Allow multiple downloads.",
+          "Game package ZIP · Pro: atlas PNG and JSON, rendered frame PNGs, a native project, a manifest, and independent tileset/map data where present.",
+          "Saved export presets · Pro: keep reusable export options on this device with the Save export preset and Load saved preset controls."
         ]
       },
       {
-        "heading": "What is inside a sprite package?",
+        "heading": "Choose rendered layers and references",
         "paragraphs": [
-          "For a project named Hero with only its Walk clip selected, the download is hero-walk-sprites.zip. It contains hero-walk-sheet.png, hero-walk.json, and optionally hero-walk-001.png, hero-walk-002.png, and so on. Exporting all clips omits the clip name: hero-sprites.zip, hero-sheet.png, and hero.json.",
-          "The JSON includes named frames with atlas rectangles, original dimensions, trimmed offsets, duration in milliseconds, and normalized pivot and anchor positions. Its animations section maps clip names to playback sequences. The phaser section adds animation recipes, and the pixelwall section preserves source frame IDs, layout, pivots, clips, and slice data. Sprite metadata uses pixelwall.sprite-atlas schema version 2.",
-          "Padding adds transparent space around and between entries. Trimming applies only to the sprite package sheet. Standalone sheet PNGs and optional individual PNGs keep their full canvas dimensions. The JSON records the offsets needed to place trimmed sprites within their original frames.",
-          "The package uses Aseprite-style JSON fields, not a native .aseprite file. Aseprite-style frame tags describe contiguous ranges; other frame sequences remain represented in the animations, phaser, and pixelwall sections."
+          "For rendered formats, Layers selects Visible layers, Active layer, or Selected layers. Reference layers are omitted by default; enable Include reference layers to put them in the rendered output. Editor previews can still show visible references while you work.",
+          "Editable PixelWall and Aseprite saves retain the whole editable document, including reference layers. Scale, clip, and rendered-layer choices are not a way to flatten or reduce a native project save."
         ]
       },
       {
-        "heading": "GIF color and timing limits",
+        "heading": "Atlas layout and metadata",
         "paragraphs": [
-          "GIF uses at most 256 colors per frame and on/off transparency. Alpha below 128 becomes transparent; other pixels become opaque. Durations are rounded to GIF centiseconds with a 20 ms minimum, balancing rounding across the animation.",
-          "GIF exports are limited to 64 million output pixels across the full playback sequence. Large canvases, long clips, and higher scaling increase that total. PNGs and .pixelwall project files preserve the original artwork."
+          "Packed, horizontal, vertical, and grid layouts support padding, border extrusion, optional trimming, and optional power-of-two output dimensions. Packing does not rotate entries. The editor’s atlas limit is 8192 pixels per edge; an export fails if the chosen entries and spacing do not fit.",
+          "Trimmed frames record sourceSize and spriteSourceSize alongside their atlas frame rectangle. Durations are milliseconds. The JSON is an array of named frame entries, with clip/source information and slices in metadata. Preserve the JSON with the PNG.",
+          "Game ZIP uses sprites.png and sprites.json as a matched pair. For a separately downloaded atlas, verify that meta.image matches the PNG filename before loading JSON through an engine that follows that field. Scale changes rendered pixel dimensions; source document coordinates in clips and slices should be interpreted consistently in your own pipeline.",
+          "The current atlas metadata is not the classic pixelwall.sprite-atlas v2 schema. The frameTags field includes export-relative from/to ranges, explicit frameIndices, and source frame IDs. Non-contiguous selections use frameIndices; they are not the classic Phaser animation recipes."
         ]
       },
       {
-        "heading": "What is inside a tilemap package?",
-        "paragraphs": [
-          "For a project called Hero, hero-tilemap.zip contains four files. Keep them together after extracting the ZIP."
-        ],
+        "heading": "Inside a current game package",
         "items": [
-          "hero-tilemap.json: the map to open in Tiled.",
-          "hero-tiles.png: all project frames arranged into a tileset at native tile size.",
-          "hero-tilemap-preview.png: a flattened preview capped to 2048 pixels per dimension by the editor.",
-          "hero-tilemap.pixelwall.json: source frame IDs, tile IDs, map cells, and preview information."
+          "manifest.json identifies the native project, atlas, rendered frames, tilesets, maps, clips, slices, and compatibility warnings.",
+          "sprites.png and sprites.json contain the chosen sprite playback sequence and atlas metadata.",
+          "A named .pixelwall file preserves the editable source document.",
+          "frames/ contains individual rendered PNGs with source frame IDs and timing listed in the manifest.",
+          "tilesets/ contains independent tileset metadata and tile PNGs. Indexed documents with per-frame palette changes may emit separate palette variants.",
+          "maps/ contains Tiled-compatible orthogonal .tmj maps for frames with tilemap data, grouped by tile dimensions. No map files are invented for a document with no tilemaps."
         ]
       },
       {
-        "heading": "Tilemap format and limits",
+        "heading": "GIF color and timing",
         "paragraphs": [
-          "The map contains one finite orthogonal tile layer, square tiles, an embedded tileset definition, and zero tile margin or spacing. It does not export collision objects or animated-tile definitions. Each project frame becomes an available tile.",
-          "The mapping file uses pixelwall.tilemap-package schema version 1. The emitted Tiled JSON format declaration is 1.10, with tiledversion set to 1.10.2. These declarations describe the output format; they do not identify a desktop application version used to test the export."
+          "The current encoder preserves up to 255 distinct opaque colors per frame plus transparency. When a frame exceeds that palette, it maps colors to a 216-color RGB grid. Alpha below 128 is transparent; remaining pixels become opaque.",
+          "Frame delays round to 10 ms units with a 10 ms minimum; a viewer may display very short delays differently. The current editor checks a 67,108,864-pixel budget over the entire scaled playback sequence. PNG and native project saves preserve original color information more faithfully."
+        ]
+      },
+      {
+        "heading": "Import and interoperability limits",
+        "paragraphs": [
+          "PixelWall imports its native files, supported Aseprite files, PNG/BMP/TGA images, GIF animations, image sequences, and sprite sheets. A flattened format does not recover original layers. Animated PNG is rejected; use PNG frames or GIF. PNG 16-bit channels are reduced to 8 bits for editing.",
+          "The working color space is sRGB. Aseprite ICC profile data can be retained for round-trip metadata, but PixelWall does not apply ICC color conversion. PNG profile/gamma information is not converted. Unsupported Aseprite features can produce warnings or a rejected import; this is not a promise of full Aseprite parity."
         ],
         "links": [
           {
-            "href": "https://docs.mapeditor.org/en/stable/reference/json-map-format/",
-            "label": "Tiled JSON format reference"
+            "href": "/guides/aseprite-compatibility",
+            "label": "Read detailed file compatibility notes"
+          },
+          {
+            "href": "/guides/tiled-tilemaps",
+            "label": "Use a current Tiled package"
+          }
+        ]
+      },
+      {
+        "heading": "Classic packages and existing examples",
+        "paragraphs": [
+          "The Phaser and PixiJS sample guides describe the classic editor’s established sprite package schema. Follow those guides using /editor/classic, or adapt your loader to the current atlas JSON. Existing downloadable example packages are labeled by their own contents."
+        ],
+        "links": [
+          {
+            "href": "/editor/classic",
+            "label": "Open the classic exporter"
+          },
+          {
+            "href": "/guides/phaser-sprite-sheets",
+            "label": "Classic Phaser sample"
+          },
+          {
+            "href": "/guides/pixijs-animated-sprites",
+            "label": "Classic PixiJS sample"
           }
         ]
       }
     ],
     "faqs": [
       {
-        "question": "Can I export a transparent PNG for free?",
-        "answer": "Yes. Export → Current Frame downloads the active frame as a transparent PNG at the canvas dimensions. Save Project backups are also free."
+        "question": "Are native .aseprite exports free?",
+        "answer": "Yes, for the features the current encoder supports. Keep the native PixelWall project and review any compatibility notes."
       },
       {
-        "question": "Does a sprite sheet PNG include animation timing?",
-        "answer": "No. A standalone sheet contains only the image. Choose Sprite Package to include JSON with clip names, frame order, timing, and other metadata."
+        "question": "Is a sprite atlas a regular spritesheet grid?",
+        "answer": "It can be. Choose horizontal, vertical, or grid for regular layouts. Packed or trimmed layouts need their JSON rectangles and offsets."
       },
       {
-        "question": "Can exported images replace my project backup?",
-        "answer": "Use Save Project to keep an editable .pixelwall backup. Artwork exports flatten the rendered frames and are intended for sharing or integration."
+        "question": "Do game maps include collision shapes?",
+        "answer": "No. Add game-specific collision or object data in the destination tool. PixelWall retains slices as source metadata; it does not automatically convert them to collision objects."
       }
     ],
     "related": [
-      "sprite-sheet-maker",
-      "pixel-art-animation",
-      "tileset-maker",
-      "guides/phaser-sprite-sheets",
-      "guides/pixijs-animated-sprites",
-      "guides/tiled-tilemaps",
-      "pricing"
+      "guides/aseprite-compatibility",
+      "guides/command-line",
+      "guides/offline-and-downloads"
     ]
   },
   {
     "slug": "guides/phaser-sprite-sheets",
     "title": "Load pixel art sprites in Phaser",
-    "description": "Load PixelWall sprite packages into Phaser with named atlas frames, animation recipes, per-frame timing, and the exported playback order.",
+    "description": "Use the classic PixelWall sprite-package JSON with Phaser. Preserve frame order and timing, and distinguish current atlas metadata from the classic sample schema.",
     "eyebrow": "Phaser guide",
-    "intro": "Export a Sprite Package to bring PixelWall's named frames and animation timing into a Phaser scene. This example follows the linked Phaser 3 APIs; check your installed version.",
+    "intro": "This existing integration example uses the classic editor’s Sprite Package and its pixelwall.sprite-atlas v2 metadata. Open /editor/classic for the controls and schema used below. The current editor’s atlas and game package use a different documented metadata structure.",
     "sections": [
+      {
+        "heading": "Use the classic export path for this example",
+        "paragraphs": [
+          "The code below expects the classic package’s animation lists and engine-specific timing metadata. It has not been rewritten as a universal loader for the current editor’s frameTags or game-package manifest."
+        ],
+        "links": [
+          {
+            "href": "/editor/classic",
+            "label": "Open classic editor for this example"
+          },
+          {
+            "href": "/guides/export-formats",
+            "label": "Compare current and classic export formats"
+          }
+        ]
+      },
       {
         "heading": "Prepare the sprite package",
         "steps": [
@@ -451,10 +591,26 @@
   {
     "slug": "guides/pixijs-animated-sprites",
     "title": "Animate pixel art sprites in PixiJS",
-    "description": "Use a PixelWall sprite package in PixiJS with named textures, per-frame durations, exported anchors, and looping or play-once animation.",
+    "description": "Use the classic PixelWall sprite-package JSON with PixiJS. Preserve frame order and timing, and distinguish current atlas metadata from the classic sample schema.",
     "eyebrow": "PixiJS guide",
-    "intro": "A PixelWall Sprite Package contains JSON that PixiJS Assets can load as a spritesheet. This example follows the linked PixiJS 8 APIs; check your installed version.",
+    "intro": "This existing integration example uses the classic editor’s Sprite Package and its pixelwall.sprite-atlas v2 metadata. Open /editor/classic for the controls and schema used below. The current editor’s atlas and game package use a different documented metadata structure.",
     "sections": [
+      {
+        "heading": "Use the classic export path for this example",
+        "paragraphs": [
+          "The code below expects the classic package’s animation lists and engine-specific timing metadata. It has not been rewritten as a universal loader for the current editor’s frameTags or game-package manifest."
+        ],
+        "links": [
+          {
+            "href": "/editor/classic",
+            "label": "Open classic editor for this example"
+          },
+          {
+            "href": "/guides/export-formats",
+            "label": "Compare current and classic export formats"
+          }
+        ]
+      },
       {
         "heading": "Prepare the files",
         "steps": [
@@ -516,115 +672,139 @@
   },
   {
     "slug": "guides/tiled-tilemaps",
-    "title": "Open a pixel art tilemap in Tiled",
-    "description": "Move a PixelWall Tilemap Lab project into Tiled using its map JSON, tileset PNG, preview image, and stable source-frame mapping.",
+    "title": "Open PixelWall game-package maps in Tiled",
+    "description": "Use the current Game package ZIP to move independent tilesets, transformed tile cells, and per-frame tilemap layers into Tiled.",
     "eyebrow": "Tiled guide",
-    "intro": "Tilemap Lab treats project frames as reusable tiles. Its dedicated Tilemap Package exports the map and tileset together for a Tiled workflow. The format follows the linked Tiled reference; check your installed version.",
+    "intro": "Current-editor Game package ZIP includes Tiled-compatible map files when your document contains tilemap layers. Extract the archive intact so maps can resolve their tileset and image paths. Keep the .pixelwall source for continued sprite editing.",
     "sections": [
       {
-        "heading": "Export and open the map",
+        "heading": "Export and open the right files",
         "steps": [
           {
-            "title": "Draw tiles and paint the map",
-            "text": "Create your tiles as project frames, then paint at least one cell in Tilemap Lab."
+            "title": "Create actual tilemap data",
+            "text": "In Tiles, create or choose an independent tileset, add a tilemap layer, and paint cells. Raster drawings alone do not create editable map cells."
           },
           {
-            "title": "Download Tilemap Package",
-            "text": "Choose Export → Tilemap Package. This requires Pro and is separate from Sprite Package."
+            "title": "Download the game package",
+            "text": "Open Export and choose Game package ZIP. This requires Pro. The selected clip controls sprite atlas/rendered entries; the package preserves the full native project and exports its existing tilemap frames."
           },
           {
-            "title": "Extract the ZIP",
-            "text": "For a project called Hero, open hero-tilemap.json in Tiled. Keep hero-tiles.png beside it so the relative image reference resolves."
+            "title": "Read the manifest",
+            "text": "Extract the ZIP. manifest.json lists every maps/ .tmj file and its source frame, timing, and tile dimensions."
           },
           {
-            "title": "Preserve the source artwork",
-            "text": "Save further Tiled edits as a separate map file, and keep a .pixelwall project backup for editing your original artwork."
+            "title": "Open a .tmj map",
+            "text": "Open the map listed for your frame in Tiled. Keep maps/, tilesets/, and their relative structure intact. Tile images and .tsj definitions are external files in the package."
+          },
+          {
+            "title": "Retain the source project",
+            "text": "Keep the included .pixelwall file as your editable PixelWall source. Tiled map round-trip import is not currently available."
           }
         ]
       },
       {
-        "heading": "Understand the package",
-        "items": [
-          "hero-tilemap.json contains the map and an embedded tileset definition; no external TSX file is required.",
-          "hero-tiles.png contains all project frames at native tile size.",
-          "hero-tilemap-preview.png is a flattened preview, capped to 2048 pixels per dimension by the editor.",
-          "hero-tilemap.pixelwall.json records the source frame IDs, tile IDs, and original map cells."
-        ],
+        "heading": "Map structure and preserved data",
         "paragraphs": [
-          "The exported map has one finite orthogonal tile layer called Tile Layer 1. Its square cells match the PixelWall canvas size, and the tileset has zero margin and spacing. Tiled's JSON format describes map dimensions, layers, tilesets, and image references."
+          "Maps are finite and orthogonal. Tilemap layers sharing tile dimensions are grouped per frame. Different tile sizes produce separate maps. Image-collection .tsj tilesets reference individual PNG tiles.",
+          "Cell flags preserve supported flips and quarter-turn rotations. Layer visibility, opacity, offsets, locking, source IDs, and parent metadata are carried where supported. Layer groups are represented through flattened map layers and source properties; the native project keeps the original structure.",
+          "Indexed projects can emit multiple tileset palette variants. Maps reference the palette variant for their source frame. Numeric global tile IDs are package-local; use the manifest and PixelWall source IDs when correlating exports."
+        ]
+      },
+      {
+        "heading": "Read compatibility warnings",
+        "paragraphs": [
+          "manifest.json lists limitations such as a layer blend mode that Tiled does not support. The original setting remains in properties and the native project. Rendered frame PNGs show the composite artwork, including raster layers that are not separate Tiled tile layers.",
+          "The package does not generate collision objects or animated-tile definitions. It exports per-frame map snapshots; game-specific runtime animation is your pipeline’s responsibility. External tileset sources must be available as embedded pixel data before game-package export.",
+          "JSON format declarations describe the emitted schema. They are not evidence that every version of Tiled or every game-engine loader has been tested."
         ],
         "links": [
           {
             "href": "https://docs.mapeditor.org/en/stable/reference/json-map-format/",
-            "label": "Tiled JSON map format"
+            "label": "Tiled JSON map format reference"
           }
         ]
       },
       {
-        "heading": "Keep tile IDs consistent across exports",
+        "heading": "Classic Tilemap Lab exports",
         "paragraphs": [
-          "A map cell with tile ID zero is empty. PixelWall sorts all project frames by stable frame ID and assigns tile IDs in that order. Reordering the timeline does not change the mapping.",
-          "Adding or deleting frames can change numeric tile IDs. Keep the PixelWall mapping JSON if your pipeline needs to match source frames across exports. Do not assume that IDs in a Sprite Package match IDs in a Tilemap Package."
-        ]
-      },
-      {
-        "heading": "Continue map work in Tiled",
-        "paragraphs": [
-          "The preview PNG is a picture of the map, not the editable map file. A reduced preview does not reduce the native tileset resolution.",
-          "The export does not create collision objects or animated-tile definitions. Named selection slices are not converted to collision objects; add the object or collision data your game needs in Tiled.",
-          "The generated JSON declares format version 1.10 and tiledversion 1.10.2. These are format declarations, not evidence of a desktop runtime test. PixelWall does not promise round-trip import of Tiled maps."
+          "The classic editor at /editor/classic has an older one-map workflow based on project frames as tiles. Its hero-tilemap.json-style package is different from the current maps/ and tilesets/ layout. Use the classic editor only when following a classic package example."
+        ],
+        "links": [
+          {
+            "href": "/editor/classic",
+            "label": "Open classic Tilemap Lab"
+          }
         ]
       }
     ],
     "related": [
       "tileset-maker",
       "guides/export-formats",
-      "sprite-sheet-maker"
+      "guides/aseprite-compatibility"
     ]
   },
   {
     "slug": "pricing",
-    "title": "Free studio. Pro exports for $19 once.",
-    "description": "Compare PixelWall Free and Pro. Drawing, animation editing, PNGs and project files are free. Pro export tools cost $19 USD once, with no subscription.",
+    "title": "Free studio. Pro exports for $15 once.",
+    "description": "Compare PixelWall Free and Pro. Drawing, animation editing, PNGs and project files are free. Pro export tools cost $15 USD once, with no subscription.",
     "eyebrow": "PRICING",
-    "intro": "Start drawing without an account or purchase. Pro adds the exports for sharing animations and taking sprites and maps into a game.",
+    "intro": "Start drawing, scripting, animating, and saving editable work for free. Pay $15 once to own the listed Pro export features, with no subscription and a signed license for offline use.",
     "sections": [
       {
-        "heading": "One purchase, no subscription",
+        "heading": "Free studio",
         "paragraphs": [
-          "PixelWall Pro costs $19 USD once. Taxes may apply. It includes the Pro features listed here for as long as PixelWall is available. Open the editor and choose Pro to check availability and purchase securely through Stripe."
+          "Drawing, animation editing, scripting and the command API are free. Editable .pixelwall and supported .aseprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets."
+        ],
+        "items": [
+          "Drawing tools, selections, layers and groups, palettes, animation clips, tilemap editing, 2D motion, scripts, and the command API.",
+          "Local multi-document storage, recovery revisions, and portable project backups.",
+          "Editable PixelWall and supported Aseprite files; individual PNG, BMP, and TGA frame exports."
         ]
       },
       {
-        "heading": "Keep your artwork and purchase recoverable",
+        "heading": "Pro ownership — $15 USD once",
         "paragraphs": [
-          "Your artwork autosaves in this browser. Save Project downloads an editable .pixelwall backup; a purchase does not create cloud storage.",
-          "After checkout, save your private Pro recovery code. Use Pro → Restore Pro on another browser or device. The code restores access, not artwork. Keep it private: anyone with the code can restore Pro."
+          "Pro unlocks animated GIFs, sprite sheets/atlases, game package ZIPs, and saved export presets. Taxes may apply. Checkout runs through Stripe on the hosted storefront.",
+          "Save your private PW2 ownership license after purchase. The signed license has no expiry and can unlock the listed features offline in a compatible installed or downloaded app. Keep an app copy as well as the license; purchasing does not promise that the hosted website will run indefinitely.",
+          "Earlier valid purchases remain supported. Existing PW1 recovery codes need one online conversion to a PW2 ownership license before they can work offline."
         ]
       },
       {
-        "heading": "Purchase help and refunds",
+        "heading": "Keep artwork and access separately",
         "paragraphs": [
-          "Contact contact@caplock.ai for purchase support or a refund request. If your recovery code is lost, include your Stripe receipt number so support can locate the payment and verify ownership. Do not send card details."
+          "A license restores export access; it does not store or restore artwork. Download .pixelwall backups for your documents. Local browser storage is not a cloud account.",
+          "Keep the ownership license private. It is a bearer code: anyone with a copy can use the associated access."
+        ]
+      },
+      {
+        "heading": "Purchase support",
+        "paragraphs": [
+          "Contact contact@caplock.ai for help or a refund request. If the recovery code is lost, include your Stripe receipt number so support can locate and verify the purchase. Never send card details."
+        ],
+        "links": [
+          {
+            "href": "/guides/offline-and-downloads",
+            "label": "Get the standalone app and CLI"
+          }
         ]
       }
     ],
     "faqs": [
       {
-        "question": "Can I make an animation for free?",
-        "answer": "Yes. Frame editing, onion skin, named clips, and playback are free. Animated GIF, sprite-sheet and sprite-package exports require Pro."
+        "question": "Do I pay for scripts or the API?",
+        "answer": "No. Scripting, editing commands, native saves, and individual raster frame exports remain free. Paid export formats keep the same Pro requirement whether called from the UI, API, or CLI."
       },
       {
-        "question": "Do I need an account?",
-        "answer": "The editor does not require an account. Projects stay in your browser or downloaded .pixelwall files. Pro access uses a browser cookie and a private recovery code."
+        "question": "Does Pro work without the website?",
+        "answer": "A compatible downloaded app and valid PW2 ownership license can verify the listed Pro features offline. Download and keep both while available."
       },
       {
-        "question": "Can I move my project to another device?",
-        "answer": "Download it with Save Project, transfer the .pixelwall file, then use Open Project on the other device. Restore Pro separately with your recovery code if needed."
+        "question": "Will my older Pro purchase still work?",
+        "answer": "Valid older purchases remain recognized. Restore the original PW1 code online once to obtain its signed offline ownership license."
       }
     ],
     "related": [
-      "guides/getting-started",
+      "guides/offline-and-downloads",
       "guides/export-formats",
       "support"
     ]
@@ -634,25 +814,39 @@
     "title": "About PixelWall",
     "description": "PixelWall is a browser pixel-art studio by CapLock. Draw from references, animate sprites, build tilemaps, and keep editable projects on your device.",
     "eyebrow": "ABOUT",
-    "intro": "PixelWall is a pixel-art studio by CapLock, built around a simple idea: place a reference behind a crisp pixel canvas and draw your own version, one frame at a time.",
+    "intro": "PixelWall is a local pixel-art and animation studio by CapLock. Draw, organize layers and frames, edit tilemaps, and use the same document commands through the interface or your own scripts.",
     "sections": [
       {
-        "heading": "From a reference to an animation",
+        "heading": "A shared 2D workspace",
         "paragraphs": [
-          "The studio brings drawing, four layers, reference alignment, animation clips, and a small tilemap workspace together. You can export a single PNG for free or use Pro for GIFs, sprite sheets, and game packages."
+          "The current editor combines drawing tools, selections, layered and grouped artwork, linked cels, indexed/grayscale/RGBA documents, animation clips, independent tilesets, and procedural 2D motion. Its scripting/API and command-line tools use the same document model.",
+          "PixelWall contains no embedded AI generator. An external assistant or other tool can use the ordinary documented command interface when you choose to connect it. Lua compatibility and 3D rendering are not included."
         ]
       },
       {
-        "heading": "Your project stays close",
+        "heading": "Local documents and owned exports",
         "paragraphs": [
-          "Artwork and references are edited on your device. The current project autosaves in this browser, and portable .pixelwall files let you keep backups and move work between devices. PixelWall does not provide cloud project sync."
+          "Artwork stays on your device, with browser recovery storage and portable native files. There is no cloud project sync. Pro is a $15 one-time purchase for the listed export features, supported by a signed non-expiring offline ownership license."
+        ]
+      },
+      {
+        "heading": "The classic projector remains available",
+        "paragraphs": [
+          "The classic editor preserves the adjustable photo-reference projector and established older game-package examples. Its controls and native format differ from the current editor."
+        ],
+        "links": [
+          {
+            "href": "/editor/classic",
+            "label": "Open classic editor"
+          },
+          {
+            "href": "/pixel-art-tracing",
+            "label": "Read the classic tracing guide"
+          }
         ]
       },
       {
         "heading": "Talk to CapLock",
-        "paragraphs": [
-          "Questions, feedback, and purchase support are welcome at contact@caplock.ai."
-        ],
         "links": [
           {
             "href": "mailto:contact@caplock.ai",
@@ -662,9 +856,9 @@
       }
     ],
     "related": [
-      "pricing",
-      "privacy",
-      "guides/getting-started"
+      "guides/getting-started",
+      "guides/scripting",
+      "pricing"
     ]
   },
   {
@@ -672,33 +866,45 @@
     "title": "Help with projects, downloads, and Pro",
     "description": "Find help with PixelWall project backups, blocked downloads, local storage, and restoring a Pro purchase. Contact CapLock for support.",
     "eyebrow": "SUPPORT",
-    "intro": "Keep a downloaded .pixelwall backup of work you want to preserve. Your current project autosaves in this browser; it is not stored in an online account.",
+    "intro": "Keep a .pixelwall backup and a separate copy of your Pro ownership license. Local document recovery helps with earlier edits; it cannot restore browser data that has already been cleared.",
     "sections": [
       {
         "heading": "A download did not start",
         "paragraphs": [
-          "Look for the Download File link after exporting or saving. The generated file stays available there until dismissed or replaced, so you can save it if your browser blocks the automatic download."
+          "Use the visible Download File link after exporting or saving. It remains available until dismissed or replaced. A sprite atlas produces a PNG and a JSON file; allow both downloads. Game package ZIP keeps related files in one archive."
         ]
       },
       {
-        "heading": "Move or recover a project",
+        "heading": "Autosave needs attention",
         "paragraphs": [
-          "Use Save Project on the original device, then Open Project on the destination device. PNGs and GIFs are finished images; they do not preserve the editable layers and clips.",
-          "If browser data has been cleared, use your downloaded project backup. Pro recovery codes do not restore artwork."
+          "Keep the editor open when the save status reports an error. Download a native project backup before closing. A conflict means another window saved a newer revision; open that version or preserve your current work as a separate document.",
+          "The local library keeps current documents and bounded recovery history. Default recovery limits are 40 revisions per document and a 96 MiB estimated library budget. Older recoverable snapshots can be pruned; a save that cannot retain the required recovery versions fails instead of silently removing current documents."
         ]
       },
       {
-        "heading": "Restore Pro",
+        "heading": "Move or recover a document",
         "paragraphs": [
-          "Open the editor, choose Pro, then Restore Pro. Paste your private recovery code. If you lost it, email support with your Stripe receipt number. Support will verify ownership before helping restore access."
+          "Use Save project backup, then Open project or image on the destination device. Recovery can restore a retained revision as the new current document. Project files preserve layers and clips that finished PNGs and GIFs cannot.",
+          "Clearing site/app data removes local documents and licenses. Recover from your downloaded project and ownership files. Pro purchase recovery does not recover artwork."
         ]
       },
       {
-        "heading": "Contact support",
+        "heading": "Restore Pro online or offline",
         "paragraphs": [
-          "Email contact@caplock.ai with what happened, your browser, and the steps that caused the problem. Do not send card details or your private Pro recovery code."
+          "Open Pro → Restore Pro and paste the complete private code. A PW2 code verifies offline in a compatible build. An older PW1 code needs the hosted store once for conversion. In the standalone app, checkout opens the explicitly configured storefront; bring the downloaded license back to the app.",
+          "If you lost the license, contact support with the Stripe receipt number. Do not send the private license in an ordinary support message."
+        ]
+      },
+      {
+        "heading": "File imports look different",
+        "paragraphs": [
+          "Review the import compatibility notes. The working color space is sRGB; embedded Aseprite ICC metadata can be preserved without being applied. Unsupported features may be rejected rather than flattened silently. Keep the original source file."
         ],
         "links": [
+          {
+            "href": "/guides/aseprite-compatibility",
+            "label": "Read compatibility limits"
+          },
           {
             "href": "mailto:contact@caplock.ai",
             "label": "Email support"
@@ -707,9 +913,9 @@
       }
     ],
     "related": [
-      "guides/getting-started",
-      "pricing",
-      "privacy"
+      "guides/offline-and-downloads",
+      "guides/aseprite-compatibility",
+      "pricing"
     ]
   },
   {
@@ -717,29 +923,29 @@
     "title": "Privacy and local projects",
     "description": "How PixelWall handles local artwork, browser storage, optional analytics, and Stripe payments. Usage analytics and enhanced diagnostics are opt-in.",
     "eyebrow": "PRIVACY",
-    "intro": "Your artwork and reference images are edited on your device. PixelWall uses browser storage for the current project and preferences. Optional analytics start only after you choose to allow them.",
+    "intro": "PixelWall edits artwork and reference data on your device. The current workspace stores documents, recovery versions, preferences, and a verified Pro license locally. A purchase does not create cloud artwork storage.",
     "sections": [
       {
-        "heading": "Artwork and browser storage",
+        "heading": "Artwork and local storage",
         "paragraphs": [
-          "The studio keeps the current project in local browser storage. Save Project downloads an editable .pixelwall file, including any reference image. Artwork exports leave out the projected reference.",
-          "Clearing browser data or changing browsers can remove access to a local project. Keep downloaded backups. PixelWall does not upload your artwork to a cloud project account."
+          "The current editor stores multiple documents and recovery revisions in IndexedDB. Save project backup downloads an editable .pixelwall file. Reference layers remain in native documents; rendered exports omit them by default and offer an explicit Include reference layers option.",
+          "Clearing site data, removing an app profile, or browser/OS storage cleanup can remove local work. Download independent backups. PixelWall does not upload documents to a cloud project account."
         ]
       },
       {
-        "heading": "Your analytics choices",
+        "heading": "Current and classic analytics behavior",
         "paragraphs": [
-          "Required only is the default. It uses storage needed for the editor and preferences without loading optional analytics.",
-          "Usage analytics permits page visits, coarse referral categories (such as search engine or an internal guide), and limited product events, such as feature usage and successful exports. It does not store raw referrer URLs or campaign values, and does not enable recordings or automatic interaction and diagnostic tracking.",
-          "Enhanced diagnostics additionally permits masked session replay, interaction tracking, and performance/error diagnostics. Artwork, references, project and layer names, and other sensitive editor content are excluded or masked. Optional analytics use a stored browser identifier and are not fully anonymous.",
-          "The public information pages do not load optional analytics. In the editor, reopen Privacy Preferences to change your choice. Withdrawal stops optional capture; earlier events are not replayed after consent. Do Not Track or Global Privacy Control overrides optional choices."
+          "The current Workbench does not initialize optional analytics or session replay. Public information pages do not load optional analytics.",
+          "The classic editor retains its consent controls. Required only is the default. Optional usage analytics or enhanced diagnostics load only after the corresponding choice, subject to Do Not Track and Global Privacy Control. Reopen Privacy Preferences in the classic editor to change that choice.",
+          "Classic usage analytics records limited feature events and coarse referral information. Enhanced diagnostics adds masked replay and diagnostic capture; artwork, references, project/layer names, and other sensitive content are excluded or masked. Optional identifiers are not described as anonymous."
         ]
       },
       {
-        "heading": "Payments and service providers",
+        "heading": "Payments and offline licenses",
         "paragraphs": [
-          "Stripe handles checkout and payment information. PixelWall uses purchase-related records to verify Pro access. A browser cookie remembers access, and a private recovery code can restore it on another device.",
-          "The website host processes requests to deliver the service. When enabled by your choice, PostHog processes optional usage analytics or diagnostics. Contact CapLock with privacy questions about this service."
+          "Stripe handles checkout and payment data. Online verification checks purchase-related records. The hosted store uses private cookies; the app stores a signed PW2 license locally for offline verification. The license includes a purchase identifier and must be kept private.",
+          "An existing PW1 recovery code can be sent to the explicitly configured storefront to exchange it for an offline license. Offline PW2 verification does not need to send the license or artwork to a server.",
+          "Website hosting processes requests needed to deliver pages and downloads. A downloaded standalone app serves its own editor assets locally. A retained license does not imply cloud project sync."
         ]
       },
       {
@@ -754,7 +960,7 @@
     ],
     "related": [
       "support",
-      "pricing",
+      "guides/offline-and-downloads",
       "terms"
     ]
   },
@@ -766,41 +972,44 @@
     "intro": "PixelWall is provided by CapLock. These terms describe the studio and its current Pro offer. For questions about using the service or a purchase, contact contact@caplock.ai.",
     "sections": [
       {
-        "heading": "Your artwork and references",
+        "heading": "Your artwork and source files",
         "paragraphs": [
-          "You retain ownership of the artwork you create. Use reference images and other materials you have permission to use, and respect the rights of their creators. A reference included in a .pixelwall file remains subject to its original rights."
+          "You retain ownership of artwork you create. Use reference images and source materials you have permission to use and respect their creators’ rights. Including a reference in a project does not change its original rights."
         ]
       },
       {
-        "heading": "Local saving",
+        "heading": "Local saving and compatibility",
         "paragraphs": [
-          "Projects are stored in your browser and downloaded project files. You are responsible for keeping backups of artwork you want to preserve. Clearing browser data, changing devices, or losing a project file can make work unavailable. Pro does not include cloud storage or automatic artwork recovery."
+          "Documents are stored on your device and in downloaded project files. Keep backups of work you want to preserve. Browser/app data removal, changing devices, or losing files can make work unavailable. Pro does not include cloud storage or an unconditional artwork recovery service.",
+          "Import/export support has documented limits. PixelWall uses sRGB without ICC conversion, does not offer complete Aseprite feature parity, and does not run Aseprite Lua scripts. Review compatibility notes and retain original files."
         ]
       },
       {
-        "heading": "Pro purchase",
+        "heading": "Pro purchase and offline ownership",
         "paragraphs": [
-          "Pro is a one-time purchase of $19 USD, plus applicable taxes. It covers the listed GIF, sprite-sheet, sprite/tilemap package, and export-preset features for as long as PixelWall is available. It is not a subscription or a promise that the service will operate indefinitely.",
-          "Keep your recovery code private. It restores Pro access on another browser or device, not your artwork. Purchase verification requires a network connection; temporary payment-service outages can affect Pro operations."
+          "Pro costs $15 USD once, plus applicable taxes. It covers the listed GIF, sheet/atlas, game ZIP, and saved export-preset features. Drawing, scripting, editable native saves, and individual raster frame exports remain free.",
+          "A valid signed PW2 ownership license has no expiry and can unlock those features in a compatible downloaded or installed build without a subscription. Keep the private license and an app copy. The purchase is not a promise that the hosted service will operate indefinitely or that every future product will be included.",
+          "An existing valid PW1 recovery code requires one online conversion before it can verify offline. The license restores access, not artwork. It is a private bearer code."
         ]
       },
       {
-        "heading": "Support and refund requests",
+        "heading": "Support and refunds",
         "paragraphs": [
-          "Email contact@caplock.ai for support or a refund request. Support may need to verify purchase ownership. A full refund removes Pro access. Nothing on this page limits rights that apply to your purchase under applicable law."
+          "Contact contact@caplock.ai for support or a refund request. Support may verify ownership using purchase records. A full refund ends the associated entitlement. Online checks can remove local access after a refund or active dispute; an already downloaded non-expiring license cannot be instantly revoked on a disconnected device.",
+          "Nothing on this page limits rights that apply to your purchase under applicable law."
         ]
       },
       {
         "heading": "Availability and changes",
         "paragraphs": [
-          "Features and browser compatibility may change as the service develops. Check the current pricing and export-format pages before purchasing for a particular workflow. Keep independent backups of your projects."
+          "Check the current pricing, compatibility, and export-format pages for the features included in this offer. Browser compatibility and distribution availability may change. Keep independent project backups and retained copies of app and license downloads."
         ]
       }
     ],
     "related": [
       "pricing",
       "privacy",
-      "support"
+      "guides/aseprite-compatibility"
     ]
   },
   {
@@ -808,7 +1017,7 @@
     "title": "Try the Desert Signal starter project",
     "description": "Download an editable 16×16 PixelWall project with three animation frames, PNGs, an animated GIF, and a sprite atlas with JSON metadata.",
     "eyebrow": "EDITABLE EXAMPLE",
-    "intro": "Desert Signal is the small sunset animation that starts in a fresh PixelWall studio. Download its editable project and example exports to see how the same three frames work in different formats.",
+    "intro": "Download Desert Signal, a small three-frame sunset example, and inspect its native project and finished exports. It is a separate starter download; a fresh current workspace opens a blank document.",
     "sections": [
       {
         "heading": "Download the example",
@@ -839,19 +1048,31 @@
         "steps": [
           {
             "title": "Back up your current work",
-            "text": "Use Save Project before opening the example. Opening another project replaces the current workspace."
+            "text": "Choose Save project backup before importing any example."
           },
           {
             "title": "Open the example",
-            "text": "Download desert-signal.pixelwall, open the editor, and choose Open Project. Select the downloaded file."
+            "text": "Download desert-signal.pixelwall, then use Open project or image in the current editor. The supported older document is migrated into the current model."
           },
           {
             "title": "Change a frame",
-            "text": "Select one of the three frames in Animate. Change colors or a few mountain pixels, then press Play to preview the movement."
+            "text": "Select a timeline frame, change a color or a few pixels, and press Play animation."
           },
           {
             "title": "Keep your version",
-            "text": "Choose Save Project for your editable version and Export → Current Frame for a free PNG. Exporting your own GIF or sprite package requires Pro."
+            "text": "Save a .pixelwall backup and export a free Current frame PNG. Creating your own GIF, atlas, or game ZIP requires Pro."
+          }
+        ]
+      },
+      {
+        "heading": "Example package version",
+        "paragraphs": [
+          "The existing example atlas and JSON were generated for the classic export schema. Their filenames and metadata describe that supplied example; current-editor exports use the current atlas/game-package layout."
+        ],
+        "links": [
+          {
+            "href": "/guides/export-formats",
+            "label": "Compare export schemas"
           }
         ]
       },
@@ -874,6 +1095,310 @@
       "pixel-art-animation",
       "guides/export-formats",
       "sprite-sheet-maker"
+    ]
+  },
+  {
+    "slug": "guides/scripting",
+    "title": "Draw and edit with scripts and commands",
+    "description": "Run free JSON command batches, inspect the document, and use PixelWall’s shared JavaScript API or CLI. No embedded AI or Lua runtime.",
+    "eyebrow": "SCRIPTING",
+    "intro": "The Scripts panel exposes the same editing commands used by the interface. Use it for repeatable pixel work, or call the public browser API and standalone CLI from your own tools. Scripting is free; paid export formats keep their Pro gate.",
+    "sections": [
+      {
+        "heading": "Run a command batch in the editor",
+        "steps": [
+          {
+            "title": "Open Scripts",
+            "text": "Choose the Scripts panel beside Layers, Colors, Effects, and Tiles."
+          },
+          {
+            "title": "Start with the command reference",
+            "text": "Choose Command reference to inspect available command names and fields. Inspect document shows the active document summary and revision."
+          },
+          {
+            "title": "Enter JSON",
+            "text": "Paste a JSON command or array into Command batch (JSON), then choose Run command batch. A successful batch is one undoable edit."
+          },
+          {
+            "title": "Inspect and save",
+            "text": "Check the canvas and command result. Undo if needed, then save locally or download a native project backup."
+          }
+        ],
+        "code": "[\n  {\"type\":\"draw.rect\",\"x\":2,\"y\":2,\"width\":12,\"height\":12,\"color\":\"#ffb34bff\",\"filled\":true},\n  {\"type\":\"draw.ellipse\",\"x\":5,\"y\":5,\"width\":6,\"height\":6,\"color\":\"#16152bff\",\"filled\":true}\n]"
+      },
+      {
+        "heading": "What scripts can do",
+        "paragraphs": [
+          "Commands cover document/layer/frame operations, cels, drawing, selections/transforms, palettes, effects, clips, 2D motion, particles, tilesets, and tilemap painting. Use the command reference shipped with your build for the exact fields and supported options.",
+          "The browser interface exposes window.pixelwall for structured operations and previews. If the browser provides a compatible modelContext tool-registration surface, PixelWall registers the same ordinary tools there. Availability depends on the host browser; PixelWall itself contains no AI assistant or generator."
+        ]
+      },
+      {
+        "heading": "Runtime boundaries",
+        "paragraphs": [
+          "The editor text box accepts JSON commands, not arbitrary JavaScript or Lua. The browser API is JavaScript. The CLI script command runs an explicitly chosen local JavaScript module with ordinary Node.js access, so run only scripts you trust.",
+          "PixelWall does not implement Aseprite’s Lua API. Rework an existing Lua automation using PixelWall commands rather than assuming it will execute unchanged. Procedural motion is 2D; 3D model rendering remains outside the current release."
+        ]
+      },
+      {
+        "heading": "Licensing is consistent",
+        "paragraphs": [
+          "Drawing, animation editing, scripting and the command API are free. Editable .pixelwall and supported .aseprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
+          "Calling a GIF, atlas, or ZIP export through an API or CLI does not bypass Pro verification. Editing a project with a script and saving that editable project remain free."
+        ],
+        "links": [
+          {
+            "href": "/guides/command-api",
+            "label": "Browser API reference and example"
+          },
+          {
+            "href": "/guides/command-line",
+            "label": "Command-line guide"
+          },
+          {
+            "href": "/guides/offline-and-downloads",
+            "label": "Download the standalone app and CLI"
+          }
+        ]
+      }
+    ],
+    "related": [
+      "guides/command-api",
+      "guides/command-line",
+      "guides/getting-started"
+    ]
+  },
+  {
+    "slug": "guides/command-api",
+    "title": "Use the PixelWall browser command API",
+    "description": "Inspect revisions, apply undoable command batches, save locally, preview PNGs, and invoke the same licensed exports as the editor.",
+    "eyebrow": "COMMAND API",
+    "intro": "A running current editor exposes version 1 of window.pixelwall. The API acts on the active document and uses the shared command engine. It is intended for tools you deliberately run or connect.",
+    "sections": [
+      {
+        "heading": "Apply a revision-checked edit",
+        "paragraphs": [
+          "Wait until the workspace has opened a document. inspect() returns a document summary and its current revision. Pass expectedRevision to reject an edit if the document changed after inspection. Omit frameId and layerId to use the active targets, or supply explicit IDs from your own document workflow."
+        ],
+        "code": "const api = window.pixelwall;\nconst before = api.inspect();\nawait api.apply({\n  expectedRevision: before.revision,\n  label: \"Draw badge\",\n  commands: [{\n    type: \"draw.ellipse\", x: 2, y: 2, width: 12, height: 12,\n    color: \"#ffb34bff\", filled: true\n  }]\n});\nawait api.save();\nconst preview = await api.preview({ scale: 4 });\n// preview contains width, height, and a PNG dataUrl.\nawait api.export({ format: \"png\", scale: 4 });"
+      },
+      {
+        "heading": "Available methods",
+        "items": [
+          "version: current browser API version, presently 1.",
+          "inspect(): current document summary and revision. commands(): command descriptions and field reference.",
+          "apply({commands, expectedRevision?, label?}): apply a batch of 1–2000 commands, limited to 16 MiB of command JSON, as one undoable change.",
+          "newDocument(options): save the previous document and activate a new one.",
+          "preview({frameId?, scale?}): return an in-memory PNG preview at up to 8× scale.",
+          "save(): await a durable local save. It does not download a backup or create cloud storage.",
+          "export(options): invoke the editor’s export flow. PNG, BMP, TGA, project, and Aseprite are free; gif, sheet, and zip require Pro.",
+          "undo() and redo(): use the active document’s editing history."
+        ]
+      },
+      {
+        "heading": "Behavior and limits",
+        "paragraphs": [
+          "An invalid command or mismatched expectedRevision rejects the batch. Catch errors and show them to the user; do not assume that an export or save completed because a call began. The UI’s memory, document, storage, and format limits still apply.",
+          "The API is local to the page. It is not an unauthenticated network editing server and does not upload projects. A user-connected external tool may call it, but PixelWall does not embed AI. The CLI provides the corresponding local-file workflow."
+        ]
+      }
+    ],
+    "related": [
+      "guides/scripting",
+      "guides/command-line",
+      "guides/export-formats"
+    ]
+  },
+  {
+    "slug": "guides/command-line",
+    "title": "Use the standalone PixelWall CLI",
+    "description": "Create and edit native sprite documents, render individual frames, import supported formats, and run paid batch exports with a signed ownership license.",
+    "eyebrow": "COMMAND LINE",
+    "intro": "The CLI uses the same document engine as the current editor and runs locally with Node.js 22.13 or newer. The downloadable bundle includes its JavaScript dependencies; it does not need an app server or embedded AI.",
+    "sections": [
+      {
+        "heading": "Download and start",
+        "paragraphs": [
+          "Download and extract the CLI bundle. Open a terminal in the extracted folder and run node pixelwall.mjs help. The examples below use the bundled file directly; an installed pixelwall command accepts the same arguments."
+        ],
+        "links": [
+          {
+            "href": "/downloads/pixelwall-cli.zip",
+            "label": "Download the PixelWall CLI ZIP"
+          }
+        ],
+        "code": "node pixelwall.mjs help\nnode pixelwall.mjs new --width 32 --height 32 --name Hero --out hero.pixelwall\nnode pixelwall.mjs inspect hero.pixelwall\nnode pixelwall.mjs render hero.pixelwall --frame 0 --scale 4 --out hero.png"
+      },
+      {
+        "heading": "Apply command files or a trusted script",
+        "paragraphs": [
+          "Put the JSON command array from the scripting guide into edits.json. apply reads it and writes the resulting native document. script loads the JavaScript module you explicitly choose; the module can access ordinary Node facilities."
+        ],
+        "code": "node pixelwall.mjs apply hero.pixelwall --commands edits.json --out hero-edited.pixelwall\nnode pixelwall.mjs script hero.pixelwall --script ./draw.mjs --out hero-scripted.pixelwall\n\n// draw.mjs\nexport default async ({ apply }) => {\n  apply({ type: \"draw.rect\", x: 2, y: 2, width: 12, height: 12,\n          color: \"#ffb34bff\", filled: true });\n}"
+      },
+      {
+        "heading": "Import and export",
+        "items": [
+          "import art.aseprite --out hero.pixelwall reads a supported Aseprite file. PNG, BMP, TGA, GIF, and native inputs are also supported.",
+          "import sheet.png --frame-width 32 --frame-height 32 --out hero.pixelwall slices a PNG sheet; margin, spacing, count, order, and duration options are available.",
+          "import-sequence frame1.png frame2.png --duration 100 --out hero.pixelwall combines PNG files in the supplied order.",
+          "export hero.pixelwall --format aseprite --out hero.aseprite writes a supported native Aseprite document for free.",
+          "render writes a single PNG frame. export with png, bmp, or tga also writes a free individual frame.",
+          "export with gif, sheet, atlas, or zip requires a valid Pro ownership license. Use sheet for a fixed-column sheet and atlas for trimming and packing."
+        ],
+        "code": "node pixelwall.mjs export hero.pixelwall --format atlas --trim --padding 2 --extrude 1 --power-of-two --out hero-atlas.png --license license.txt\nnode pixelwall.mjs export hero.pixelwall --format gif --clip Walk --out hero-walk.gif --license license.txt\nnode pixelwall.mjs export hero.pixelwall --format zip --out hero-game.zip --license license.txt"
+      },
+      {
+        "heading": "License and format caveats",
+        "paragraphs": [
+          "Supply the downloaded ownership license with --license, or supply the raw PW2 code using PIXELWALL_PRO_LICENSE. A valid signed PW2 license verifies offline against the public keys included in the build. Existing PW1 codes need one online conversion first.",
+          "Frame selectors are zero-based indices or frame IDs. --clip accepts a clip ID or exact name. CLI scale supports integer factors from 1 to 64, subject to output memory limits; the interactive editor exposes 1×, 2×, 4×, and 8× choices.",
+          "The CLI does not run Lua scripts and does not promise every Aseprite feature will round-trip. Read warnings on stderr and keep the source file. Individual PNG/BMP/TGA images cannot preserve editable layers or clips."
+        ]
+      }
+    ],
+    "related": [
+      "guides/scripting",
+      "guides/command-api",
+      "guides/offline-and-downloads"
+    ]
+  },
+  {
+    "slug": "guides/offline-and-downloads",
+    "title": "Keep PixelWall, projects, and Pro available offline",
+    "description": "Download the standalone browser app and CLI, run the editor over local HTTP, and keep a signed Pro license and independent project backups.",
+    "eyebrow": "OFFLINE & DOWNLOADS",
+    "intro": "Offline use requires the editor’s files, your artwork, and any Pro ownership license to be available on the device. Keep separate backups of all three. The current downloads can run without the hosted application server.",
+    "sections": [
+      {
+        "heading": "Download the app and CLI",
+        "paragraphs": [
+          "The standalone app ZIP contains a browser editor bundle, run-local.mjs, and a README. Extract it, read the included instructions, and run node run-local.mjs from that folder. Open the localhost URL printed by the local server. Node.js 22.13 or newer is required for the included launcher.",
+          "Use the local HTTP launcher instead of double-clicking index.html. Browser module loading, IndexedDB, and service-worker behavior depend on a supported origin. Keep using the same local address and port to reopen the same browser document library.",
+          "The CLI ZIP is a separate local-file command-line tool. It uses the same document engine and supports free individual-frame/native exports and licensed batch formats."
+        ],
+        "links": [
+          {
+            "href": "/downloads/pixelwall-standalone.zip",
+            "label": "Download the standalone PixelWall app ZIP"
+          },
+          {
+            "href": "/downloads/pixelwall-cli.zip",
+            "label": "Download the PixelWall CLI ZIP"
+          },
+          {
+            "href": "/guides/command-line",
+            "label": "Read the CLI guide"
+          }
+        ]
+      },
+      {
+        "heading": "Install the browser app shell",
+        "paragraphs": [
+          "A supported browser can install or cache the editor after it successfully loads the complete app shell. Open it once while connected, allow preparation to finish, and verify an offline reopen before depending on it. Installation prompts differ by browser.",
+          "A hosted shell can still be removed by browser or operating-system cleanup. The downloaded bundle is an independent copy; its local launcher does not need the PixelWall application server. Keep your project backups outside browser storage."
+        ]
+      },
+      {
+        "heading": "Bring Pro ownership with you",
+        "steps": [
+          {
+            "title": "Save the license after checkout",
+            "text": "Choose Pro in the hosted editor, complete the $15 one-time purchase, and download your private ownership license."
+          },
+          {
+            "title": "Restore in the offline app",
+            "text": "Open Pro → Restore Pro and paste the complete PW2 code. A compatible build verifies it locally with no expiry."
+          },
+          {
+            "title": "Convert an older recovery code",
+            "text": "A valid PW1 code must reach the configured storefront once to obtain a signed PW2 ownership license. Keep the old code until conversion succeeds."
+          },
+          {
+            "title": "Back up the app and artwork",
+            "text": "The license restores export access only. Save your app ZIP, license file, and native .pixelwall documents separately."
+          }
+        ]
+      },
+      {
+        "heading": "Desktop release status",
+        "paragraphs": [
+          "The source includes an Electron desktop wrapper around the same standalone editor. An unsigned macOS arm64 app can be built locally; an unsigned local build is not a notarized public installer. No Windows, Linux, or signed macOS release is implied by the browser/CLI download links above.",
+          "The desktop app stores its documents in its own application profile. Move work using native project files and restore the ownership license in that profile."
+        ]
+      },
+      {
+        "heading": "Storage and ownership limits",
+        "paragraphs": [
+          "The browser library uses IndexedDB, incremental image records, and bounded recovery versions. The default library budget is 96 MiB with up to 40 recovery versions per document, retaining the latest required recovery versions. Browser quota may be lower. A save error requires attention and a downloaded backup before closing.",
+          "An active online refund or dispute check can update access on that device. A non-expiring license already held by a disconnected app cannot be instantly revoked remotely. Offline ownership does not promise indefinite operation of the hosted store."
+        ]
+      }
+    ],
+    "related": [
+      "guides/getting-started",
+      "guides/command-line",
+      "pricing"
+    ]
+  },
+  {
+    "slug": "guides/aseprite-compatibility",
+    "title": "Understand native file and color compatibility",
+    "description": "Review supported Aseprite structures, indexed and grayscale editing, ICC preservation without conversion, raster limits, and unsupported Lua or 3D workflows.",
+    "eyebrow": "FILE COMPATIBILITY",
+    "intro": "PixelWall reads and writes real Aseprite files for supported document features. It also has its own v4 native format. Keep your original source and inspect compatibility notes when moving complex artwork between tools; full Aseprite parity is not claimed.",
+    "sections": [
+      {
+        "heading": "What editable files preserve",
+        "paragraphs": [
+          "Native PixelWall documents retain layers and groups, frames and cels, linked image references, color mode and palettes, clips, slices, independent tilesets, tilemap data, and metadata. Linked cels reference shared image records.",
+          "Supported Aseprite structures include RGBA, grayscale and indexed cel data; layers and groups; linked cels; frame timing and tags; slices, pivots, and user metadata; and supported embedded tilemap/tileset data. Preservation of a record does not guarantee every external application interprets it identically.",
+          "Unsupported structures can be rejected or reported as compatibility notes. External tilesets need available pixel data for rendered/game-package output. Unchanged source metadata may be retained where supported, but arbitrary unknown features are not guaranteed to survive every edit."
+        ]
+      },
+      {
+        "heading": "Color mode and profile limits",
+        "paragraphs": [
+          "The working profile is sRGB. Aseprite ICC bytes and profile metadata can be retained, but PixelWall does not perform ICC color conversion. A preview can differ from a color-managed source application. PNG profile/gamma metadata also is not converted.",
+          "RGBA stores color and alpha. Grayscale stores equal RGB channels with alpha. Indexed mode keeps palette indices and palette data; reserve a transparent palette entry when exporting indexed Aseprite. Per-frame indexed palette changes require care when editing and converting.",
+          "PNG imports support common bit depths and interlacing. Sixteen-bit channels become eight-bit editing values. Animated PNG is rejected; import a PNG sequence or GIF instead. GIF import preserves rendered animation frames and timing rather than the source layer structure."
+        ]
+      },
+      {
+        "heading": "Raster and 3D boundaries",
+        "paragraphs": [
+          "PNG, BMP, TGA and GIF are rendered images, so they flatten editable layers. Some BMP/TGA variants have limited alpha, palette, or compression support; read the actual import error or warning rather than assuming every historical variant is supported.",
+          "PixelWall’s text tool rasterizes a bitmap font or command-supplied bitmap glyphs; it is not a full typography engine. Its motion and particles produce editable 2D frames. 3D model import/rendering is deferred."
+        ]
+      },
+      {
+        "heading": "Scripting compatibility",
+        "paragraphs": [
+          "The Scripts panel accepts PixelWall JSON commands; the browser API and CLI use JavaScript. Existing Aseprite Lua scripts require a rewrite against PixelWall’s command model. There is no embedded AI runtime."
+        ]
+      },
+      {
+        "heading": "Capacity and practical checking",
+        "paragraphs": [
+          "The current editor accepts canvases from 1 × 1 through 2048 × 2048, up to 256 layers including groups, and up to 2048 frames. A document may store at most 16,777,216 image pixels across its distinct images. Linked cels share image data. These are validation limits, not a promise that every maximum-size combination will be responsive on your device; memory and export budgets also apply.",
+          "Large layers, long clips, many palette variants, and scaled exports can hit memory or format budgets before the document validation maximum. Check a representative import, edit, export, and reopen cycle for the features your project uses."
+        ],
+        "links": [
+          {
+            "href": "/guides/export-formats",
+            "label": "Read format-specific export limits"
+          },
+          {
+            "href": "/guides/scripting",
+            "label": "Read the scripting interface"
+          }
+        ]
+      }
+    ],
+    "related": [
+      "guides/export-formats",
+      "guides/scripting",
+      "support"
     ]
   }
 ]

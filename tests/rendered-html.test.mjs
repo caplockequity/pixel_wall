@@ -37,8 +37,8 @@ test("serves billing status without exposing unconfigured server secrets", async
   assert.deepEqual(await response.json(), { pro: false, checkoutAvailable: false, mode: "test" });
 });
 
-test("server-renders the PixelWall studio", async () => {
-  const response = await render();
+test("server-renders the classic PixelWall studio", async () => {
+  const response = await render("/editor/classic");
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
@@ -487,7 +487,7 @@ test("round-trips portable layered PixelWall projects and upgrades legacy drafts
 test("public pages expose canonical content and a connected crawlable site", async () => {
   const documents = JSON.parse(await readFile(new URL("app/public-content.json", projectRoot), "utf8"));
   const paths = ["/", "/guides", ...documents.map((page) => `/${page.slug}`)];
-  const allowed = new Set([...paths, "/editor"]);
+  const allowed = new Set([...paths, "/editor", "/editor/classic"]);
   const titles = new Set();
   for (const path of paths) {
     const response = await render(path);
@@ -502,7 +502,7 @@ test("public pages expose canonical content and a connected crawlable site", asy
     assert.doesNotMatch(html, /aria-label="Drawing tools"/, `${path} does not render the editor`);
     for (const match of html.matchAll(/<a\b[^>]*href="(\/[^"#?]*)/g)) {
       const href = match[1];
-      if (href.startsWith("/examples/")) await access(new URL(`public${href}`, projectRoot));
+      if (href.startsWith("/examples/") || href.startsWith("/downloads/")) await access(new URL(`public${href}`, projectRoot));
       else assert.ok(allowed.has(href), `${path} links to known page ${href}`);
     }
     for (const match of html.matchAll(/<script\b[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/gs)) {
@@ -550,3 +550,5 @@ test("the downloadable example preserves the studio starter pixels and frame tim
   assert.equal(Object.keys(atlas.frames).length, 3);
   for (const frame of Object.values(atlas.frames)) assert.equal(frame.duration, 125);
 });
+
+test("default editor serves a private local-document loading shell and new workspace bundle",async()=>{const response=await render();assert.equal(response.status,200);const html=await response.text();assert.match(html,/Opening your workspace/);assert.match(html,/workbench-[^"]+\.js/);assert.match(html,/ph-no-capture/);});

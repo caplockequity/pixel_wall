@@ -7,12 +7,14 @@ const sectionId = (heading: string) => heading.toLowerCase().replace(/[^a-z0-9]+
 
 export function DocumentPage({ page }: { page: ContentPage }) {
   const guide = page.slug.startsWith("guides/");
+  const classicGuide = ["pixel-art-tracing", "guides/phaser-sprite-sheets", "guides/pixijs-animated-sprites"].includes(page.slug);
+  const editorHref = classicGuide ? "/editor/classic" : "/editor";
   const crumbs = [{ name: "PixelWall", item: SITE_URL }, ...(guide ? [{ name: "Guides", item: `${SITE_URL}/guides` }] : []), { name: page.title, item: `${SITE_URL}/${page.slug}` }];
   return <main id="content" className="document-page">
     <StructuredData data={{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map((crumb, index) => ({ "@type": "ListItem", position: index + 1, ...crumb })) }} />
     {guide && <StructuredData data={{ "@context": "https://schema.org", "@type": "TechArticle", headline: page.title, description: page.description, url: `${SITE_URL}/${page.slug}`, author: { "@type": "Organization", name: "CapLock", url: `${SITE_URL}/about` }, publisher: { "@id": `${SITE_URL}/#organization` }, dateModified: "2026-09-08" }} />}
     <nav className="breadcrumbs" aria-label="Breadcrumb"><a href="/">PixelWall</a><span aria-hidden="true">/</span>{guide && <><a href="/guides">Guides</a><span aria-hidden="true">/</span></>}<span aria-current="page">{page.eyebrow.toLowerCase()}</span></nav>
-    <header className="document-header"><p className="eyebrow">{page.eyebrow}</p><h1>{page.title}</h1><p className="lede">{page.intro}</p>{!['privacy', 'terms'].includes(page.slug) && <a className="site-button" href="/editor">Open the editor <span aria-hidden="true">↗</span></a>}</header>
+    <header className="document-header"><p className="eyebrow">{page.eyebrow}</p><h1>{page.title}</h1><p className="lede">{page.intro}</p>{!['privacy', 'terms'].includes(page.slug) && <a className="site-button" href={editorHref}>{classicGuide ? "Open the classic editor" : "Open the editor"} <span aria-hidden="true">↗</span></a>}</header>
     {page.slug === "pricing" && <PricingTable />}
     <div className="document-body">
       <aside className="document-toc"><strong>On this page</strong><nav aria-label="On this page">{page.sections.map((section) => <a key={section.heading} href={`#${sectionId(section.heading)}`}>{section.heading}</a>)}{page.faqs?.length ? <a href="#questions">Common questions</a> : null}</nav></aside>

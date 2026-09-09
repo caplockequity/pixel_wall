@@ -1,0 +1,47 @@
+{
+  "name": "pixelwall-desktop",
+  "version": "0.1.0",
+  "description": "PixelWall local desktop studio",
+  "private": true,
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "package": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "40.10.6",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "ai.caplock.pixelwall",
+    "productName": "PixelWall",
+    "files": [
+      "main.mjs",
+      "app/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.graphics-design",
+      "icon": "../public/pixelwall-icon-512.png"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "../public/pixelwall-icon-512.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Graphics",
+      "icon": "../public/pixelwall-icon-512.png"
+    },
+    "directories": {
+      "output": "release"
+    }
+  },
+  "author": "Caplock"
+}

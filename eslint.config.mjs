@@ -13,8 +13,13 @@ const eslintConfig = defineConfig([
     "dist/**",
     "out/**",
     "build/**",
+    "desktop/app/**",
+    "desktop/release/**",
+    "work/**",
+    "outputs/**",
     "next-env.d.ts",
   ]),
+  { files: ["**/*.jsx"] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   react.configs.flat.recommended,
@@ -23,12 +28,17 @@ const eslintConfig = defineConfig([
   jsxA11y.flatConfigs.recommended,
   next.configs["core-web-vitals"],
   {
-    files: ["app/(public)/**/*.tsx", "app/studio.tsx"],
+    files: ["app/(public)/**/*.tsx", "app/studio.tsx", "app/workbench.jsx"],
     rules: {
       // Document navigation prevents editor prefetch and unloads its optional recorder.
       "@next/next/no-html-link-for-pages": "off",
     },
   },
+  { files:["app/workbench.jsx"], rules:{
+    // The canvas application handles editor shortcuts; command output must be keyboard-scrollable.
+    "jsx-a11y/no-noninteractive-element-interactions":["error",{div:["onKeyDown"]}],
+    "jsx-a11y/no-noninteractive-tabindex":["error",{tags:["pre"]}]
+  }},
   {
     files: ["app/(public)/document.tsx"],
     rules: {

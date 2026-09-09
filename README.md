@@ -1,40 +1,38 @@
 # PixelWall
 
-A tactile pixel-art studio built around a simple metaphor: project a reference
-onto a wall, mount a crisp pixel frame over it, and draw frame by frame.
+A local pixel-art and animation studio. `/editor` is the new workbench;
+`/editor/classic` preserves the original projector and tracing workspace.
+PixelWall contains no AI model, prompting service, or image-generation backend.
+External agents use the same deterministic commands as the editor.
 
 ## Features
 
-- Pencil, eraser, contiguous fill, and color picker
-- 8×8 through 256×256 bitmap canvases with centered resize
-- Projected image references with adjustable opacity, scale, position, and 1:1 pixel locking
-- Automatic square-sprite-sheet detection with exact previous/next sprite alignment
-- One-click import of detected sprite sheets into editable animation frames
-- Integer workspace pixel sizing and a transparency checker locked to canvas cells
-- Named animation clips, frame reordering, per-frame timing, looping modes, and onion skin
-- Four-layer cel workflow with visibility, locking, opacity, naming, and reordering
-- Rectangular selection with move, copy/paste, clear, and horizontal/vertical flips
-- Per-frame export pivots, named selection slices, seamless 3×3 preview, and linked-edge drawing
-- A compact tilemap lab that paints frames as reusable level tiles and exports a dedicated Tiled-compatible map package with a tileset, flattened preview, and stable frame mapping
-- Stroke-level undo and redo
-- Compact local autosave and portable `.pixelwall` project save/open files
-- A blank-project dialog with a backup download selected by default and in-session Undo recovery of the previous project
-- Persistent navigation to drawing, layers, animation, tilemaps, and reference tools, plus a practical guide with direct links to each workflow
-- Native transparent frame PNGs and configurable sprite packages with horizontal, vertical, or grid sheets, padding, transparent-edge trimming, individual PNGs, and Phaser/Pixi/Aseprite-style JSON
-- Standalone sprite-sheet PNG downloads using the selected frames, layout, and padding, with full untrimmed canvas cells
-- Animated GIF downloads of the active clip at 1×, 2×, 4×, or 8× nearest-neighbor scale, preserving playback direction, timing, and looping
-- Up to eight named export presets saved in this browser for layout, padding, trimming, individual PNGs, and GIF scale
-- Mouse, touch, and keyboard drawing
+- Rectangular documents up to 2048×2048, 256 layers and 2048 frames, bounded by 16,777,216 stored pixels.
+- RGBA, indexed and grayscale color, per-pixel alpha, palettes and remapping.
+- Brushes, custom masks, pressure, stabilizer, symmetry, wrapping, shapes, gradients, bitmap text and pixel-perfect strokes.
+- Rectangle, ellipse, lasso, polygon and wand selections; combined masks, translation, scale, rotation and flips.
+- Groups, blend modes, reference layers, positioned and linked cels, a layer-by-frame timeline and configurable onion skin.
+- Deterministic tween and particle baking, independent tilesets, tilemap layers and Manual/Auto/Stack tile-pixel editing.
+- Native Aseprite files, editable PNG/BMP/TGA/GIF imports, image sequences and padded sprite sheets.
+- Free frame PNG/BMP/TGA and portable PixelWall/Aseprite exports. Pro GIF, packed atlas PNG+JSON and game ZIP with real Tiled assets.
+- Named slices, pivots, nine-patch metadata, layer/clip export scope, padding, extrusion, scale and power-of-two packing.
+- Local document library, bounded recoverable revisions, sparse undo, workspace preferences and custom tool shortcuts.
+- Public JavaScript API, WebMCP, portable command extensions and a dependency-free bundled CLI. No embedded AI or Lua interpreter.
+- Offline browser and desktop builds with signed, perpetual Pro ownership licenses.
 
-GIF uses a maximum of 256 colors per frame and binary transparency: alpha below
-128 becomes transparent; other pixels become opaque. Small pixel-art palettes
-retain exact RGB colors. Frame timing is rounded to GIF centiseconds with a
-20 ms minimum; rounding is balanced across the animation. Exports are limited
-to 64 million output pixels across the full playback sequence and processed a
-frame at a time. PNG and project files retain the original artwork.
+See [format and CLI reference](docs/formats-cli.md) and [storage and ownership](docs/ownership-storage.md).
+Native compatibility is deliberately bounded: ICC data is retained without color conversion;
+Aseprite Lua extensions are not supported; pixel-safe rotation is not RotSprite.
+GIF uses binary transparency and quantizes larger palettes. PNG and project files retain full alpha.
+3D is deferred.
 
-Export presets contain no artwork or project-specific clip identifiers. They
-stay in local browser storage and are not included in portable project files.
+## Download builds
+
+`npm run build:standalone` builds the local browser app, bundled CLI and Electron app assets.
+Set `PIXELWALL_STANDALONE_SITE_URL` to the HTTPS storefront before building a private distribution.
+`npm run package:downloads` prepares the browser and CLI ZIP files for the website.
+The desktop wrapper has separate packaging scripts in `desktop/package.json`.
+Distribution signing and notarization require release credentials; local macOS builds are unsigned.
 
 ## Run locally
 
@@ -123,15 +121,15 @@ Generated exports and project backups keep a visible Download File link until
 dismissed or replaced, so they can be saved when a browser blocks the automatic
 download. Recovery codes use a direct download link.
 
-Pro is **$19 USD for lifetime access, paid once**, for animated GIFs, sprite-sheet PNGs,
+Pro is **$15 USD for lifetime access, paid once**, for animated GIFs, sprite-sheet PNGs,
 sprite and Tiled tilemap ZIP packages, and named export presets. Existing presets
-are retained. Access lasts for as long as PixelWall is available. There are no
+are retained. Listed exports work offline with your ownership license and downloaded app. There are no
 ads or recurring charges.
 
 ### Connection
 
 1. In Stripe **test mode**, create a PixelWall Pro product and an active one-time
-   price for USD 19.00. Put its `price_…` ID in `STRIPE_PRICE_ID`.
+   price for USD 15.00. Put its `price_…` ID in `STRIPE_PRICE_ID`.
 2. Set the server-only variables in `.env.example` in `.env.local` for local work
    and in the chosen host's secret settings for deployment. Keep `STRIPE_MODE=test`
    until the complete checkout and recovery flow passes with Stripe test payments.
@@ -237,7 +235,7 @@ PaymentIntent. An open checkout or an unpaid balance never grants access.
   confirm the final host/domain, support/refund terms, and applicable tax setup.
   Set `STRIPE_AUTOMATIC_TAX=true` only after configuring the intended Stripe Tax
   settings/registrations. Test checkout does not establish tax obligations.
-- Create the corresponding **live** USD 19.00 one-time price, then configure live
+- Create the corresponding **live** USD 15.00 one-time price, then configure live
   server keys, a separate license secret, and any live webhook destination.
   Explicitly set `STRIPE_MODE=live`. Test purchases do not unlock the live store.
 

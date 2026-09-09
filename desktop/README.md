@@ -1,0 +1,7 @@
+# PixelWall desktop wrapper
+
+This is a runnable Electron wrapper for a standalone browser build. It serves only packaged files from `desktop/app` under a stable secure `pixelwall://app` origin, so IndexedDB documents and signed Pro ownership licenses persist between launches. No application server, account or subscription is needed for the packaged editor. Checkout opens the hosted store in the system browser; import the downloaded PW2 license to unlock the local build.
+
+Build the standalone editor with relative asset URLs, copy that output into `desktop/app`, then run `npm install` and `npm start` from this directory. `npm run package` creates an unpacked local app; `npm run dist` produces platform installers. The editor must work without Next/React server routes (a normal server-rendered `dist/client` alone is not a complete standalone build). Use the same document/renderer modules in its client entry point. Bundle the public license keys into that build. Never bundle signing keys, Stripe credentials or project files.
+
+The wrapper disables Node access, uses context isolation and Chromium sandboxing, rejects external app navigation and denies unexpected permissions. Downloaded project/export files use the operating system's normal save/download flow. OS signing and notarization require the owner's distribution certificates and release account; unsigned local builds remain runnable but are not represented as public signed releases. Test persisted documents, offline license restoration, all exports, and close/reopen before distributing an installer.

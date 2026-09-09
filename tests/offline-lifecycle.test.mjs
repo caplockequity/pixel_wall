@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { setImmediate } from 'node:timers/promises';
+import { registerOffline } from '../app/offline-client.mjs';
+class Tracked extends EventTarget { listeners=new Map(); addEventListener(type,callback){super.addEventListener(type,callback);const values=this.listeners.get(type)??new Set();values.add(callback);this.listeners.set(type,values);} removeEventListener(type,callback){super.removeEventListener(type,callback);this.listeners.get(type)?.delete(callback);} get count(){return [...this.listeners.values()].reduce((sum,set)=>sum+set.size,0);} }
+test('registration returns synchronous cleanup and removes listeners + suppresses late status',async()=>{
+ const saved={navigator:Object.getOwnPropertyDescriptor(globalThis,'navigator'),window:globalThis.window,location:globalThis.location,environment:process.env.NODE_ENV,standalone:process.env.NEXT_PUBLIC_PIXELWALL_STANDALONE};
+ const serviceWorker=new Tracked();const registration=new Tracked();registration.installing=new Tracked();registration.active={postMessage(_message,ports){ports[0].postMessage({ready:true});}};serviceWorker.register=async()=>registration;const statuses=[];
+ try{process.env.NODE_ENV='production';delete process.env.NEXT_PUBLIC_PIXELWALL_STANDALONE;Object.defineProperty(globalThis,'navigator',{value:{serviceWorker},configurable:true});globalThis.window={isSecureContext:true};globalThis.location={protocol:'https:'};const dispose=registerOffline({onStatus:status=>statuses.push(status)});assert.equal(typeof dispose,'function');await setImmediate();await setImmediate();assert.equal(serviceWorker.count,1);assert.equal(registration.count,1);assert.equal(registration.installing.count,1);dispose();assert.equal(serviceWorker.count+registration.count+registration.installing.count,0);const before=statuses.length;serviceWorker.dispatchEvent(new Event('controllerchange'));await setImmediate();assert.equal(statuses.length,before);
+ process.env.NODE_ENV='development';let calls=0;serviceWorker.register=async()=>{calls++;return registration};registerOffline()();assert.equal(calls,0);
+ process.env.NODE_ENV='production';process.env.NEXT_PUBLIC_PIXELWALL_STANDALONE='true';registerOffline()();assert.equal(calls,0);
+ }finally{if(saved.navigator)Object.defineProperty(globalThis,'navigator',saved.navigator);else delete globalThis.navigator;globalThis.window=saved.window;globalThis.location=saved.location;if(saved.environment===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=saved.environment;if(saved.standalone===undefined)delete process.env.NEXT_PUBLIC_PIXELWALL_STANDALONE;else process.env.NEXT_PUBLIC_PIXELWALL_STANDALONE=saved.standalone;}
+});
