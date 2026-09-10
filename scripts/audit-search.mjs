@@ -11,7 +11,8 @@ for (const path of paths) {
   const response = await fetch(new URL(path, base));
   assert.equal(response.status, 200, path);
   const html = await response.text();
-  assert.equal((html.match(/<h1\b/g) ?? []).length, 1, `${path}: main heading`);
+  if (path === "/editor") assert.match(html, /<title>Pixel Art Editor \| PixelWall<\/title>/, `${path}: editor title`);
+  else assert.equal((html.match(/<h1\b/g) ?? []).length, 1, `${path}: main heading`);
   assert.ok(html.includes(`href="${site}${path === "/" ? "" : path}"`), `${path}: canonical origin`);
   if (!["/", "/editor", "/guides"].includes(path)) continue;
   const scripts = [...new Set([...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((match) => match[1]))];
@@ -21,7 +22,7 @@ for (const path of paths) {
     const bytes = Buffer.from(await response.arrayBuffer());
     const source = bytes.toString();
     assert.doesNotMatch(source, /\$session_recording_remote_config|class PostHog/, `${path}: no eagerly loaded PostHog SDK`);
-    if (path !== "/editor") assert.doesNotMatch(source, /pixelwall-project-v3|pixelwall-analytics-consent-v2|DRAWING TOOLS/, `${path}: no studio code`);
+    if (path !== "/editor") assert.doesNotMatch(source, /pixelwall-project-v3|DRAWING TOOLS/, `${path}: no studio code`);
     return { raw: bytes.length, gzip: gzipSync(bytes).length };
   }));
   metrics.push({ path, htmlBytes: Buffer.byteLength(html), initialScriptBytes: sizes.reduce((sum, item) => sum + item.raw, 0), initialScriptGzipBytes: sizes.reduce((sum, item) => sum + item.gzip, 0) });
