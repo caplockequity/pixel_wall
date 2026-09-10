@@ -2,6 +2,10 @@
 
 This is a substantial working release, not a claim of complete compatibility.
 
+## Release status
+
+Version 0.3.1 is published on the public site, GitHub, Vercel and the owner-only Sites mirror. The public release includes Apple-silicon Mac, Intel Mac, Windows x64 and Linux x64 builds, plus refreshed standalone-browser and CLI downloads. Both Mac packages are Developer ID signed, notarized, stapled and architecture-verified. Windows and Linux packages passed structural, version, architecture and checksum validation. The final local and live checks passed 3,151 tests and audited all 24 public routes, the release feed, agent documents, examples and download redirects.
+
 ## Next implementation priorities
 
 1. **Scripting objects and commands:** tilemap Image storage, tilemap cel creation, tile selections, Sprite copy/crop/close, background conversion, typed properties, additional tools and the remaining API inventory.
@@ -20,7 +24,7 @@ The three priority defects are fixed: save/close protection, indexed-color conve
 
 Version 0.3.1 completes effective palette-key handles, script-driven `ColorQuantization` and expanded `ChangePixelFormat`, including nonzero transparent-index generation. It also adds crawlable agent documentation, an accurate machine-readable interface statement, a reproducible three-frame command/CLI example, and guide links in both editor surfaces.
 
-Actual local ARM64 packaged checks cover scripting, native Undo/Redo, external-save conflict cancellation and preservation of the edited document. Additional release checks and final publication results are recorded in the release handoff.
+Actual local ARM64 packaged checks cover scripting, native Undo/Redo, external-save conflict cancellation and preservation of the edited document. All 0.3.1 publication steps are complete; installation and everyday integration checks on Intel Mac, Windows and Linux remain in priority 6 above.
 
 ## Resume references
 
