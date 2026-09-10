@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const SITE_URL = "https://www.pixelwall.dev";
 export const SITE_NAME = "PixelWall";
 export const PREVIEW_DEPLOYMENT = process.env.VERCEL_ENV === "preview";
-export const SITE_DESCRIPTION = "Create pixel art in your browser. Trace references, draw with layers, animate sprites, and build tilemaps. Free editing and PNG exports; optional one-time Pro exports.";
+export const SITE_DESCRIPTION = "Create pixel art online. Trace references, draw with layers, animate sprites, and build tilemaps. Free editing and PNG exports, with optional Pro tools.";
 
 export function pageMetadata(title: string, description: string, path = "/"): Metadata {
   const url = `${SITE_URL}${path === "/" ? "" : path}`;
