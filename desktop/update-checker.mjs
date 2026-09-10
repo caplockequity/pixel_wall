@@ -187,7 +187,7 @@ export function createFileSettingsStore(file) {
   };
 }
 
-export function createDesktopMenuTemplate({ platform, appName = 'PixelWall', automaticChecks, packaged, onCheck, onToggle, onDocumentation, onEditorAction = () => {} }) {
+export function createDesktopMenuTemplate({ platform, appName = 'PixelWall', automaticChecks, packaged, onCheck, onToggle, onDocumentation, onAgentGuide = onDocumentation, onEditorAction = () => {} }) {
   const updateItems = [
     { label: 'Check for Updates…', click: onCheck },
     { label: 'Check for updates automatically', type: 'checkbox', checked: automaticChecks, enabled: packaged, click: item => onToggle(item.checked) },
@@ -214,6 +214,6 @@ export function createDesktopMenuTemplate({ platform, appName = 'PixelWall', aut
       { role: 'selectAll' },
     ] },
     { role: 'viewMenu' }, { role: 'windowMenu' },
-    { role: 'help', submenu: [{ label: 'PixelWall Documentation', click: onDocumentation }, ...(!mac ? [{ type: 'separator' }, ...updateItems, { type: 'separator' }, { role: 'about' }] : [])] },
+    { role: 'help', submenu: [{ label: 'PixelWall Documentation', click: onDocumentation }, { label: 'AI Agent Guide', click: onAgentGuide }, ...(!mac ? [{ type: 'separator' }, ...updateItems, { type: 'separator' }, { role: 'about' }] : [])] },
   ];
 }

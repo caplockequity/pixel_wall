@@ -3520,7 +3520,7 @@ export default function Workbench() {
                   onDownload={(blob,name) => downloads.downloadBlob(blob,name)} onNotice={setNotice} onError={report}/>
                 <Field label="Script type"><select value={scriptLanguage} onChange={e => setScriptLanguage(e.target.value)}><option value="commands">PixelWall commands</option><option value="lua">Lua 5.4</option></select></Field>
                 {scriptLanguage === "lua" ? <>
-                  <p>Run Lua with Sprite, Image, Color, layers, frames, palettes and transactions. Each run is undoable. See the scripting guide for supported APIs and limits.</p>
+                  <p>Run Lua with Sprite, Image, Color, layers, frames, palettes and transactions. Each run is undoable. <a href="https://www.pixelwall.dev/guides/ai-agents" target="_blank" rel="noreferrer">Open the scripting and AI-agent guide.</a></p>
                   <div className="wb-button-row"><button onClick={() => chooseImport("lua")}>Open Lua script</button><button onClick={() => downloads.downloadBlob(new Blob([luaSource],{type:"text/plain"}),"pixelwall-script.lua")}>Save script</button></div>
                   <label className="wb-field"><span>Lua script</span><textarea className="wb-code" rows={16} value={luaSource} onChange={e => setLuaSource(e.target.value)} spellCheck={false}/></label>
                   <Field label="Time limit"><select value={luaTimeout} onChange={e => setLuaTimeout(+e.target.value)}><option value={3000}>3 seconds</option><option value={10000}>10 seconds</option></select></Field>
@@ -3618,6 +3618,7 @@ export default function Workbench() {
                 >
                   Command reference
                 </button>
+                <a className="wb-button-link" href="https://www.pixelwall.dev/guides/ai-agents" target="_blank" rel="noreferrer">AI agent guide</a>
                 </>}
                 <pre
                   className="wb-code-result"

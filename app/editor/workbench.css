@@ -105,6 +105,19 @@
 .wb-dialog a {
   color: #5144ab;
 }
+.workbench .wb-button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid var(--wb-line);
+  border-radius: 6px;
+  background: var(--wb-panel);
+  color: var(--wb-ink);
+  text-decoration: none;
+}
+.workbench .wb-button-link:hover { background: #eeedf6; border-color: #b8b4e5; }
 .wb-header {
   height: 55px;
   flex-shrink: 0;

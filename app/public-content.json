@@ -1139,6 +1139,7 @@
         "heading": "What scripts can do",
         "paragraphs": [
           "Commands cover document/layer/frame operations, cels, drawing, selections/transforms, palettes, effects, clips, 2D motion, particles, tilesets, and tilemap painting. Use the command reference shipped with your build for the exact fields and supported options.",
+          "Lua Palette objects follow the effective per-frame palette keys. Scripts can edit those keys, generate a palette with app.command.ColorQuantization, and convert RGBA, indexed, or grayscale artwork with app.command.ChangePixelFormat. These operations preserve shared image links where possible and participate in transaction rollback.",
           "The browser interface exposes window.pixelwall for structured operations and previews. If the browser provides a compatible modelContext tool-registration surface, PixelWall registers the same ordinary tools there. Availability depends on the host browser; PixelWall itself contains no AI assistant or generator."
         ]
       },
@@ -1172,6 +1173,7 @@
       }
     ],
     "related": [
+      "guides/ai-agents",
       "guides/command-api",
       "guides/command-line",
       "guides/getting-started"
@@ -1393,7 +1395,7 @@
       {
         "heading": "Scripting compatibility",
         "paragraphs": [
-          "Choose Lua 5.4 in the Scripts panel to edit and run scripts using supported sprite-editing APIs. Images support pixel and byte access, crop/copy, nearest resizing, flips and compositing. Colors support RGB, gray, indexed, HSV and HSL values. Blocking dialogs retain script variables across user input. Each successful run is undoable; failed or cancelled scripts leave staged artwork unapplied. Time and memory limits and unsupported API errors are explicit. Extension packages can provide palettes and explicit Lua command sessions; persistent plug-ins and advanced widgets are not supported.",
+          "Choose Lua 5.4 in the Scripts panel to edit and run scripts using supported sprite-editing APIs. Images support pixel and byte access, crop/copy, nearest resizing, flips and compositing. Colors support RGB, gray, indexed, HSV and HSL values. Palette objects follow per-frame palette keys; ColorQuantization can generate colors, and ChangePixelFormat converts RGBA, indexed, or grayscale artwork. Blocking dialogs retain script variables across user input. Each successful run is undoable; failed or cancelled scripts leave staged artwork unapplied. Time and memory limits and unsupported API errors are explicit. Extension packages can provide palettes and explicit Lua command sessions; persistent plug-ins and advanced widgets are not supported.",
           "Scripts can create and edit tilesets, insert or delete tiles, and assign tilesets to tilemap layers. ColorSpace values can assign working profiles or convert sprite colors. Imported ICC profiles are available to the script; arbitrary file and network access are unavailable."
         ]
       },
@@ -1419,6 +1421,78 @@
       "guides/export-formats",
       "guides/scripting",
       "support"
+    ]
+  },
+  {
+    "slug": "guides/ai-agents",
+    "title": "Use PixelWall with an AI coding agent",
+    "description": "Connect a coding agent through PixelWall's local CLI, browser command API, Lua scripting, or deliberate browser and desktop control. Includes a complete animated sprite example.",
+    "eyebrow": "AI AGENTS",
+    "intro": "PixelWall does not contain an AI model. An external agent can create and revise artwork when its environment can run local commands, execute code in the editor page, or control the browser or desktop interface. The agent still uses PixelWall's normal editing, saving, and export rules.",
+    "sections": [
+      {
+        "heading": "Choose the interface your agent can reach",
+        "items": [
+          "Code execution with Node.js 22.13 or newer: use the downloadable CLI for local project files, command batches, Lua scripts, rendered previews, and exports. This is the most direct option when the agent has a terminal but no interactive canvas.",
+          "Browser page execution: a running current editor exposes window.pixelwall version 1 for inspection, revision-checked command batches, Lua, previews, saves, exports, Undo, and Redo.",
+          "Browser or desktop computer control: an agent with approved mouse, keyboard, screen, and file access can operate the visible editor. The desktop Help menu links back to this guide.",
+          "Compatible browser tool registration: when a host supplies a modelContext registration surface, the editor registers its ordinary command tools there. Availability comes from the host environment.",
+          "Read-only web or chat access: the agent can read these pages but cannot edit PixelWall unless its host also provides one of the interfaces above."
+        ]
+      },
+      {
+        "heading": "What is available today",
+        "paragraphs": [
+          "The supported automation surfaces are the local CLI, window.pixelwall in the current editor, bounded Lua 5.4 scripts, JSON command batches, and deliberate computer control. They use the same document and rendering engine in the web and desktop editors.",
+          "PixelWall does not currently publish a standalone MCP server, public REST editing API, JavaScript or Python SDK, or universal agent protocol. There is no automatic connection from an arbitrary ChatGPT conversation. An agent needs explicit access to the local CLI, the running editor page, or the visible application."
+        ],
+        "links": [
+          { "href": "/guides/command-line", "label": "Read the CLI reference" },
+          { "href": "/guides/command-api", "label": "Read the browser command API" },
+          { "href": "/guides/scripting", "label": "Read scripting and command-batch support" }
+        ]
+      },
+      {
+        "heading": "Run the complete ninja-panda example",
+        "paragraphs": [
+          "This example uses 63 ordinary PixelWall commands to create a 24 × 24 ninja panda with nunchucks and three idle-animation frames. The downloadable command file is readable JSON. The finished project and first rendered frame let an agent compare its result before revising the commands.",
+          "Download and extract the CLI, then keep the command file in the same working folder. The first command creates an empty project. The second applies the complete animation as one edit. The third renders frame zero at 8× for inspection. Change the JSON and apply it to a fresh project for another revision."
+        ],
+        "code": "node pixelwall.mjs new --width 24 --height 24 --name \"Ninja Panda Idle\" --out ninja-panda.pixelwall\nnode pixelwall.mjs apply ninja-panda.pixelwall --commands agent-ninja-panda-commands.json --out ninja-panda-animated.pixelwall\nnode pixelwall.mjs inspect ninja-panda-animated.pixelwall\nnode pixelwall.mjs render ninja-panda-animated.pixelwall --frame 0 --scale 8 --out ninja-panda-preview.png",
+        "links": [
+          { "href": "/downloads/pixelwall-cli.zip", "label": "Download the PixelWall CLI ZIP" },
+          { "href": "/examples/agent-ninja-panda-commands.json", "label": "Download the command batch" },
+          { "href": "/examples/agent-ninja-panda.pixelwall", "label": "Download the finished editable project" },
+          { "href": "/examples/agent-ninja-panda.png", "label": "Open the rendered PNG" }
+        ]
+      },
+      {
+        "heading": "Safety, saving, and licensing",
+        "paragraphs": [
+          "Inspect the current document and use expectedRevision before a browser edit when another person or tool may also change it. Treat a successful apply and a successful save as separate results. Keep a downloaded project backup before unattended batches or application replacement.",
+          "Scripts and commands cannot bypass format or Pro checks. Individual PNG, BMP, and TGA frames and editable projects are free. GIF, atlas, sheet, and game-package exports require a valid Pro license. Lua is bounded and has no arbitrary file, network, or process access; a deliberately selected CLI JavaScript module runs with ordinary Node.js access."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Can any ChatGPT conversation directly run PixelWall?",
+        "answer": "No. The conversation's host must provide terminal access, browser page execution, or approved computer control and expose PixelWall through that environment."
+      },
+      {
+        "question": "Does PixelWall have an MCP server or public REST API?",
+        "answer": "Not currently. Use the documented CLI, browser command API, Lua scripting, JSON command batches, or computer control."
+      },
+      {
+        "question": "Can an agent create pixels without moving the mouse?",
+        "answer": "Yes. A code-execution agent can build and revise native projects through the CLI, render PNG previews for inspection, and export supported formats."
+      }
+    ],
+    "related": [
+      "guides/command-line",
+      "guides/command-api",
+      "guides/scripting",
+      "guides/offline-and-downloads"
     ]
   }
 ]

@@ -41,6 +41,12 @@ for (const path of paths) assert.ok(sitemap.includes(`<loc>${site}${path === "/"
 const robotsResponse = await fetch(new URL("/robots.txt", base));
 assert.equal(robotsResponse.status, 200);
 assert.match(await robotsResponse.text(), /Sitemap: https:\/\/www\.pixelwall\.dev\/sitemap.xml/);
+const llmsResponse = await fetch(new URL("/llms.txt", base));
+assert.equal(llmsResponse.status, 200);
+assert.match(await llmsResponse.text(), /https:\/\/www\.pixelwall\.dev\/guides\/ai-agents/);
+const agentStatement = await (await fetch(new URL("/agent-integration.json", base))).json();
+assert.equal(agentStatement.interfaces.cli.available, true);
+assert.equal(agentStatement.interfaces.standaloneMcpServer.available, false);
 const manifest = await (await fetch(new URL("/pixelwall.webmanifest", base))).json();
 assert.equal(manifest.id, "/");
 assert.equal(manifest.start_url, "/editor");

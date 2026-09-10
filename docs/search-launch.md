@@ -10,6 +10,7 @@ Public production is https://www.pixelwall.dev on Vercel. The apex redirects the
 - Public page content remains server-rendered, with ordinary links without editor prefetch and separate studio styles. A shared client component supplies privacy controls and explicit page/link events. Optional SDK download begins only after consent on pixelwall.dev; private previews and local/downloaded builds are excluded. A failed or delayed SDK download cannot bypass privacy choices.
 - SoftwareApplication, organization, website and breadcrumb data; technical article data for guides. No invented reviews or ratings.
 - Studio's existing Desert Signal starter exported as a tiny static homepage image and downloadable project, PNGs, GIF and JSON. Regenerate with `node scripts/export-demo.mjs`.
+- A public AI-agent guide, `/llms.txt`, and `/agent-integration.json` describe the supported CLI, browser command API, Lua, and computer-control paths without claiming interfaces that do not exist. The guide includes a reproducible 63-command animated ninja-panda project and rendered result.
 
 ## Verify and publish
 
@@ -25,6 +26,7 @@ Public production is https://www.pixelwall.dev on Vercel. The apex redirects the
 - Submit https://www.pixelwall.dev/sitemap.xml. Inspect the homepage and a workflow page. Check Google's generative-AI inclusion setting and Bing's AI Performance report when data is available.
 - Confirm legitimate Googlebot, Bingbot, OAI-SearchBot, Claude-SearchBot and PerplexityBot can retrieve production through the host/firewall. robots.txt permits public crawling; that alone does not verify firewall behavior or guarantee indexing.
 - Optional IndexNow: configure verified ownership and change notifications when the production publishing workflow is connected. Do not submit preview or private Sites URLs.
+- Recheck the agent guide and machine-readable capability pages in Search Console and Bing after their crawlers discover them. Their publication makes the facts retrievable but does not guarantee indexing or citations.
 
 ## Next content and measurement work
 

@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "product": "PixelWall",
+  "officialSite": "https://www.pixelwall.dev",
+  "guide": "https://www.pixelwall.dev/guides/ai-agents",
+  "interfaces": {
+    "cli": {
+      "available": true,
+      "runtime": "Node.js >=22.13.0",
+      "download": "https://www.pixelwall.dev/downloads/pixelwall-cli.zip",
+      "documentation": "https://www.pixelwall.dev/guides/command-line"
+    },
+    "browserCommandApi": {
+      "available": true,
+      "global": "window.pixelwall",
+      "version": 1,
+      "documentation": "https://www.pixelwall.dev/guides/command-api"
+    },
+    "lua": {
+      "available": true,
+      "version": "5.4",
+      "sandboxed": true,
+      "documentation": "https://www.pixelwall.dev/guides/scripting"
+    },
+    "jsonCommandBatches": {
+      "available": true,
+      "documentation": "https://www.pixelwall.dev/guides/scripting"
+    },
+    "computerControl": {
+      "availableWhenProvidedByHost": true,
+      "surfaces": ["browser", "desktop"]
+    },
+    "browserModelContextRegistration": {
+      "availableWhenProvidedByHost": true
+    },
+    "standaloneMcpServer": { "available": false },
+    "publicRestEditingApi": { "available": false },
+    "javascriptSdk": { "available": false },
+    "pythonSdk": { "available": false },
+    "universalAgentProtocol": { "available": false }
+  },
+  "examples": {
+    "animatedNinjaPandaCommands": "https://www.pixelwall.dev/examples/agent-ninja-panda-commands.json",
+    "animatedNinjaPandaProject": "https://www.pixelwall.dev/examples/agent-ninja-panda.pixelwall",
+    "renderedNinjaPandaPng": "https://www.pixelwall.dev/examples/agent-ninja-panda.png"
+  }
+}

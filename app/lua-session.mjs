@@ -1,3 +1,4 @@
+import { createLuaColorCommands } from './lua-color-commands.mjs';
 import { createLuaImageSpecs, LUA_SPEC_NOT_HANDLED } from './lua-image-specs.mjs';
 import { createLuaColorSpaces, LUA_COLOR_SPACE_NOT_HANDLED } from './lua-color-spaces.mjs';
 import { createLuaRasterLifetime } from './lua-raster-lifetime.mjs';
@@ -32,7 +33,7 @@ export function createLuaSession({ document, activeFrameId, activeLayerId, selec
   const activeRef = () => active ? spriteRef(active) : null;
   const doc = (id = active) => { const d = documents.get(id); if (!d) throw Error('This sprite is no longer available.'); return d; };
   const ref = (kind, data, key) => { const id = key ?? `lua-${++serial}`; if (!refs.has(id)) refs.set(id, { kind, ...data }); return reference(kind, id); };
-  const getRef = (value, kind) => { const r = refs.get(value?.id); if (r?.profileRetired) throw Error('This Image was deleted by color-space conversion. Request the current cel image again.'); if (!r || r.kind !== kind || value.__kind !== kind) throw Error(`Expected a valid ${kind}.`); return r; };
+  const getRef = (value, kind) => { const r = refs.get(value?.id); if (r?.profileRetired) throw Error('This Image was deleted by pixel or color-space conversion. Request the current cel image again.'); if (!r || r.kind !== kind || value.__kind !== kind) throw Error(`Expected a valid ${kind}.`); return r; };
   const spriteRef = id => ref('Sprite', { docId: id }, `sprite:${id}`);
   const layerRef = (docId, lid) => ref('Layer', { docId, layerId: lid }, `layer:${docId}:${lid}`);
   // Aseprite Frame handles intentionally refer to a frame NUMBER, even after insertion.
@@ -92,7 +93,7 @@ export function createLuaSession({ document, activeFrameId, activeLayerId, selec
     const next = applyCommand(doc(docId), command);
     if (Object.values(next.images).reduce((sum, i) => sum + i.width * i.height, 0) > LUA_LIMITS.pixels) throw Error('Lua sprite pixel budget exceeded.');
     documents.set(docId, next);
-    authoring.track(next);
+    authoring.track(next); colorCommands.track(next, command);
     const transaction = transactions.at(-1);
     (transaction?.entries ?? logs).push({ documentId: docId, label, commands: [copy(command)] });
     return next;
@@ -131,8 +132,7 @@ export function createLuaSession({ document, activeFrameId, activeLayerId, selec
   }
   function outputPixel(value, p) { if (value.colorMode === 'indexed') return p ?? (value.docId ? doc(value.docId).metadata?.aseprite?.transparentIndex ?? 0 : value.transparentColor ?? 0); const c = pixelRGBA({}, p); return value.colorMode === 'grayscale' ? c[0] + c[3] * 256 : packed(c); }
   function colorValue(value) { const [red, green, blue, alpha] = pixelRGBA({}, value); return { __value: 'Color', red, green, blue, alpha }; }
-  function paletteRef(docId) { return ref('Palette', { docId }, `palette:${docId}`); }
-  function palette(value) { const p = getRef(value, 'Palette'); return { ref: p, colors: p.docId ? doc(p.docId).palette : p.colors }; }
+  function palette(value) { return colorCommands.palette(value); }
   function imageNew(options) {
     if(options.source?.__kind==='ImageSpec'){if(options.rectangle!=null)throw Error('Image(spec) accepts one specification.');const spec=imageSpecs.options(options.source);reservePixels(spec.width*spec.height);const value={...spec,specProfile:spec.profile,version:0};delete value.profile;const pixel=imagePixel(value,spec.transparentColor);return ref('Image',{...value,pixels:Array(spec.width*spec.height).fill(pixel)});}
     if (options.source?.__kind === 'Image') { const original = image(options.source); return images.crop(original, options.rectangle ?? { x: 0, y: 0, width: original.width, height: original.height }); }
@@ -148,6 +148,7 @@ export function createLuaSession({ document, activeFrameId, activeLayerId, selec
   const imageSpecs=createLuaImageSpecs({ref,getRef,image,doc,colorSpaces,limits:LUA_LIMITS});
   const tiles = createLuaTilesets({ doc, ref, getRef, mutate, tileImageRef, image, retireTileImage, reservePixels, limits: LUA_LIMITS, newId: prefix => `lua-${prefix}-${++serial}`, layerRef, getActiveLayer: () => layerId, setActiveLayer: value => { layerId = value; } });
   const authoring = createLuaAuthoring({ tileObject: tiles.object, doc, mutate, ref, getRef, frameAt, frameRef, layerRef, celRef, imageRef, spriteRef, layer, cel, inputColor, colorValue, getActive: () => ({ docId: active, frameIndex, layerId }), limits: LUA_LIMITS });
+  const colorCommands = createLuaColorCommands({ doc, ref, getRef, mutate, flush, frameRef, getActive: () => ({ docId: active, frameIndex }), getRangeColors: () => authoring.finish().range?.colors ?? [], retireImages: docId => { rasterLifetime.retire(docId); for (const value of [...attached.values()]) if (value.docId === docId && value.tilesetId) retireTileImage(docId, value.tilesetId, value.tileIndex); } });
   if (initial) { authoring.track(initial); authoring.initialize(initial.id, selection, range); }
   function get(target, key) {
     const specValue=imageSpecs.get(target,key); if(specValue!==LUA_SPEC_NOT_HANDLED)return specValue;
@@ -162,7 +163,7 @@ export function createLuaSession({ document, activeFrameId, activeLayerId, selec
       if (key in values) return values[key];
       if (key === 'frames') return d.frames.map((_, i) => frameRef(d.id, i));
       if (key === 'layers') return d.layers.filter(l => !l.parentId).map(l => layerRef(d.id, l.id));
-      if (key === 'palettes') return [paletteRef(d.id)];
+      if (key === 'palettes') return colorCommands.list(d.id);
       if (key === 'cels') return d.frames.flatMap(f => d.layers.flatMap(l => f.cels[l.id] ? [celRef(d.id, l.id, f.id)] : []));
     } else if (kind === 'Layer') {
       const l = layer(target), d = doc(l.docId), v = l.value;
@@ -183,7 +184,7 @@ export function createLuaSession({ document, activeFrameId, activeLayerId, selec
     } else if (kind === 'Image') {
       const i = image(target), values = { width: i.width, height: i.height, id: target.id, version: i.version ?? 0, colorMode: modeNumber(i.colorMode), bounds: { __value: 'Rectangle', x: 0, y: 0, width: i.width, height: i.height }, bytesPerPixel: i.colorMode === 'rgba' ? 4 : i.colorMode === 'grayscale' ? 2 : 1 };
       if (key in values) return values[key];
-    } else if (kind === 'Palette' && key === 'size') return palette(target).colors.length;
+    } else if (kind === 'Palette') { if (key === 'size') return palette(target).colors.length; if (key === 'frame') return colorCommands.frame(target); }
     throw Error(`Unsupported ${kind}.${key}. See PixelWall Lua compatibility documentation.`);
   }
   function set(target, key, value) {
@@ -244,7 +245,7 @@ export function createLuaSession({ document, activeFrameId, activeLayerId, selec
         return celRef(docId, l.layerId, d.frames[index].id);
       }
       if (name === 'deleteCel') { const c = args[0]?.__kind === 'Cel' ? cel(args[0]) : { layerId: layer(args[0]).layerId, frameId: d.frames[frameAt(docId, args[1])].id }; mutate(docId, { type: 'cel.clear', layerId: c.layerId, frameId: c.frameId }); return; }
-      if (name === 'setPalette') { const p = palette(args[0]); mutate(docId, { type: 'palette.update', palette: [...p.colors] }); return; }
+      if (name === 'setPalette') { const p = palette(args[0]); colorCommands.setFirst(docId, p.colors); return; }
       if (name === 'resize') { const value = typeof args[0] === 'object' ? args[0] : { width: args[0], height: args[1] }; mutate(docId, { type: 'document.resize', width: value.width, height: value.height, mode: 'scale' }); return; }
     }
     if (target.__kind === 'Layer' && name === 'cel') { const l = layer(target); return celRef(l.docId, l.layerId, doc(l.docId).frames[frameAt(l.docId, args[0])].id); }
@@ -264,7 +265,7 @@ export function createLuaSession({ document, activeFrameId, activeLayerId, selec
       if (name === 'setColor') colors[integer(args[0], 0, colors.length - 1, 'Palette index')] = inputColor(args[1], 'rgba', colors);
       else if (name === 'resize') { const size = integer(args[0], 1, 256, 'Palette size'); colors.length = Math.min(colors.length, size); while (colors.length < size) colors.push('#000000ff'); }
       else throw Error(`Unsupported Palette:${name}().`);
-      if (p.ref.docId) mutate(p.ref.docId, { type: 'palette.update', palette: colors }); else p.ref.colors = colors;
+      colorCommands.set(target, colors);
       return;
     }
     throw Error(`Unsupported ${target.__kind}:${name}(). Files, exports, dialogs and extensions are unavailable in the Lua sandbox.`);
@@ -291,9 +292,10 @@ export function createLuaSession({ document, activeFrameId, activeLayerId, selec
     throw Error(`Unsupported app.${key} assignment.`);
   }
   function command(name, options = {}) {
+    if (name === 'ChangePixelFormat' || name === 'ColorQuantization') return colorCommands.command(name, options);
     if (['SelectAll', 'Deselect', 'InvertMask', 'Clear'].includes(name)) { if (Object.keys(options).some(key => key !== 'ui')) throw Error(`Unsupported options for app.command.${name}.`); authoring.selectionCommand(name); return; }
     const d = doc(), fid = d.frames[frameIndex].id;
-    const allowed = { NewLayer: ['name', 'group', 'tilemap', 'gridBounds'], NewFrame: ['content'], NewEmptyFrame: [], RemoveFrame: [], RemoveLayer: [], MergeDownLayer: [], MergeDown: [], DuplicateLayer: ['name'], ClearCel: [], UnlinkCel: [], SpriteSize: ['width', 'height', 'method'], CanvasSize: ['width', 'height'], ChangePixelFormat: ['format'] }[name];
+    const allowed = { NewLayer: ['name', 'group', 'tilemap', 'gridBounds'], NewFrame: ['content'], NewEmptyFrame: [], RemoveFrame: [], RemoveLayer: [], MergeDownLayer: [], MergeDown: [], DuplicateLayer: ['name'], ClearCel: [], UnlinkCel: [], SpriteSize: ['width', 'height', 'method'], CanvasSize: ['width', 'height'] }[name];
     if (allowed && Object.keys(options).some(key => key !== 'ui' && !allowed.includes(key))) throw Error(`Unsupported options for app.command.${name}.`);
     if (name === 'SpriteSize' && options.method !== undefined && !['nearest', 'nearest-neighbor'].includes(options.method)) throw Error('Lua SpriteSize currently supports nearest-neighbor only.');
     if (name === 'NewFrame' && options.content !== undefined && !['empty', 'current'].includes(options.content)) throw Error('Unsupported NewFrame content option.');
@@ -309,7 +311,6 @@ export function createLuaSession({ document, activeFrameId, activeLayerId, selec
     if (name === 'ClearCel') return mutate(active, { type: 'cel.clear', layerId, frameId: fid }), undefined;
     if (name === 'UnlinkCel') return mutate(active, { type: 'cel.unlink', layerId, frameId: fid }), undefined;
     if (name === 'SpriteSize' || name === 'CanvasSize') { mutate(active, { type: 'document.resize', width: options.width ?? d.width, height: options.height ?? d.height, mode: name === 'SpriteSize' ? 'scale' : 'canvas' }); return; }
-    if (name === 'ChangePixelFormat') { mutate(active, { type: 'document.colorMode', colorMode: modeName(options.format) }); return; }
     throw Error(`Unsupported app.command.${name}. Saving and exporting must use PixelWall's normal entitlement-checked UI/API.`);
   }
   function performTool(options) {
@@ -362,9 +363,9 @@ export function createLuaSession({ document, activeFrameId, activeLayerId, selec
       if(spec){const metadata={aseprite:{transparentIndex:spec.transparentColor}};mutate(id,{type:'document.update',patch:{metadata}});colorSpaces.set(spriteRef(id),'colorSpace',colorSpaces.fromValue(spec.profile));}
       mutate(id, { type: 'cel.set', frameId: seed.frames[0].id, layerId, width, height, pixels: Array(width * height).fill(seed.colorMode==='indexed'?0:null) }); return spriteRef(id);
     }
-    if (op === 'begin') { flush(); if (transactions.length >= 16) throw Error('Lua transaction nesting limit reached.'); transactions.push({ label: String(data.label ?? 'Lua transaction').slice(0, 100), documents: new Map(documents), seeds: new Map(seeds), active, frameIndex, layerId, authoring: authoring.snapshot(), tileImages: snapshotTileImages(), rasterImages:rasterLifetime.snapshot(), imageSpecs:imageSpecs.snapshot(), entries: [] }); return; }
+    if (op === 'begin') { flush(); if (transactions.length >= 16) throw Error('Lua transaction nesting limit reached.'); transactions.push({ label: String(data.label ?? 'Lua transaction').slice(0, 100), documents: new Map(documents), seeds: new Map(seeds), active, frameIndex, layerId, authoring: authoring.snapshot(), tileImages: snapshotTileImages(), rasterImages:rasterLifetime.snapshot(), imageSpecs:imageSpecs.snapshot(), palettes: colorCommands.snapshot(), entries: [] }); return; }
     if (op === 'commit') { flush(); const transaction = transactions.pop(); if (!transaction) throw Error('No Lua transaction.'); const entries = []; for (const entry of transaction.entries) { const previous = entries.at(-1); if (previous?.documentId === entry.documentId) previous.commands.push(...entry.commands); else entries.push({ ...entry, label: transaction.label }); } (transactions.at(-1)?.entries ?? logs).push(...entries); if (!transactions.length) retiredTileImages.clear(); return; }
-    if (op === 'rollback') { const transaction = transactions.pop(); if (!transaction) throw Error('No Lua transaction.'); documents.clear(); for (const [id, d] of transaction.documents) documents.set(id, d); seeds.clear(); for (const [id, d] of transaction.seeds) seeds.set(id, d); active = transaction.active; frameIndex = transaction.frameIndex; layerId = transaction.layerId; authoring.restore(transaction.authoring); restoreTileImages(transaction.tileImages); rasterLifetime.restore(transaction.rasterImages); imageSpecs.restore(transaction.imageSpecs); for (const [key, item] of attached) { const d = documents.get(item.docId); let source; try { source = item.tilesetId ? tileSource(item.docId, item.tilesetId, item.tileIndex) : d?.images[item.imageId]; } catch { source = null; } if (source) { Object.assign(item, copy(source)); item.virtualTile = !!source.virtualTile; item.dirty = false; item.colorMode = d.colorMode; } else { attached.delete(key); refs.delete(key); } } return; }
+    if (op === 'rollback') { const transaction = transactions.pop(); if (!transaction) throw Error('No Lua transaction.'); documents.clear(); for (const [id, d] of transaction.documents) documents.set(id, d); seeds.clear(); for (const [id, d] of transaction.seeds) seeds.set(id, d); active = transaction.active; frameIndex = transaction.frameIndex; layerId = transaction.layerId; authoring.restore(transaction.authoring); restoreTileImages(transaction.tileImages); rasterLifetime.restore(transaction.rasterImages); imageSpecs.restore(transaction.imageSpecs); colorCommands.restore(transaction.palettes); for (const [key, item] of attached) { const d = documents.get(item.docId); let source; try { source = item.tilesetId ? tileSource(item.docId, item.tilesetId, item.tileIndex) : d?.images[item.imageId]; } catch { source = null; } if (source) { Object.assign(item, copy(source)); item.virtualTile = !!source.virtualTile; item.dirty = false; item.colorMode = d.colorMode; } else { attached.delete(key); refs.delete(key); } } return; }
     if (op === 'print') { const text = String(data.text).slice(0, 4096); if (prints.join('').length + text.length > 32768) throw Error('Lua log budget exceeded.'); prints.push(text); return; }
     throw Error('Unsupported Lua bridge operation.');
   }

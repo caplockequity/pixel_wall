@@ -103,8 +103,12 @@ test('native quantizers preserve reserved-mask differences and exact-depth refin
  assert.deepEqual(new Set(quantizeNativePalette(['#010203ff', '#010202ff'], { maxColors: 8 })), new Set([clear, '#010203ff', '#010202ff']));
 });
 
-test('unsupported native generation masks, malformed inputs and shared work exhaustion fail atomically', () => {
- assert.throws(() => quantizeNativePalette([red], { transparentIndex: 3, maxColors: 8 }), /nonzero transparent/);
+test('nonzero generation masks work while malformed inputs and shared work exhaustion fail atomically', () => {
+ for (const quantization of ['octree', 'rgb5a3']) {
+  const palette = quantizeNativePalette([red], { transparentIndex: 3, maxColors: 8, quantization });
+  assert.equal(palette[3], clear);
+  assert.ok(palette.includes(red));
+ }
  assert.throws(() => quantizeNativePalette([red], { budget: { remaining: 0 } }), /work limit/);
  assert.throws(() => quantizeNativePalette([red], { quantization: 'unknown' }), /quantizer/);
  assert.throws(() => mapNativeIndexedImage({ width: 2, height: 1, pixels: [red] }, [clear, red]), /raster/);
@@ -112,9 +116,9 @@ test('unsupported native generation masks, malformed inputs and shared work exha
  assert.throws(() => mapNativeIndexedImage({ width: 1, height: 1, pixels: [red] }, [clear, red], { budget: { remaining: 1 } }), /work limit/);
  assert.throws(() => mapNativeIndexedImage({ width: 1, height: 1, pixels: ['rgb(1,2,3)'] }, [clear, red]), /hex/);
  const doc = createDocument({ width: 1, height: 1, colorMode: 'indexed', palette: [red, green, blue, clear] }); doc.metadata.aseprite = { transparentIndex: 3 };
- const before = JSON.stringify(doc);
- assert.throws(() => applyCommand(doc, { type: 'document.colorMode', colorMode: 'indexed', paletteMode: 'generate', quantization: 'octree', maxColors: 8 }), /nonzero transparent/);
- assert.equal(JSON.stringify(doc), before);
+ const converted = applyCommand(doc, { type: 'document.colorMode', colorMode: 'indexed', paletteMode: 'generate', quantization: 'octree', maxColors: 8 });
+ assert.equal(converted.metadata.aseprite.transparentIndex, 3);
+ assert.equal(converted.palette[3], clear);
 });
 
 test('native diffusion uses integer strength and preserves zero-strength RGB-map behavior', () => {

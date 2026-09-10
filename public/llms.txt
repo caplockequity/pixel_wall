@@ -1,0 +1,25 @@
+# PixelWall
+
+PixelWall is a pixel-art editor for browsers and desktop. Official site: https://www.pixelwall.dev
+
+## Agent integration
+
+- Agent guide: https://www.pixelwall.dev/guides/ai-agents
+- Browser command API: https://www.pixelwall.dev/guides/command-api
+- Local CLI: https://www.pixelwall.dev/guides/command-line
+- Lua and JSON scripting: https://www.pixelwall.dev/guides/scripting
+- Machine-readable capability statement: https://www.pixelwall.dev/agent-integration.json
+
+PixelWall supports a downloadable local CLI, window.pixelwall in the running current editor, bounded Lua 5.4 scripts, JSON command batches, and deliberate browser or desktop computer control. A compatible browser host may expose the same ordinary tools through its modelContext registration surface.
+
+PixelWall does not currently publish a standalone MCP server, public REST editing API, JavaScript or Python SDK, or universal agent protocol. An arbitrary chat cannot control PixelWall unless its host provides terminal access, browser page execution, or approved computer control.
+
+## Product and downloads
+
+- Open the editor: https://www.pixelwall.dev/editor
+- Desktop and offline downloads: https://www.pixelwall.dev/downloads
+- Guides: https://www.pixelwall.dev/guides
+- Pricing: https://www.pixelwall.dev/pricing
+- Support: https://www.pixelwall.dev/support
+
+Drawing, scripting, editable project files, and individual PNG, BMP, and TGA frame exports are free. PixelWall Pro is a $15 USD one-time purchase for GIF, sprite-sheet, atlas, game-package, and saved-preset exports. There is no subscription.

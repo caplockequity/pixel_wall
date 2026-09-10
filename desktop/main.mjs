@@ -109,6 +109,7 @@ else {
       onCheck: () => { void updater.check({ manual: true }); },
       onToggle: enabled => { void updater.setAutomaticChecks(enabled); },
       onDocumentation: () => { void shell.openExternal('https://www.pixelwall.dev/guides/offline-and-downloads').catch(() => {}); },
+      onAgentGuide: () => { void shell.openExternal('https://www.pixelwall.dev/guides/ai-agents').catch(() => {}); },
       onEditorAction: (action, selectedWindow) => {
         const owner = selectedWindow ?? BrowserWindow.getFocusedWindow() ?? window;
         if (!owner || owner.isDestroyed()) return;

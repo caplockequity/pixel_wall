@@ -30,7 +30,6 @@ const integer = (n, low, high, label) => { if (!Number.isSafeInteger(n) || n < l
 const clamp = n => Math.max(0, Math.min(255, n));
 const div = (n, d) => Math.trunc(n / d);
 const packed = c => ((c[0] | c[1] << 8 | c[2] << 16 | c[3] << 24) >>> 0);
-const unpack = n => [n & 255, n >>> 8 & 255, n >>> 16 & 255, n >>> 24];
 const hex = c => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
 const parse = c => { if (c === null) return [0, 0, 0, 0]; if (typeof c !== 'string' || !/^#[0-9a-f]{8}$/i.test(c)) fail('colors must be RGBA hex strings or null.'); return [1, 3, 5, 7].map(i => parseInt(c.slice(i, i + 2), 16)); };
 function meter(input) { const budget = input ?? { remaining: MAX_WORK }; integer(budget.remaining, 0, MAX_WORK, 'work budget'); return n => { budget.remaining -= n; if (budget.remaining < 0) fail('work limit exceeded.'); }; }
@@ -83,7 +82,8 @@ export function mapNativeIndexedImage(image, palette, input = {}) {
   const width = integer(image.width, 1, 65535, 'width'), height = integer(image.height, 1, 65535, 'height');
   if (width * height > MAX_PIXELS || !Array.isArray(image.pixels) || image.pixels.length !== width * height) fail('invalid raster pixels.');
   const budget = input.budget ?? { remaining: MAX_WORK };
-  const { map, colors, transparentIndex: mask } = createNativeRgbMap(palette, { ...input, budget }), spend = meter(budget), output = Array(width * height);
+  if (input.background !== undefined && typeof input.background !== 'boolean') fail('background must be boolean.');
+  const { map, colors, transparentIndex: mapMask } = createNativeRgbMap(palette, { ...input, budget }), mask = input.background ? -1 : mapMask, spend = meter(budget), output = Array(width * height);
   let mode = input.dithering ?? 'none';
   if (!['none', 'aseprite-ordered', 'aseprite-old', 'aseprite-error-diffusion'].includes(mode)) fail('unsupported native dithering.');
   const strength = input.ditherStrength ?? 1;
@@ -126,7 +126,7 @@ export function mapNativeIndexedImage(image, palette, input = {}) {
           const v = c.map((n, k) => clamp(n + row[k][x + 1])); index = map(v);
           const p = index === mask || colors[index][3] === 0 ? [...c.slice(0, 3), 0] : colors[index];
           for (let k = 0; k < 4; k++) { const q = div((v[k] - p[k]) * Math.trunc(strength * 100), 100), sign = reverse ? -1 : 1; row[k][x + 1 + sign] += div(q * 7, 16); next[k][x + 1 - sign] += div(q * 3, 16); next[k][x + 1] += div(q * 5, 16); next[k][x + 1 + sign] += div(q, 16); }
-        } else if (c[3] === 0 && (mask >= 0 || mode === 'none')) index = mask < 0 ? 0 : mask;
+        } else if (c[3] === 0 && (mask >= 0 || mode === 'none')) index = mapMask < 0 ? 0 : mapMask;
         else if (mode === 'none') index = map(c);
         else { const choice = ordered(c); index = matrix[y % size][x % size] < choice.mix ? choice.alternate : choice.index; }
         // Preserve invisible non-mask numeric entries; they are still native palette indices.
@@ -144,7 +144,7 @@ function histogram(samples, withAlpha, spend) {
   return [...colors.values()];
 }
 
-function octreePalette(entries, count, maskColor, spend) {
+function octreePalette(entries, count, mask, spend) {
   function build(depth) {
     let nodes = 1; const root = { parent: null, children: [], sum: [0, 0, 0, 0], count: 0 };
     for (const entry of entries) {
@@ -154,7 +154,7 @@ function octreePalette(entries, count, maskColor, spend) {
     }
     const leaves = []; function collect(node) { for (const child of node.children) if (child) { if (child.count) leaves.push(child); else collect(child); } } collect(root); return leaves;
   }
-  const available = count - (maskColor === null ? 0 : 1); let depth = 7, leaves = build(depth);
+  const reserve = mask >= 0, available = count - (reserve ? 1 : 0); let depth = 7, leaves = build(depth);
   if (leaves.length < available) { depth = 8; leaves = build(depth); }
   let aux = [], reducing = true;
   for (let level = depth; level >= 0; level--) {
@@ -177,7 +177,8 @@ function octreePalette(entries, count, maskColor, spend) {
     leaves.push(...aux.reverse()); aux = [];
   }
   const colors = leaves.map(node => node.sum.map(sum => { if (sum > 2147483647) fail('octree accumulator exceeds verified signed-integer range.'); return div(sum, node.count) + (sum % node.count > Math.floor(node.count / 2) ? 1 : 0); }));
-  return [...(maskColor === null ? [] : [unpack(maskColor)]), ...colors].map(hex);
+  if (reserve) { while (colors.length < mask) colors.push([0, 0, 0, 255]); colors.splice(mask, 0, [0, 0, 0, 0]); }
+  return colors.map(hex);
 }
 
 // Native median-cut uses a volume priority queue (not population). Sparse bins
@@ -206,7 +207,7 @@ function rgb5Palette(entries, count, mask, withAlpha, spend) {
     }
     while (queue.length && colors.length < available) colors.push(mean(pop()));
   }
-  if (reserve) { colors.splice(Math.min(mask, colors.length), 0, [0, 0, 0, withAlpha ? 0 : 255]); }
+  if (reserve) { while (colors.length < mask) colors.push([0, 0, 0, 255]); colors.splice(mask, 0, [0, 0, 0, withAlpha ? 0 : 255]); }
   else if (!colors.length) colors = [[0, 0, 0, 255]];
   return colors.map(hex);
 }
@@ -218,8 +219,7 @@ export function quantizeNativePalette(samples, input = {}) {
   const alpha = input.withAlpha ?? true; if (typeof alpha !== 'boolean') fail('withAlpha must be boolean.');
   const mask = input.transparentIndex === null ? -1 : integer(input.transparentIndex ?? 0, 0, max - 1, 'transparent index'), spend = meter(input.budget);
   const entries = histogram(samples, alpha, spend);
-  if (mask > 0) fail('native palette generation with a nonzero transparent index is not yet supported.');
-  const result = algorithm === 'octree' ? octreePalette(entries, max, mask < 0 ? null : mask, spend) : rgb5Palette(entries, max, mask, alpha, spend);
+  const result = algorithm === 'octree' ? octreePalette(entries, max, mask, spend) : rgb5Palette(entries, max, mask, alpha, spend);
   // Native all-transparent background octree can return an empty palette, which
   // the document/native writer cannot represent. Refuse instead of fabricating it.
   if (!result.length) fail('native quantizer produced an empty palette.'); return result;

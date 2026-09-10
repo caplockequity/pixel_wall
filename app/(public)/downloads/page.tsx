@@ -1,5 +1,6 @@
 import releaseData from "../../../public/desktop/latest.json";
-import previousRelease from "../../../public/desktop/releases/0.2.1.json";
+import previousRelease from "../../../public/desktop/releases/0.3.0.json";
+import earlierRelease from "../../../public/desktop/releases/0.2.1.json";
 import firstDesktopRelease from "../../../public/desktop/releases/0.2.0.json";
 import { pageMetadata, SITE_URL } from "../../site";
 import { StructuredData } from "../../structured-data";
@@ -38,7 +39,7 @@ const launchNotes = [
   { title: "File compatibility", detail: "Native PixelWall projects, editable sprite import and export, PNG/BMP/TGA/GIF imports, sprite-sheet slicing, and image sequences." },
   { title: "Exports", detail: "Free native project and individual PNG/BMP/TGA exports. Pro adds animated GIFs, sprite atlases with JSON, Tiled game packages, and saved export presets." },
   { title: "Local ownership", detail: "A document library with recovery versions, portable project backups, downloadable browser and CLI bundles, and offline Pro ownership licenses." },
-  { title: "Free automation", detail: "JavaScript commands, a scripting API, WebMCP, extensions, and a local CLI. External tools can control PixelWall; no AI runs inside the app." },
+  { title: "Free automation", detail: "JavaScript commands, a browser command API, Lua scripting, extensions, and a local CLI. External tools can control PixelWall when their environment provides access; no AI runs inside the app." },
 ];
 
 function downloadUrl(download: Download) {
@@ -113,7 +114,8 @@ export default function DownloadsPage() {
         <h2 id="release-history-heading">Release history.</h2>
         <nav className="downloads-release-nav" aria-label="Release versions">
           <a href={`#${releaseId}`}>{release.version} · Latest</a>
-          {release.version !== previousRelease.version ? <a href="#release-0-2-1">0.2.1</a> : null}
+          {release.version !== previousRelease.version ? <a href="#release-0-3-0">0.3.0</a> : null}
+          {release.version !== earlierRelease.version ? <a href="#release-0-2-1">0.2.1</a> : null}
           {release.version !== firstDesktopRelease.version ? <a href="#release-0-2-0">0.2.0</a> : null}
           <a href="#release-0-1-0">0.1.0 · Launch</a>
         </nav>
@@ -122,9 +124,13 @@ export default function DownloadsPage() {
       <div><p className="eyebrow">LATEST RELEASE</p><h3 id="release-notes-heading">PixelWall {release.version}</h3><p className="fine-print"><time dateTime={release.publishedAt}>{releaseDate(release.publishedAt)}</time></p></div>
       <div>{release.releaseNotes.length ? <ul>{release.releaseNotes.map((note, index) => <li key={`${index}-${note}`}>{note}</li>)}</ul> : <p>This release is ready to download above.</p>}<a className="text-link" href={publicLink("/support")}>Need a hand? Get support →</a></div>
     </article>
-    {release.version !== previousRelease.version ? <article className="downloads-release-notes" id="release-0-2-1" aria-labelledby="release-0-2-1-heading">
-      <div><p className="eyebrow">PREVIOUS RELEASE</p><h3 id="release-0-2-1-heading">PixelWall 0.2.1</h3></div>
+    {release.version !== previousRelease.version ? <article className="downloads-release-notes" id="release-0-3-0" aria-labelledby="release-0-3-0-heading">
+      <div><p className="eyebrow">PREVIOUS RELEASE</p><h3 id="release-0-3-0-heading">PixelWall 0.3.0</h3></div>
       <div><ul>{previousRelease.releaseNotes.map(note => <li key={note}>{note}</li>)}</ul></div>
+    </article> : null}
+    {release.version !== earlierRelease.version ? <article className="downloads-release-notes" id="release-0-2-1" aria-labelledby="release-0-2-1-heading">
+      <div><p className="eyebrow">PREVIOUS RELEASE</p><h3 id="release-0-2-1-heading">PixelWall 0.2.1</h3></div>
+      <div><ul>{earlierRelease.releaseNotes.map(note => <li key={note}>{note}</li>)}</ul></div>
     </article> : null}
     {release.version !== firstDesktopRelease.version ? <article className="downloads-release-notes" id="release-0-2-0" aria-labelledby="previous-release-heading">
       <div><p className="eyebrow">PREVIOUS RELEASE</p><h3 id="previous-release-heading">PixelWall 0.2.0</h3></div>
