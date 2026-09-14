@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { open, readFile, stat, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const supported = new Set(['windows:x64', 'linux:x64', 'mac:arm64', 'mac:x64']);
@@ -58,11 +58,14 @@ export async function verifyDesktopRelease({ root, platform, arch, version = '0.
   const require = createRequire(join(root, 'desktop/package.json'));
   const asar = require('@electron/asar');
   const archive = join(resources, 'app.asar');
+  // @electron/asar traverses directories using the host OS separator. A slash
+  // works for one-level entries on Windows but fails for nested dependencies.
+  const extract = path => asar.extractFile(archive, path.split('/').join(sep)).toString('utf8');
   const entries = asar.listPackage(archive).map((entry) => entry.replaceAll('\\', '/').replace(/^\//, ''));
   const files = new Set(entries);
   const required = ['package.json', 'main.mjs', 'app/index.html', 'app/build-info.json', 'app/sw.js'];
   for (const path of required) assert.ok(files.has(path), `Packaged application is missing ${path}.`);
-  const metadata = JSON.parse(asar.extractFile(archive, 'package.json').toString('utf8'));
+  const metadata = JSON.parse(extract('package.json'));
   assert.equal(metadata.version, version, 'Packaged application version differs from the artifact name.');
   assert.equal(metadata.main, 'main.mjs', 'Unexpected Electron entry point.');
   const sourceMetadata = require('./package.json');
@@ -72,15 +75,15 @@ export async function verifyDesktopRelease({ root, platform, arch, version = '0.
   }
   if (metadata.dependencies?.['electron-updater']) {
     assert.ok(files.has('node_modules/electron-updater/package.json'), 'The production updater dependency is missing.');
-    const updaterPackage = JSON.parse(asar.extractFile(archive, 'node_modules/electron-updater/package.json').toString('utf8'));
+    const updaterPackage = JSON.parse(extract('node_modules/electron-updater/package.json'));
     assert.equal(updaterPackage.version, metadata.dependencies['electron-updater'], 'Packaged updater version does not match the pinned dependency.');
     const updateConfig = await readFile(join(resources, 'app-update.yml'), 'utf8');
     assert.match(updateConfig, /updaterCacheDirName: pixelwall-desktop-updater/, 'Packaged updater cache configuration is missing.');
   }
-  const buildInfo = JSON.parse(asar.extractFile(archive, 'app/build-info.json').toString('utf8'));
+  const buildInfo = JSON.parse(extract('app/build-info.json'));
   assert.equal(buildInfo.format, 'pixelwall-standalone', 'Packaged application is not the standalone editor.');
   assert.match(buildInfo.buildId, /^[a-f0-9]{16}$/);
-  const index = asar.extractFile(archive, 'app/index.html').toString('utf8');
+  const index = extract('app/index.html');
   const assets = [...index.matchAll(/(?:src|href)=["']\.\/(assets\/[^"'#?]+)(?:[?#][^"']*)?["']/g)].map((match) => `app/${match[1]}`);
   assert.ok(assets.some((path) => path.endsWith('.js')), 'Standalone index does not reference a bundled JavaScript asset.');
   for (const path of assets) assert.ok(files.has(path), `Standalone entry references a missing asset: ${path}`);
