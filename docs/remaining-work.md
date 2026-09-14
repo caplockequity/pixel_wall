@@ -1,8 +1,12 @@
-# Remaining work after the 0.3.1 checkpoint
+# Remaining work after the 0.3.2 checkpoint
 
 This is a substantial working release, not a claim of complete compatibility.
 
 ## Release status
+
+Version 0.3.2 adds in-app desktop downloads, progress, cancellation, retry, release notes, and an explicit Restart to update action. The restart uses the existing durable-save handshake and postpones installation if saving fails. Automatic checks and the legacy release feed remain compatible with older clients, which need one final manual installation to acquire the updater. Architecture-specific metadata and both published checksums protect update selection and downloads.
+
+Release validation passed 3,178 automated tests, lint, and both production website builds. All four packages passed version, architecture, packaged updater, and checksum validation; both Mac packages passed Developer ID signature, notarization, and stapling checks. Signed Mac upgrade fixtures exercised download, verification, durable save, native replacement, and relaunch on Apple Silicon and Intel under Rosetta. The fixtures use the new updater labeled as an older version; real 0.3.1 installations still need the one-time manual upgrade. Windows and Linux native installation testing remains outstanding.
 
 Version 0.3.1 is published on the public site, GitHub, Vercel and the owner-only Sites mirror. The public release includes Apple-silicon Mac, Intel Mac, Windows x64 and Linux x64 builds, plus refreshed standalone-browser and CLI downloads. Both Mac packages are Developer ID signed, notarized, stapled and architecture-verified. Windows and Linux packages passed structural, version, architecture and checksum validation. The final local and live checks passed 3,151 tests and audited all 24 public routes, the release feed, agent documents, examples and download redirects.
 
@@ -14,7 +18,7 @@ Version 0.3.1 is published on the public site, GitHub, Vercel and the owner-only
 4. **Editing:** gesture/pivot rounding for rotation, additional layer/background semantics, typography and movable/saved workspace equivalence.
 5. **Files and exports:** remaining format variants, additional external-resource workflows and intermediate CLI actions. Repeated ordered scaling of tilemap documents is explicitly rejected until each stage preserves the full native bitmap representation. Ordered slice selectors retain PixelWall's documented input scope.
 6. **Desktop acceptance:** cross-application clipboard/profile transfer, installer/file-association tests and native launch testing on Intel Mac, Windows and Linux. Structural package validation is separate from installation testing.
-7. **Desktop update experience:** redesign the in-app update flow so update checks, available-version messaging, release notes, download progress, installation, relaunch, failures and retry states are clear and dependable. Verify the experience on macOS, Windows and Linux, and protect unsaved work before any updater-driven relaunch.
+7. **Desktop update acceptance:** the in-app flow is implemented in 0.3.2. Continue native installation and recovery testing across Windows, Linux, and both Mac architectures, including permissions, interrupted updates, and retained artwork/licenses. Windows distribution signing remains separate work; current Windows downloads retain their existing unsigned status.
 8. **Refunded Pro licenses:** add license-status checks in both desktop and browser versions so a previously issued or redeemed code no longer unlocks Pro after its purchase is refunded. Cover existing activations and cached entitlements, define offline/recheck behavior, and preserve users' artwork when Pro access is revoked. This requires a server-backed entitlement and recheck design because an already-held offline lifetime code cannot be remotely revoked.
 9. **Search monitoring:** monitor Google and Bing coverage and a fixed assistant-prompt sample while Bing processes the submitted sitemap and indexing requests. Recheck the homepage description warning after Bing recrawls the deployed metadata. Crawlable pages and metadata do not guarantee indexing or citations.
 10. **Optional agent connectors:** evaluate a standalone MCP server, installable agent skill or language SDK only after choosing the supported security, versioning and distribution model. The current official guide accurately documents the interfaces that exist now.
