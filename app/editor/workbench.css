@@ -867,3 +867,29 @@
 .workbench.art-surface,.wb-loading.art-surface{aspect-ratio:auto;width:100%;box-sizing:border-box;border:0}.workbench>.wb-body{min-width:0}.wb-body>.wb-sidebar{flex-shrink:0}
 
 .wb-panel-dock{display:flex;gap:4px;padding:5px;background:#f5f3ec}.wb-panel-dock>button{flex:1;font-size:10px;min-height:23px}.sidebar-floating .wb-sidebar{position:fixed;z-index:30;max-height:70dvh;box-shadow:0 10px 40px #241c4030;border:1px solid #cec9e0;border-radius:8px;resize:both}.wb-extension{padding:8px;border:1px solid #deded7;border-radius:6px}.wb-extension>button{margin:7px 4px 0 0}
+
+/* Keep navigation reachable when projects and layers overflow. */
+.wb-project-bar { display:flex; align-items:center; gap:4px; padding:4px 8px; min-width:0; flex-shrink:0; border-bottom:1px solid var(--wb-line); }
+.wb-project-bar > button, .wb-project-bar > select { flex-shrink:0; }
+.wb-project-bar > select { max-width:160px; min-width:90px; }
+.wb-doc-tabs { flex:1; min-width:0; padding:2px; border:0; scrollbar-width:auto; overflow-x:scroll; }
+.wb-doc-tab { display:flex; align-items:center; flex:0 0 auto; max-width:220px; border:1px solid transparent; border-radius:6px; }
+.wb-doc-tab.active { background:var(--wb-tint); border-color:#b1a9ed; }
+.wb-doc-tab > button:first-child { display:block; min-width:65px; max-width:170px; text-align:left; }
+.wb-doc-tab > button:last-child { flex:0 0 28px; padding:4px; }
+.wb-document-actions { display:flex; gap:4px; overflow-x:auto; flex-shrink:0; padding:4px 12px; border-bottom:1px solid var(--wb-line); }
+.wb-document-actions > button { flex-shrink:0; }
+.wb-sidebar { min-height:0; overflow:hidden; }
+.wb-panel-dock { flex-shrink:0; flex-wrap:wrap; }
+.wb-panel-dock > button { font-size:12px; }
+.wb-keep-panel { flex-shrink:0; margin:0 5px 5px; font-size:12px !important; }
+.wb-panel-content { flex:1; min-height:0; overflow-y:auto; scrollbar-gutter:stable; }
+.wb-panel-content > * { flex-shrink:0; }
+.wb-layer-list { max-height: min(320px, 38dvh); overflow-y:scroll; overflow-x:hidden; scrollbar-gutter:stable; }
+.wb-layer-name { min-width:0; display:block !important; }
+.wb-layer > button:not(.wb-layer-name) { flex-shrink:0; }
+.wb-layer-actions { display:flex; justify-content:flex-end; }
+.wb-doc-tabs::-webkit-scrollbar, .wb-layer-list::-webkit-scrollbar, .wb-panel-content::-webkit-scrollbar { width:10px; height:10px; }
+.wb-doc-tabs::-webkit-scrollbar-thumb, .wb-layer-list::-webkit-scrollbar-thumb, .wb-panel-content::-webkit-scrollbar-thumb { background:#aaa5bb; border:2px solid var(--wb-panel); border-radius:6px; }
+.wb-doc-tabs::-webkit-scrollbar-track, .wb-layer-list::-webkit-scrollbar-track, .wb-panel-content::-webkit-scrollbar-track { background:#eeedf3; }
+.sidebar-floating .wb-sidebar { max-width:100vw; height:70dvh; }

@@ -97,6 +97,9 @@ import {
   EyeOff,
   Lock,
   Unlock,
+  ChevronLeft,
+  ChevronRight,
+  X,
   ChevronUp,
   ChevronDown,
   Search,
@@ -195,9 +198,19 @@ function resizeRgba(rgba, w, h, scale) {
     }
   return out;
 }
+const FIELD_HELP = {
+  "Opacity": "Control how transparent the selected layer is",
+  "Blend": "Choose how this layer mixes with the layers below it",
+  "Group": "Place this layer inside a layer group",
+  "Cel X": "Horizontal position of this layer’s artwork in the current frame",
+  "Cel Y": "Vertical position of this layer’s artwork in the current frame",
+  "Size": "Set the drawing tool’s size in pixels",
+  "Layer name": "Rename the selected layer",
+  "Stroke stabilization": "Smooth pointer movement while drawing",
+};
 function Field({ label, children, ...props }) {
   return (
-    <label className="wb-field" {...props}>
+    <label className="wb-field" title={FIELD_HELP[label] || label} {...props}>
       <span>{label}</span>
       {children}
     </label>
@@ -224,7 +237,7 @@ function Modal({ title, onClose, children, wide = false }) {
     >
       <header>
         <h2>{title}</h2>
-        <button aria-label={`Close ${title}`} onClick={onClose}>
+        <button title={`Close ${title}`} aria-label={`Close ${title}`} onClick={onClose}>
           ×
         </button>
       </header>
@@ -305,6 +318,10 @@ export default function Workbench() {
   const [sliceDraft, setSliceDraft] = useState(null);
   const [pinnedPanels, setPinnedPanels] = useState([]);
   const panelDrag = useRef(null);
+  const sidebarRef = useRef(null);
+  const documentTabsRef = useRef(null);
+  const [closedDocuments, setClosedDocuments] = useState([]);
+
   const [selectedLayers, setSelectedLayers] = useState([]);
   const [wrap, setWrap] = useState("none");
   const [historyState, setHistoryState] = useState({
@@ -316,6 +333,9 @@ export default function Workbench() {
   const [doc, setDoc] = useState(null),
     [activeFrame, setActiveFrame] = useState(""),
     [activeLayer, setActiveLayer] = useState("");
+  useEffect(() => {
+    documentTabsRef.current?.querySelector('[aria-current="page"]')?.scrollIntoView({block:"nearest", inline:"nearest"});
+  }, [doc?.id]);
   const [tool, setTool] = useState("pencil"),
     [color, setColor] = useState("#ffb34bff"),
     [bgColor, setBgColor] = useState("#ffffffff"),
@@ -796,6 +816,7 @@ export default function Workbench() {
       if (prefs) {
         setSettings(prefs);
         setPinnedPanels(prefs.pinnedPanels || []);
+        setClosedDocuments(prefs.closedDocuments || []);
       }
       const migrations = await store.importLegacy({
         convert: (raw) => {
@@ -887,9 +908,9 @@ export default function Workbench() {
   useEffect(() => {
     if (storeRef.current)
       void storeRef.current
-        .setSetting("workspace", { ...settings, pinnedPanels })
+        .setSetting("workspace", { ...settings, pinnedPanels, closedDocuments })
         .catch(report);
-  }, [settings, pinnedPanels, report]);
+  }, [settings, pinnedPanels, closedDocuments, report]);
   const layer = doc?.layers.find((l) => l.id === activeLayer),
     frame = doc?.frames.find((f) => f.id === activeFrame),
     selectedClip = doc?.clips?.find((c) => c.id === clipId),
@@ -1670,13 +1691,33 @@ export default function Workbench() {
       const loaded = await storeRef.current.loadDocument(id);
       if (!loaded) throw Error("Project could not be found.");
       await activate(loaded.document, loaded.revision);
+      setClosedDocuments(ids => ids.filter(value => value !== id));
       analyticsRef.current.project("open", "completed");
+      return true;
     } catch (error) {
       analyticsRef.current.project("open", "failed");
       report(error);
     } finally {
       setBusy(false);
     }
+  }
+  async function closeDocumentTab(id) {
+    if (busy || luaAbortRef.current || nativeSessionRef.current?.busy) return;
+    if (id === docRef.current?.id) {
+      const others = documents.filter(d => d.id !== id && !closedDocuments.includes(d.id));
+      const next = others[0] || documents.find(d => d.id !== id);
+      if (!next) {
+        setNotice("This is your only project. Create another project before closing this tab.");
+        return;
+      }
+      if (!await openDocument(next.id)) return;
+    }
+    setClosedDocuments(ids => [...new Set([...ids, id])]);
+    setNotice("Tab closed. Reopen it from All projects; your artwork is still saved on this device.");
+  }
+  function dockPanels(side) {
+    panelDrag.current = null;
+    setSettings(current => ({...current, sidebar:side}));
   }
   async function decodeImage(file) {
     const bytes = new Uint8Array(await file.arrayBuffer());
@@ -2514,23 +2555,28 @@ export default function Workbench() {
           />
         </div>
       </header>
-      <nav className="wb-doc-tabs" aria-label="Open documents">
-        {documents.map((d) => (
-          <button
-            key={d.id}
-            className={d.id === doc.id ? "active" : ""}
-            onClick={() => void openDocument(d.id)}
-          >
-            {d.name || "Untitled"}
-          </button>
-        ))}
-        {!documents.some((d) => d.id === doc.id) && (
-          <button className="active">{doc.name}</button>
-        )}
-        <button onClick={() => setModal("new")} aria-label="Add document">
-          +
-        </button>
-        <button onClick={showRecovery}>Recovery</button>
+      <nav className="wb-project-bar" aria-label="Projects">
+        <IconButton icon={ChevronLeft} label="Scroll projects left" onClick={() => documentTabsRef.current?.scrollBy({left:-260, behavior:"smooth"})} />
+        <div className="wb-doc-tabs" ref={documentTabsRef} onWheel={event => {
+          if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+          event.currentTarget.scrollLeft += event.deltaY;
+        }}>
+          {[...documents.filter(d => !closedDocuments.includes(d.id) || d.id === doc.id), ...(!documents.some(d => d.id === doc.id) ? [doc] : [])].map(d => (
+            <div className={`wb-doc-tab ${d.id === doc.id ? "active" : ""}`} key={d.id}>
+              <button title={`Open ${d.name || "Untitled"}`} aria-current={d.id === doc.id ? "page" : undefined} disabled={busy} onClick={() => void openDocument(d.id)}>{d.name || "Untitled"}</button>
+              <IconButton icon={X} label={`Close ${d.name || "Untitled"} tab (keep saved project)`} disabled={busy} onClick={() => void closeDocumentTab(d.id)} />
+            </div>
+          ))}
+        </div>
+        <IconButton icon={ChevronRight} label="Scroll projects right" onClick={() => documentTabsRef.current?.scrollBy({left:260, behavior:"smooth"})} />
+        <IconButton icon={Plus} label="Create a new project" onClick={() => setModal("new")} />
+        <select aria-label="All projects" title="Open any saved project, including closed tabs" value="" disabled={busy} onChange={event => void openDocument(event.target.value)}>
+          <option value="" disabled>All projects ({documents.length})</option>
+          {documents.map(d => <option key={d.id} value={d.id}>{d.name || "Untitled"}</option>)}
+        </select>
+      </nav>
+      <nav className="wb-document-actions" aria-label="Document actions">
+        <button title="Browse and restore earlier saved versions of this project" onClick={showRecovery}>Recovery</button>
         <button
           onClick={() => run({ type: "layer.duplicate" }, "Duplicate layer")}
         >
@@ -2541,9 +2587,9 @@ export default function Workbench() {
         >
           Merge down
         </button>
-        <button onClick={() => chooseImport("reference")}>Reference</button>
-        <button onClick={() => chooseImport("sequence")}>Image sequence</button>
-        <button onClick={() => chooseImport("sheet")}>Sprite sheet</button>
+        <button title="Import an image as a reference layer for tracing" onClick={() => chooseImport("reference")}>Reference</button>
+        <button title="Import several images as animation frames" onClick={() => chooseImport("sequence")}>Image sequence</button>
+        <button title="Split a sprite sheet into animation frames" onClick={() => chooseImport("sheet")}>Sprite sheet</button>
         <button onClick={() => setModal("commands")}>
           <Search size={13} />
           Commands
@@ -2777,12 +2823,14 @@ export default function Workbench() {
           </div>
         </section>
         <aside
+          ref={sidebarRef}
+          key={settings.sidebar}
           className="wb-sidebar"
           style={
             settings.sidebar === "floating"
               ? {
-                  left: settings.panelX || 80,
-                  top: settings.panelY || 150,
+                  left: settings.panelX ?? 80,
+                  top: settings.panelY ?? 150,
                   width: settings.panelWidth || 268,
                 }
               : undefined
@@ -2790,44 +2838,33 @@ export default function Workbench() {
         >
           <div className="wb-panel-dock">
             <button
-              aria-label="Move floating panels"
-              onPointerDown={(event) => {
+              title={settings.sidebar === "floating" ? "Drag to move panels. Use Dock left or Dock right to lock them in place." : "Detach panels so you can move them"}
+              style={{touchAction:"none"}}
+              onClick={() => { if (settings.sidebar !== "floating") setSettings(current => ({...current, sidebar:"floating"})); }}
+              onPointerDown={event => {
+                if (settings.sidebar !== "floating" || event.button !== 0) return;
+                const rect = sidebarRef.current.getBoundingClientRect();
                 event.currentTarget.setPointerCapture(event.pointerId);
-                panelDrag.current = {
-                  x: event.clientX,
-                  y: event.clientY,
-                  left: settings.panelX || 80,
-                  top: settings.panelY || 150,
-                };
-                setSettings((current) => ({ ...current, sidebar: "floating" }));
+                panelDrag.current = {x:event.clientX, y:event.clientY, left:rect.left, top:rect.top};
               }}
-              onPointerMove={(event) => {
+              onPointerMove={event => {
                 const drag = panelDrag.current;
-                if (drag)
-                  setSettings((current) => ({
-                    ...current,
-                    panelX: Math.max(0, drag.left + event.clientX - drag.x),
-                    panelY: Math.max(0, drag.top + event.clientY - drag.y),
-                  }));
+                if (!drag) return;
+                const width = sidebarRef.current?.offsetWidth || 268;
+                setSettings(current => ({...current,
+                  panelX:clamp(drag.left + event.clientX - drag.x, 0, Math.max(0, window.innerWidth - width)),
+                  panelY:clamp(drag.top + event.clientY - drag.y, 0, Math.max(0, window.innerHeight - 100))}));
               }}
-              onPointerUp={() => {
-                panelDrag.current = null;
-              }}
-            >
-              Move panels
-            </button>
-            <button
-              onClick={() =>
-                setPinnedPanels((current) =>
-                  current.includes(panel)
-                    ? current.filter((p) => p !== panel)
-                    : [...current, panel],
-                )
-              }
-            >
-              {pinnedPanels.includes(panel) ? "Unpin panel" : "Pin panel"}
-            </button>
+              onPointerUp={() => { panelDrag.current = null; }}
+              onPointerCancel={() => { panelDrag.current = null; }}
+              onLostPointerCapture={() => { panelDrag.current = null; }}
+            >{settings.sidebar === "floating" ? "Drag panels" : "Float panels"}</button>
+            <button title="Lock panels to the left edge" aria-pressed={settings.sidebar === "left"} onClick={() => dockPanels("left")}>Dock left</button>
+            <button title="Lock panels to the right edge" aria-pressed={settings.sidebar === "right"} onClick={() => dockPanels("right")}>Dock right</button>
           </div>
+          <button className="wb-keep-panel" title="Keep this section visible when switching to another panel" aria-pressed={pinnedPanels.includes(panel)} onClick={() => setPinnedPanels(current => current.includes(panel) ? current.filter(p => p !== panel) : [...current, panel])}>
+            {pinnedPanels.includes(panel) ? "Stop keeping section open" : "Keep section open"}
+          </button>
           <nav aria-label="Editor panels">
             {[
               ["layers", "Layers", Layers],
@@ -2838,6 +2875,7 @@ export default function Workbench() {
             ].map(([id, label, Icon]) => (
               <button
                 key={id}
+                title={label + " panel"}
                 aria-label={label + " panel"}
                 aria-pressed={panel === id}
                 className={panel === id ? "active" : ""}
@@ -2854,6 +2892,7 @@ export default function Workbench() {
                 <div className="wb-panel-title">
                   <h2>Layers</h2>
                   <button
+                    title="Add a new image layer"
                     aria-label="Add layer"
                     onClick={() => {
                       const next = run(
@@ -2869,6 +2908,7 @@ export default function Workbench() {
                     +
                   </button>
                   <button
+                    title="Add a group to organize layers"
                     aria-label="Add layer group"
                     onClick={() =>
                       run(
@@ -2883,7 +2923,10 @@ export default function Workbench() {
                     Group
                   </button>
                 </div>
-                <div className="wb-layer-list">
+                <div className="wb-layer-actions">
+                  <button title="Delete the selected layer or group and its contents. Undo restores it." disabled={doc.layers.length === 1} onClick={() => run({type:"layer.remove", layerId:activeLayer}, "Delete layer")}><Trash2 size={14} /> Delete layer</button>
+                </div>
+                <div className="wb-layer-list" role="region" aria-label="Layers">
                   {[...doc.layers].reverse().map((l) => (
                     <div
                       key={l.id}
@@ -2902,6 +2945,7 @@ export default function Workbench() {
                         }
                       />
                       <button
+                        title={`${l.name} — click to select; Ctrl/⌘-click to select multiple layers`}
                         className="wb-layer-name"
                         onClick={(event) => selectLayer(l.id, event)}
                       >
@@ -3025,7 +3069,8 @@ export default function Workbench() {
                       />
                       <IconButton
                         icon={Trash2}
-                        label="Delete layer"
+                        label="Delete layer (Undo restores it)"
+                        disabled={doc.layers.length === 1}
                         onClick={() =>
                           run({ type: "layer.remove" }, "Delete layer")
                         }
