@@ -17,7 +17,7 @@ export function createCloseController({ prepare, cancel, confirmDiscard, close, 
       }),
     ]).finally(() => timers.clearTimeout(timer));
   }
-  async function run(attemptId) {
+  async function run(attemptId, forUpdate) {
     state = 'preparing';
     let failure;
     try {
@@ -25,8 +25,8 @@ export function createCloseController({ prepare, cancel, confirmDiscard, close, 
       if (isDestroyed()) { state = 'closed'; return; }
       if (result?.status === 'ready' && result.attemptId === attemptId && typeof result.id === 'string' && result.id.length > 0 && Number.isSafeInteger(result.revision) && result.revision >= 0) {
         // prepare retains its renderer edit lock until this window is destroyed.
+        await close({ forUpdate });
         state = 'closed';
-        close();
         return;
       }
       failure = new Error(result?.reason || 'The editor has not confirmed that the current project was saved.');
@@ -34,7 +34,7 @@ export function createCloseController({ prepare, cancel, confirmDiscard, close, 
     if (isDestroyed()) { state = 'closed'; return; }
     state = 'confirming';
     let discard = false;
-    try { discard = await confirmDiscard(failure) === true; } catch { /* A failed dialog must not discard artwork. */ }
+    try { discard = await confirmDiscard(failure, { forUpdate }) === true && !forUpdate; } catch { /* A failed dialog must not discard artwork. */ }
     if (isDestroyed()) { state = 'closed'; return; }
     if (discard) { state = 'closed'; close(); return; }
     // Cancel invalidates even a prepare operation that completes after its timeout.
@@ -45,11 +45,11 @@ export function createCloseController({ prepare, cancel, confirmDiscard, close, 
   }
   return {
     getState: () => state,
-    request() {
+    request({ forUpdate = false } = {}) {
       if (pending) return pending;
       if (state === 'closed' || isDestroyed()) return Promise.resolve();
       const attemptId = `desktop-close-${++sequence}`;
-      pending = run(attemptId).finally(() => { pending = undefined; });
+      pending = run(attemptId, forUpdate).finally(() => { pending = undefined; });
       return pending;
     },
   };

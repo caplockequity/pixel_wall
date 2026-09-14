@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { open, stat, writeFile } from 'node:fs/promises';
+import { open, readFile, stat, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -68,7 +68,14 @@ export async function verifyDesktopRelease({ root, platform, arch, version = '0.
   const sourceMetadata = require('./package.json');
   assert.equal(sourceMetadata.version, version, 'desktop/package.json must match the release version.');
   for (const file of sourceMetadata.build?.files ?? []) {
-    if (typeof file === 'string' && /^[\w./-]+\.mjs$/.test(file)) assert.ok(files.has(file), `A configured desktop module is absent from app.asar: ${file}`);
+    if (typeof file === 'string' && /^[\w./-]+\.(?:mjs|cjs|js|html|css)$/.test(file)) assert.ok(files.has(file), `A configured desktop module is absent from app.asar: ${file}`);
+  }
+  if (metadata.dependencies?.['electron-updater']) {
+    assert.ok(files.has('node_modules/electron-updater/package.json'), 'The production updater dependency is missing.');
+    const updaterPackage = JSON.parse(asar.extractFile(archive, 'node_modules/electron-updater/package.json').toString('utf8'));
+    assert.equal(updaterPackage.version, metadata.dependencies['electron-updater'], 'Packaged updater version does not match the pinned dependency.');
+    const updateConfig = await readFile(join(resources, 'app-update.yml'), 'utf8');
+    assert.match(updateConfig, /updaterCacheDirName: pixelwall-desktop-updater/, 'Packaged updater cache configuration is missing.');
   }
   const buildInfo = JSON.parse(asar.extractFile(archive, 'app/build-info.json').toString('utf8'));
   assert.equal(buildInfo.format, 'pixelwall-standalone', 'Packaged application is not the standalone editor.');

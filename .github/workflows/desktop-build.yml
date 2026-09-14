@@ -73,6 +73,8 @@ jobs:
         run: |
           mv "desktop/release/PixelWall-${{ steps.release.outputs.version }}-linux-x86_64.AppImage" "desktop/release/PixelWall-${{ steps.release.outputs.version }}-linux-x64.AppImage"
           node scripts/verify-desktop-release.mjs --platform linux --arch x64 --version ${{ steps.release.outputs.version }}
+      - name: Prepare metadata from the final validated update artifact
+        run: node scripts/prepare-desktop-update.mjs --platform ${{ matrix.platform }} --arch ${{ matrix.arch }} --version ${{ steps.release.outputs.version }}
       - name: Upload the desktop candidate and validation report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -81,6 +83,7 @@ jobs:
             desktop/release/PixelWall-${{ steps.release.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.extension }}
             desktop/release/PixelWall-${{ steps.release.outputs.version }}-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.extension }}.sha256
             desktop/release/validation-${{ matrix.platform }}-${{ matrix.arch }}.json
+            desktop/release/latest-${{ matrix.arch }}*.yml
           if-no-files-found: error
           compression-level: 0
           retention-days: 14

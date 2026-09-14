@@ -1,6 +1,6 @@
 {
   "name": "pixelwall-desktop",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "PixelWall local desktop studio",
   "private": true,
   "type": "module",
@@ -20,6 +20,13 @@
     "files": [
       "main.mjs",
       "update-checker.mjs",
+      "update-installer.mjs",
+      "desktop-updater.mjs",
+      "update-window.mjs",
+      "update-preload.cjs",
+      "update.html",
+      "update.css",
+      "update-ui.js",
       "editor-controls.mjs",
       "native-files.mjs",
       "native-file-ipc.mjs",
@@ -69,9 +76,16 @@
       "icon": "../public/pixelwall-icon-512.png",
       "artifactName": "PixelWall-${version}-linux-${arch}.${ext}"
     },
+    "publish": {
+      "provider": "generic",
+      "url": "https://github.com/caplockequity/pixel_wall/releases/latest/download/"
+    },
     "directories": {
       "output": "release"
     }
   },
-  "author": "Caplock"
+  "author": "Caplock",
+  "dependencies": {
+    "electron-updater": "6.8.9"
+  }
 }

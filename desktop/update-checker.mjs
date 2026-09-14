@@ -89,7 +89,7 @@ function cleanSettings(value, now) {
 }
 
 /** Checks and opens approved URLs only. No updater, installer or artwork APIs. */
-export function createUpdateController({ currentVersion, platform, arch, packaged, fetch: fetchImpl, readSettings = async () => ({}), writeSettings = async () => {}, notify = async () => 'later', openExternal = async () => {}, now = Date.now, timers = globalThis, startupDelayMs = STARTUP_DELAY_MS, intervalMs = CHECK_INTERVAL_MS, fetchOptions = {} }) {
+export function createUpdateController({ currentVersion, platform, arch, packaged, fetch: fetchImpl, readSettings = async () => ({}), writeSettings = async () => {}, notify = async () => 'later', shouldNotify = () => true, openExternal = async () => {}, now = Date.now, timers = globalThis, startupDelayMs = STARTUP_DELAY_MS, intervalMs = CHECK_INTERVAL_MS, fetchOptions = {} }) {
   if (!isStableVersion(currentVersion)) throw new Error('The app version must be a stable release version.');
   const target = `${platform}-${arch}`;
   let settings = cleanSettings({}, now()), loading, inFlight, manualRequested = false, requestAbort;
@@ -133,6 +133,7 @@ export function createUpdateController({ currentVersion, platform, arch, package
         if (manualRequested) await inform({ kind: 'unsupported', currentVersion, target, version: manifest.version });
         return { status: 'unsupported', version: manifest.version };
       }
+      if (!shouldNotify()) return { status: 'deferred', version: manifest.version };
       if (!manualRequested && settings.notifiedVersion && compareVersions(manifest.version, settings.notifiedVersion) <= 0) return { status: 'already-notified', version: manifest.version };
       if (!settings.notifiedVersion || compareVersions(manifest.version, settings.notifiedVersion) > 0) settings.notifiedVersion = manifest.version;
       await persist();

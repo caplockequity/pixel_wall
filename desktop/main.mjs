@@ -1,8 +1,12 @@
-import { app, BrowserWindow, protocol, net, shell, session, dialog, Menu, ipcMain, clipboard, nativeImage } from 'electron';
+import { app, autoUpdater as nativeUpdater, BrowserWindow, protocol, net, shell, session, dialog, Menu, ipcMain, clipboard, nativeImage } from 'electron';
+import electronUpdater from 'electron-updater';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, resolve, sep } from 'node:path';
 import { access } from 'node:fs/promises';
-import { createUpdateController, createFileSettingsStore, createDesktopMenuTemplate } from './update-checker.mjs';
+import { createFileSettingsStore, createDesktopMenuTemplate } from './update-checker.mjs';
+import { createUpdateInstaller } from './update-installer.mjs';
+import { createDesktopUpdater } from './desktop-updater.mjs';
+import { createUpdateWindow } from './update-window.mjs';
 import { createCloseController, runEditorAction } from './editor-controls.mjs';
 import { createNativeClipboardIpc } from './native-clipboard-ipc.mjs';
 import { createNativeFileIpc } from './native-file-ipc.mjs';
@@ -16,6 +20,7 @@ if (!app.requestSingleInstanceLock()) app.quit();
 else {
   let window;
   let nativeFiles;
+  let closeController, installAction, savedForUpdate = false;
   const pendingFiles = nativePathsFromArgv(process.argv.slice(app.isPackaged ? 1 : 2));
   let quitting = false;
   function openRequestedFiles(paths) {
@@ -60,49 +65,68 @@ else {
       const owner = window;
       const native = nativeFiles.attach(owner);
       nativeClipboard.attach(owner);
-      const closeController = createCloseController({
+      closeController = createCloseController({
         prepare: async attemptId => native.verifyClose(await runEditorAction(owner.webContents, 'prepareClose', attemptId)),
         cancel: attemptId => runEditorAction(owner.webContents, 'cancelClose', attemptId),
         isDestroyed: () => owner.isDestroyed(),
         isWaitingForUser: native.service.isWaitingForUser,
-        confirmDiscard: async error => {
+        confirmDiscard: async (error, { forUpdate } = {}) => {
+          if (forUpdate) {
+            await dialog.showMessageBox(owner, { type: 'warning', title: 'Update postponed', message: 'PixelWall could not safely restart for the update.', detail: `${error.message}\nYour artwork has been kept open. Save your work and try again.`, buttons: ['Keep editing'] });
+            return false;
+          }
           const answer = await dialog.showMessageBox(owner, { type: 'warning', title: 'Save needs attention', message: 'PixelWall could not confirm that all projects were saved.', detail: `${error.message}\nKeep this window open and use Save or Save As to preserve your artwork.`, buttons: ['Keep editing', 'Close without saving'], defaultId: 0, cancelId: 0 });
           return answer.response === 1;
         },
-        onKeepEditing: () => { quitting = false; },
+        onKeepEditing: () => { quitting = false; savedForUpdate = false; installAction = undefined; },
         onReleaseError: error => { if (!owner.isDestroyed()) void dialog.showMessageBox(owner, { type: 'warning', title: 'Editor needs attention', message: error.message, detail: 'Your window has been kept open. Save a project backup before restarting PixelWall.', buttons: ['OK'] }).catch(() => {}); },
-        close: () => { if (!owner.isDestroyed()) owner.destroy(); if (quitting) app.quit(); },
+        close: async ({ forUpdate } = {}) => {
+          if (forUpdate) {
+            savedForUpdate = true;
+            try { await installAction(); }
+            catch (error) { savedForUpdate = false; throw error; }
+            return;
+          }
+          if (!owner.isDestroyed()) owner.destroy();
+          if (quitting || process.platform !== 'darwin') app.quit();
+        },
       });
       nativeFiles.enqueue(owner, pendingFiles.splice(0));
       owner.on('close', event => {
+        if (savedForUpdate) return;
         event.preventDefault();
         void closeController.request();
       });
       void window.loadURL('pixelwall://app/editor');
     }
     openWindow();
-    app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) openWindow(); });
-    async function updateDialog(event) {
-      const owner = BrowserWindow.getFocusedWindow() ?? (window && !window.isDestroyed() ? window : undefined);
-      const show = options => owner ? dialog.showMessageBox(owner, options) : dialog.showMessageBox(options);
-      if (event.kind === 'available') {
-        const notes = event.manifest.releaseNotes.map(note => `• ${note}`).join('\n');
-        const answer = await show({ type: 'info', title: 'PixelWall update available', message: `PixelWall ${event.manifest.version} is available`, detail: `You have version ${event.currentVersion}.\n\n${notes || 'A new desktop release is available.'}\n\nDownload opens the release in your browser.`, buttons: ['Download', 'Later', 'Release notes'], defaultId: 0, cancelId: 1, noLink: true });
-        return answer.response === 0 ? 'download' : answer.response === 2 ? 'notes' : 'later';
-      }
-      if (event.kind === 'current') await show({ type: 'info', title: 'PixelWall is up to date', message: `PixelWall ${event.currentVersion} is up to date`, buttons: ['OK'] });
-      else if (event.kind === 'unsupported') await show({ type: 'info', title: 'No desktop update available', message: 'No update download is available for this computer yet.', detail: `Platform: ${event.target}\nCurrent version: ${event.currentVersion}`, buttons: ['OK'] });
-      else if (event.kind === 'error') await show({ type: 'warning', title: 'Update check unavailable', message: event.message, buttons: ['OK'] });
-      return 'later';
-    }
-    const updater = createUpdateController({
+    app.on('activate', () => { if ((!window || window.isDestroyed()) && !savedForUpdate) openWindow(); });
+    const installer = createUpdateInstaller({ engine: electronUpdater.autoUpdater, nativeUpdater, CancellationToken: electronUpdater.CancellationToken,
+      currentVersion: app.getVersion(), platform: process.platform, arch: process.arch, packaged: app.isPackaged, appImagePath: process.env.APPIMAGE });
+    let updateWindow;
+    const updater = createDesktopUpdater({
       currentVersion: app.getVersion(), platform: process.platform, arch: process.arch, packaged: app.isPackaged,
       // Node fetch supplies the final response URL needed for strict feed validation.
       // Electron net.fetch currently omits it and uses a separate TLS implementation.
       fetch: (url, options) => globalThis.fetch(url, options),
       ...createFileSettingsStore(join(app.getPath('userData'), 'update-checker.json')),
-      notify: updateDialog, openExternal: url => shell.openExternal(url),
+      installer,
+      show: () => updateWindow.show(),
+      onState: state => {
+        updateWindow.send(state);
+        if (window && !window.isDestroyed()) window.setProgressBar(state.status === 'downloading' ? state.progress / 100 : -1);
+      },
+      restart: async action => {
+        if (!window || window.isDestroyed()) { await action(); return true; }
+        if (closeController.getState() !== 'idle') return false;
+        installAction = action;
+        await closeController.request({ forUpdate: true });
+        return closeController.getState() === 'closed';
+      },
+      openExternal: url => shell.openExternal(url),
     });
+    updateWindow = createUpdateWindow({ BrowserWindow, ipcMain, folder: desktopFolder, getState: updater.getState,
+      action: name => name === 'check' ? updater.check({ manual: true }) : updater[name]() });
     const updateSettings = await updater.start();
     Menu.setApplicationMenu(Menu.buildFromTemplate(createDesktopMenuTemplate({
       platform: process.platform, appName: app.name, packaged: app.isPackaged, automaticChecks: updateSettings.automaticChecks,
@@ -111,7 +135,13 @@ else {
       onDocumentation: () => { void shell.openExternal('https://www.pixelwall.dev/guides/offline-and-downloads').catch(() => {}); },
       onAgentGuide: () => { void shell.openExternal('https://www.pixelwall.dev/guides/ai-agents').catch(() => {}); },
       onEditorAction: (action, selectedWindow) => {
-        const owner = selectedWindow ?? BrowserWindow.getFocusedWindow() ?? window;
+        const focused = selectedWindow ?? BrowserWindow.getFocusedWindow();
+        if (focused && focused !== window) {
+          // Shortcuts in the update window must never edit artwork behind it.
+          if (['copy', 'cut', 'paste', 'undo', 'redo'].includes(action)) focused.webContents[action]();
+          return;
+        }
+        const owner = window;
         if (!owner || owner.isDestroyed()) return;
         const clipboardGeneration = ['copy', 'cut', 'paste'].includes(action) ? nativeClipboard.revoke(owner) : undefined;
         void runEditorAction(owner.webContents, action, undefined, {authorizeClipboard: requested => nativeClipboard.authorize(owner, requested, {generation:clipboardGeneration})}).catch(error => {
@@ -119,7 +149,7 @@ else {
         });
       },
     })));
-    app.on('will-quit', () => { updater.dispose(); nativeFiles.dispose(); nativeClipboard.dispose(); });
+    app.on('will-quit', () => { updater.dispose(); updateWindow.dispose(); nativeFiles.dispose(); nativeClipboard.dispose(); });
   }).catch((error) => { dialog.showErrorBox('PixelWall could not start', error.message); app.quit(); });
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 }

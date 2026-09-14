@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PixelWall updates</title>
+  <link rel="stylesheet" href="update.css">
+</head>
+<body>
+  <main>
+    <p class="eyebrow">PIXELWALL · SOFTWARE UPDATE</p>
+    <h1 id="title">Check for updates</h1>
+    <p id="detail" role="status" aria-live="polite"></p>
+    <progress id="progress" max="100" aria-label="Update download progress" hidden></progress>
+    <ul id="notes" aria-label="Release notes"></ul>
+    <p id="message" aria-live="polite"></p>
+    <footer id="actions"></footer>
+  </main>
+  <script src="update-ui.js"></script>
+</body>
+</html>

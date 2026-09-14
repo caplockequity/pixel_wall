@@ -24,7 +24,7 @@ function configuredTransport() {
   const file = ts.createSourceFile('main.mjs', readFileSync(join(root, 'desktop/main.mjs'), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
   const matches = [];
   function walk(node) {
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'createUpdateController') matches.push(node);
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'createDesktopUpdater') matches.push(node);
     ts.forEachChild(node, walk);
   }
   walk(file);
