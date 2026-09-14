@@ -1,4 +1,5 @@
 import releaseData from "../../../public/desktop/latest.json";
+import updateRelease from "../../../public/desktop/releases/0.3.2.json";
 import recentRelease from "../../../public/desktop/releases/0.3.1.json";
 import previousRelease from "../../../public/desktop/releases/0.3.0.json";
 import earlierRelease from "../../../public/desktop/releases/0.2.1.json";
@@ -100,7 +101,7 @@ export default function DownloadsPage() {
         })}
       </div>
       <p className="fine-print downloads-free-note">Drawing and animation are free. Pro unlocks premium exports. <a href={publicLink("/pricing")}>Compare Free &amp; Pro →</a></p>
-      <p className="fine-print">Updating from 0.3.1 or earlier? Install 0.3.2 once using the download above. Future updates can then download inside PixelWall, with a Restart to update button when you’re ready.</p>
+      <p className="fine-print">Updating from 0.3.1 or earlier? Install the latest version once using the download above. Future updates can then download inside PixelWall, with a Restart to update button when you’re ready.</p>
     </section>
 
     <section className="downloads-other-section" aria-labelledby="other-downloads-heading">
@@ -116,6 +117,7 @@ export default function DownloadsPage() {
         <h2 id="release-history-heading">Release history.</h2>
         <nav className="downloads-release-nav" aria-label="Release versions">
           <a href={`#${releaseId}`}>{release.version} · Latest</a>
+          {release.version !== updateRelease.version ? <a href="#release-0-3-2">0.3.2</a> : null}
           {release.version !== recentRelease.version ? <a href="#release-0-3-1">0.3.1</a> : null}
           {release.version !== previousRelease.version ? <a href="#release-0-3-0">0.3.0</a> : null}
           {release.version !== earlierRelease.version ? <a href="#release-0-2-1">0.2.1</a> : null}
@@ -127,6 +129,10 @@ export default function DownloadsPage() {
       <div><p className="eyebrow">LATEST RELEASE</p><h3 id="release-notes-heading">PixelWall {release.version}</h3><p className="fine-print"><time dateTime={release.publishedAt}>{releaseDate(release.publishedAt)}</time></p></div>
       <div>{release.releaseNotes.length ? <ul>{release.releaseNotes.map((note, index) => <li key={`${index}-${note}`}>{note}</li>)}</ul> : <p>This release is ready to download above.</p>}<a className="text-link" href={publicLink("/support")}>Need a hand? Get support →</a></div>
     </article>
+    {release.version !== updateRelease.version ? <article className="downloads-release-notes" id="release-0-3-2" aria-labelledby="release-0-3-2-heading">
+      <div><p className="eyebrow">PREVIOUS RELEASE</p><h3 id="release-0-3-2-heading">PixelWall 0.3.2</h3></div>
+      <div><ul>{updateRelease.releaseNotes.map(note => <li key={note}>{note}</li>)}</ul></div>
+    </article> : null}
     {release.version !== recentRelease.version ? <article className="downloads-release-notes" id="release-0-3-1" aria-labelledby="release-0-3-1-heading">
       <div><p className="eyebrow">PREVIOUS RELEASE</p><h3 id="release-0-3-1-heading">PixelWall 0.3.1</h3></div>
       <div><ul>{recentRelease.releaseNotes.map(note => <li key={note}>{note}</li>)}</ul></div>

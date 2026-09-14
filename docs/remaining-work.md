@@ -1,8 +1,10 @@
-# Remaining work after the 0.3.2 checkpoint
+# Remaining work after the 0.3.3 checkpoint
 
 This is a substantial working release, not a claim of complete compatibility.
 
 ## Release status
+
+Version 0.3.3 improves editor tooltips, panel docking, layer scrolling and deletion, and project tab controls. All 3,178 automated tests passed. Four desktop packages passed source/version/architecture and checksum validation; both Mac packages are signed, notarized and stapled. The production update path from 0.3.2 is ready for user acceptance testing after publication.
 
 Version 0.3.2 adds in-app desktop downloads, progress, cancellation, retry, release notes, and an explicit Restart to update action. The restart uses the existing durable-save handshake and postpones installation if saving fails. Automatic checks and the legacy release feed remain compatible with older clients, which need one final manual installation to acquire the updater. Architecture-specific metadata and both published checksums protect update selection and downloads.
 
