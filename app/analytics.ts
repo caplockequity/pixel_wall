@@ -1,6 +1,7 @@
 "use client";
 
 import { classifyAcquisition } from "./acquisition.mjs";
+import { sitePageGroup, webAnalyticsPageProperties } from "./site-analytics-core.mjs";
 import type {
   CaptureResult,
   PostHogConfig,
@@ -339,7 +340,8 @@ const POSTHOG_PROJECT_TOKEN = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.tri
 const STANDALONE = process.env.NEXT_PUBLIC_PIXELWALL_STANDALONE === "true";
 const POSTHOG_CONFIGURED_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() ?? "";
 const POSTHOG_PROXY_PATH = "/beam";
-const ANALYTICS_CONSENT_STORAGE_KEY = "pixelwall-analytics-consent-v2";
+const ANALYTICS_CONSENT_STORAGE_KEY = "pixelwall-analytics-consent-v3";
+const PREVIOUS_ANALYTICS_CONSENT_STORAGE_KEY = "pixelwall-analytics-consent-v2";
 const LEGACY_ANALYTICS_CONSENT_STORAGE_KEY = "pixelwall-analytics-consent-v1";
 const MAX_PENDING_EVENTS = 50;
 const MAX_ANALYTICS_STRING_LENGTH = 96;
@@ -444,7 +446,7 @@ const STRING_VALUES: Record<string, readonly string[]> = Object.fromEntries(Obje
   operation: "apply new_document new create open save backup undo redo batch export import restore load",
   outcome: "success failure cancelled unknown online_only",
   reason: "missing_image project_operation_failed none ownership_license_unavailable verification_failed payment_pending rate_limited unavailable network save_failed unknown storage_failed browser_storage_unavailable too_large unsupported_type decode_error read_error frame_limit processing_error serialization_error invalid_or_unsupported render_or_download_error render_or_encode_error render_or_package_error empty_tilemap pro_required pro_unavailable export_failed import_failed cancelled unavailable budget_exceeded conflict corrupt_record not_found invalid_document invalid_revision quota_exceeded storage_unavailable encoding_failed invalid_format",
-  export_type: "project zip tga other frame_png animated_gif sprite_sheet_png sprite_package tilemap_package png jpeg webp gif sheet atlas game_zip pixelwall aseprite svg bmp",
+  export_type: "project zip tga other frame_png animated_gif sprite_sheet_png sprite_package tilemap_package png jpeg webp avif gif sheet atlas game_zip pixelwall aseprite svg bmp json image",
   clip_scope: "single all",
   layout: "horizontal vertical grid packed",
   choice: "usage enhanced",
@@ -457,17 +459,12 @@ function isApprovedString(key: string, value: string) {
   return STRING_VALUES[key]?.includes(value) ?? false;
 }
 export function analyticsPageGroup(pathname: string) {
-  const path = pathname.replace(/\/+$/, "") || "/";
-  if (path === "/") return "home";
-  if (path === "/editor/classic") return "classic_editor";
-  if (path === "/editor") return "editor";
-  if (path === "/guides" || path.startsWith("/guides/")) return "guides";
-  if (["/sprite-sheet-maker", "/pixel-art-animation", "/pixel-art-tracing", "/tileset-maker"].includes(path)) return "workflow";
-  return PAGE_GROUPS.includes(path.slice(1)) ? path.slice(1) : "other";
+  return sitePageGroup(pathname);
 }
 
-function analyticsContext() {
-  const page = analyticsPageGroup(window.location.pathname ?? "/");
+function analyticsContext(pageGroup?: unknown) {
+  const page = typeof pageGroup === "string" && PAGE_GROUPS.includes(pageGroup)
+    ? pageGroup : analyticsPageGroup(window.location.pathname ?? "/");
   return {
     analytics_schema_version: 2,
     environment: "production",
@@ -491,8 +488,9 @@ const SDK_ENUMS: Record<string, readonly string[]> = {
 function sanitizeBeforeSend(capture: CaptureResult | null): CaptureResult | null {
   if (!capture || !isAnalyticsConfigured() || storedAnalyticsConsent() !== "granted" || isAnalyticsBlockedByBrowserPrivacySignal()) return null;
   const custom = Object.hasOwn(EVENT_PROPERTY_ALLOWLIST, capture.event);
+  const pageview = capture.event === "$pageview";
   const diagnostic = capture.event === "$exception" || capture.event === "$web_vitals";
-  if (!custom && !(diagnostic && getAnalyticsLevel() === "enhanced")) return null;
+  if (!custom && !pageview && !(diagnostic && getAnalyticsLevel() === "enhanced")) return null;
   const source = isRecord(capture.properties) ? capture.properties : {};
   const properties: Record<string, unknown> = custom
     ? sanitizeEventProperties(capture.event as AnalyticsEventName, source as AnalyticsProperties)
@@ -519,6 +517,11 @@ function sanitizeBeforeSend(capture: CaptureResult | null): CaptureResult | null
     if (typeof value === "string" && CONTEXT_VALUES[key].includes(value)) (current as Record<string, unknown>)[key] = value;
   }
   Object.assign(properties, current);
+  if (pageview) {
+    // Reconstruct only fixed category addresses. Never retain a visited URL,
+    // query, fragment, dynamic path, or caller-supplied host.
+    Object.assign(properties, webAnalyticsPageProperties(current.page_group));
+  }
   if (capture.event === "$exception") {
     const exceptions = Array.isArray(source.$exception_list) ? source.$exception_list.slice(0, 5) : [];
     properties.$exception_list = exceptions.filter(isRecord).map((exception) => ({
@@ -555,8 +558,11 @@ function storedAnalyticsLevel(): AnalyticsLevel | "pending" | "unavailable" {
     const stored = window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY);
     if (stored === "required" || stored === "usage" || stored === "enhanced") return stored;
     if (stored !== null) return "pending";
+    const previous = window.localStorage.getItem(PREVIOUS_ANALYTICS_CONSENT_STORAGE_KEY);
+    if (previous === "required" || previous === "usage" || previous === "enhanced") return previous;
+    if (previous !== null) return "pending";
     const legacy = window.localStorage.getItem(LEGACY_ANALYTICS_CONSENT_STORAGE_KEY);
-    // Existing permission allows usage only; recordings need an explicit enhanced choice.
+    // Existing permission allows usage only. Replay remains disabled at every level.
     if (legacy === "granted") return "usage";
     if (legacy === "denied") return "required";
     return "pending";
@@ -577,8 +583,66 @@ export function getAnalyticsLevel(): AnalyticsLevel {
   return level === "usage" || level === "enhanced" ? level : "required";
 }
 
+export function isAnonymousTrafficEnabled() {
+  if (!isAnalyticsConfigured() || !hasBrowserEnvironment() || isAnalyticsBlockedByBrowserPrivacySignal() || sessionLevel !== null) return false;
+  try {
+    const current = window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY);
+    if (current !== null) return ["required", "usage", "enhanced"].includes(current);
+    const previous = window.localStorage.getItem(PREVIOUS_ANALYTICS_CONSENT_STORAGE_KEY);
+    // Earlier refusals promised no analytics at all. Honor them until a new
+    // explicit choice; new visitors receive the disclosed aggregate default.
+    if (previous !== null) return previous === "usage" || previous === "enhanced";
+    const legacy = window.localStorage.getItem(LEGACY_ANALYTICS_CONSENT_STORAGE_KEY);
+    return legacy === null || legacy === "granted";
+  } catch { return false; }
+}
+
+type AnonymousSiteEvent = "site_page_viewed" | "site_cta_clicked" | "desktop_download_clicked";
+
+export function captureAnonymousSiteEvent<E extends AnonymousSiteEvent>(event: E, properties: AnalyticsProperties<E>) {
+  if (!isAnonymousTrafficEnabled()) return;
+  if (!["site_page_viewed", "site_cta_clicked", "desktop_download_clicked"].includes(event)) return;
+  const safe = sanitizeEventProperties(event, properties);
+  const payload = { event, page_group: analyticsPageGroup(window.location.pathname ?? "/"), ...safe };
+  sendAnonymousCount(payload);
+}
+
+function sendAnonymousCount(payload: Record<string, AnalyticsPrimitive>) {
+  if (!isAnonymousTrafficEnabled()) return;
+  try {
+    // This endpoint receives categories only, with no cookies, referrer or
+    // browser-generated ID. It creates an unrelated event ID for each count.
+    void fetch("/api/traffic", {
+      method: "POST",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+      cache: "no-store",
+      redirect: "error",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+  } catch { /* Counting never interrupts navigation or downloads. */ }
+}
+
+export function captureAnonymousPageView(pathname: string) {
+  captureAnonymousSiteEvent("site_page_viewed", { page_group: sitePageGroup(pathname) });
+}
+
+export function captureAnonymousExportOutcome(format: string, outcome: "success" | "failure" | "blocked") {
+  if (!isAnonymousTrafficEnabled() || !["success", "failure", "blocked"].includes(outcome)) return;
+  sendAnonymousCount({
+    event: "export_outcome",
+    page_group: analyticsPageGroup(window.location.pathname ?? "/"),
+    export_type: STRING_VALUES.export_type.includes(format) ? format : "other",
+    outcome,
+  });
+}
+
 function persistAnalyticsConsent(choice: AnalyticsLevel) {
   try {
+    // Keep tabs running v2 aligned with the optional analytics choice.
+    window.localStorage.setItem(PREVIOUS_ANALYTICS_CONSENT_STORAGE_KEY, choice);
     window.localStorage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, choice);
   } catch {
     // A failed withdrawal must not fall back to an older, more permissive choice.
@@ -606,7 +670,15 @@ function flushPendingEvents() {
     || !posthog.is_capturing()
   ) return;
   const queued = pendingEvents.splice(0, pendingEvents.length);
-  for (const item of queued) posthog.capture(item.event, item.properties);
+  for (const item of queued) sendAnalyticsEvent(item.event, item.properties);
+}
+
+function sendAnalyticsEvent(event: AnalyticsEventName, properties: Record<string, AnalyticsPrimitive>) {
+  if (!posthog) return;
+  // Keep the product dashboards and PostHog's built-in Web analytics compatible.
+  // Both events pass through the same consent and final sanitization boundary.
+  if (event === "site_page_viewed") posthog.capture("$pageview", properties);
+  posthog.capture(event, properties);
 }
 
 function optInInitializedAnalytics() {
@@ -663,8 +735,15 @@ function registerConsentListeners() {
     window.dispatchEvent(new Event(ANALYTICS_CONSENT_CHANGED_EVENT));
   };
   window.addEventListener("storage", (event) => {
-    if (event.key !== null && event.key !== ANALYTICS_CONSENT_STORAGE_KEY && event.key !== LEGACY_ANALYTICS_CONSENT_STORAGE_KEY) return;
+    if (event.key !== null && ![ANALYTICS_CONSENT_STORAGE_KEY, PREVIOUS_ANALYTICS_CONSENT_STORAGE_KEY, LEGACY_ANALYTICS_CONSENT_STORAGE_KEY].includes(event.key)) return;
     sessionLevel = null;
+    // A refusal in an older open tab must still stop this tab. Writes from this
+    // version have already saved the matching v3 choice before the v2 event.
+    if (event.key === PREVIOUS_ANALYTICS_CONSENT_STORAGE_KEY && event.newValue === "required") {
+      try {
+        if (window.localStorage.getItem(ANALYTICS_CONSENT_STORAGE_KEY) !== "required") sessionLevel = "required";
+      } catch { sessionLevel = "required"; }
+    }
     sync();
   });
   window.addEventListener("focus", sync);
@@ -839,7 +918,7 @@ export function captureAnalyticsEvent<E extends AnalyticsEventName>(
     clearPendingEvents();
     return;
   }
-  Object.assign(sanitizedProperties, analyticsContext());
+  Object.assign(sanitizedProperties, analyticsContext(sanitizedProperties.page_group));
   initializeAnalytics();
   if (!posthog || !analyticsIsInitialized() || !posthog.is_capturing()) {
     if (pendingEvents.length < MAX_PENDING_EVENTS) {
@@ -848,7 +927,7 @@ export function captureAnalyticsEvent<E extends AnalyticsEventName>(
     return;
   }
   try {
-    posthog.capture(event, sanitizedProperties);
+    sendAnalyticsEvent(event, sanitizedProperties);
   } catch {
     // Product behavior must never depend on analytics availability.
   }

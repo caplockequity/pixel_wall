@@ -5,6 +5,7 @@ import vm from "node:vm";
 import { createRequire } from "node:module";
 import ts from "typescript";
 import * as acquisition from "../app/acquisition.mjs";
+import * as siteAnalytics from "../app/site-analytics-core.mjs";
 import { createWorkbenchAnalytics } from "../app/workbench-analytics.mjs";
 
 // Exercise the real installed SDK transport validation without creating an instance
@@ -19,7 +20,8 @@ assert.notEqual(testSource, source);
 const compiled = ts.transpileModule(testSource, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
 }).outputText;
-const preferenceKey = "pixelwall-analytics-consent-v2";
+const preferenceKey = "pixelwall-analytics-consent-v3";
+const previousKey = "pixelwall-analytics-consent-v2";
 const legacyKey = "pixelwall-analytics-consent-v1";
 
 // Run the real consent module against an isolated SDK boundary. No telemetry is sent.
@@ -33,7 +35,7 @@ function setup({ stored = {}, privacy = {}, deferLoaded = false, deferImport = f
   };
   window.location = { protocol: "https:", origin, pathname: "/editor" };
   const navigator = { ...privacy };
-  const calls = { imports: 0, init: 0, stop: 0, optOut: 0, referrerReads: 0, vitalsStarts: 0, events: [] };
+  const calls = { imports: 0, init: 0, stop: 0, optOut: 0, referrerReads: 0, vitalsStarts: 0, events: [], requests: [] };
   const sdk = {
     config: {}, capturing: false, recording: false,
     webVitalsAutocapture: { startIfEnabled() { calls.vitalsStarts++; } },
@@ -64,7 +66,11 @@ function setup({ stored = {}, privacy = {}, deferLoaded = false, deferImport = f
     ...(referrer === undefined ? {} : { document: { get referrer() { calls.referrerReads++; return referrer; } } }),
     process: { env: { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: configured ? "test-project" : "", NEXT_PUBLIC_POSTHOG_HOST: "https://us.i.posthog.com", NEXT_PUBLIC_PIXELWALL_STANDALONE: String(standalone) } },
     URL,
-    require(name) { assert.equal(name, "./acquisition.mjs", `Unexpected eager dependency: ${name}`); return acquisition; },
+    require(name) {
+      if (name === "./site-analytics-core.mjs") return siteAnalytics;
+      assert.equal(name, "./acquisition.mjs", `Unexpected eager dependency: ${name}`); return acquisition;
+    },
+    fetch(url, options) { calls.requests.push({ url, ...JSON.parse(JSON.stringify(options)) }); return Promise.resolve({ ok: true }); },
     __loadPostHog() {
       calls.imports++;
       if (shouldFailImport) return Promise.reject(new Error("SDK chunk unavailable"));
@@ -91,6 +97,109 @@ function setup({ stored = {}, privacy = {}, deferLoaded = false, deferImport = f
 const common = { token: "test-project", $process_person_profile: false, $geoip_disable: true, $is_identified: false, analytics_schema_version: 2, environment: "production", page_group: "editor", editor_variant: "workbench" };
 const edited = { tool: "pencil", edit_type: "stroke", input_method: "pointer", linked_edges: false };
 const settleSdk = () => new Promise((resolve) => setImmediate(resolve));
+
+test("Essential counts send only fixed categories with no SDK, browser IDs, cookies or referrer", async () => {
+  const { api, calls, storage } = setup({ referrer: "https://private.example/account" });
+  api.captureAnonymousPageView("/guides/ai-agents");
+  api.captureAnonymousSiteEvent("desktop_download_clicked", { platform: "darwin-arm64", version: "0.3.3", package_type: "zip", filename: "private.png", distinct_id: "private-user" });
+  api.captureAnonymousExportOutcome("sprite_sheet_png", "success");
+  api.captureAnonymousExportOutcome("private-project.png", "failure");
+  await settleSdk();
+  assert.equal(calls.imports, 0);
+  assert.equal(calls.referrerReads, 0);
+  assert.equal(storage.size, 0, "counting must not store an identifier or preference");
+  assert.equal(calls.requests.length, 4);
+  assert.deepEqual(JSON.parse(calls.requests[0].body), { event: "site_page_viewed", page_group: "guides" });
+  assert.deepEqual(JSON.parse(calls.requests[1].body), { event: "desktop_download_clicked", page_group: "editor", platform: "darwin-arm64", version: "0.3.3", package_type: "zip" });
+  assert.deepEqual(JSON.parse(calls.requests[2].body), { event: "export_outcome", page_group: "editor", export_type: "sprite_sheet_png", outcome: "success" });
+  assert.equal(JSON.parse(calls.requests[3].body).export_type, "other");
+  for (const request of calls.requests) {
+    assert.equal(request.url, "/api/traffic");
+    assert.equal(request.credentials, "omit");
+    assert.equal(request.referrerPolicy, "no-referrer");
+    assert.equal(request.redirect, "error");
+    assert.equal(JSON.stringify(request).includes("private"), false);
+  }
+  api.setAnalyticsLevel("required");
+  api.captureAnonymousPageView("/editor");
+  assert.equal(calls.requests.length, 5);
+  assert.equal(calls.imports, 0);
+});
+
+test("previous refusals stay dark until a new explicit choice; malformed and unreadable preferences fail closed", () => {
+  for (const stored of [
+    { [previousKey]: "required" }, { [legacyKey]: "denied" },
+    { [preferenceKey]: "corrupt", [previousKey]: "usage" },
+    { [previousKey]: "corrupt", [legacyKey]: "granted" },
+  ]) {
+    const { api, calls } = setup({ stored });
+    assert.equal(api.isAnonymousTrafficEnabled(), false);
+    api.captureAnonymousPageView("/");
+    assert.equal(calls.requests.length, 0);
+    api.setAnalyticsLevel("required");
+    api.captureAnonymousPageView("/");
+    assert.equal(calls.requests.length, 1);
+    assert.equal(calls.imports, 0);
+  }
+  assert.equal(setup({ readFails: true }).api.isAnonymousTrafficEnabled(), false);
+  const failed = setup();
+  failed.failWrites();
+  failed.api.setAnalyticsLevel("required");
+  failed.api.captureAnonymousPageView("/");
+  assert.equal(failed.calls.requests.length, 0);
+});
+
+test("privacy signals, nonproduction builds and old-tab withdrawals block anonymous counts", () => {
+  for (const options of [
+    { privacy: { doNotTrack: "1" } }, { privacy: { globalPrivacyControl: true } },
+    { configured: false }, { origin: "https://preview.vercel.app" },
+    { origin: "http://localhost:3000" }, { standalone: true },
+  ]) {
+    const { api, calls } = setup(options);
+    api.captureAnonymousPageView("/");
+    api.captureAnonymousExportOutcome("png", "success");
+    assert.equal(calls.requests.length, 0);
+  }
+  const { api, window, storage, calls } = setup({ stored: { [preferenceKey]: "usage" } });
+  api.getAnalyticsConsentStatus();
+  storage.set(previousKey, "required");
+  const event = new Event("storage");
+  Object.defineProperties(event, { key: { value: previousKey }, newValue: { value: "required" } });
+  window.dispatchEvent(event);
+  api.captureAnonymousPageView("/");
+  assert.equal(calls.requests.length, 0);
+  assert.equal(api.getAnalyticsLevel(), "required");
+});
+
+test("consented pages populate standard Web Analytics and existing product charts without raw addresses", async () => {
+  const { api, sdk, calls, window, deliverImport } = setup({ deferImport: true });
+  api.setAnalyticsLevel("usage");
+  api.captureAnalyticsEvent("site_page_viewed", { page_group: "guides" });
+  window.location.pathname = "/editor";
+  deliverImport();
+  await settleSdk();
+  assert.deepEqual(calls.events.map(event => event.event), ["$pageview", "site_page_viewed"]);
+  const page = calls.events[0].properties;
+  assert.equal(page.page_group, "guides", "delayed delivery retains the captured category");
+  assert.equal(page.$current_url, "https://www.pixelwall.dev/guides");
+  assert.equal(page.$pathname, "/guides");
+  assert.equal(page.$host, "www.pixelwall.dev");
+  const id = "019a0000-1111-7777-aaaa-123456789abc";
+  const result = PostHog.prototype._runBeforeSend.call({ config: { before_send: sdk.config.before_send } }, {
+    event: "$pageview", uuid: id, timestamp: new Date(), properties: {
+      distinct_id: id, $session_id: id, page_group: "home", token: "wrong",
+      $host: "private.example", $current_url: "https://private.example/secret?license=private",
+      $pathname: "/private", $referrer: "https://private.example/account", $set: { email: "private" },
+    },
+  });
+  assert.ok(result, "installed PostHog SDK accepts the standard pageview envelope");
+  assert.equal(result.properties.token, "test-project");
+  assert.equal(result.properties.$current_url, "https://www.pixelwall.dev/");
+  assert.equal(result.properties.$session_id, id);
+  assert.equal(JSON.stringify(result).includes("private"), false);
+  api.setAnalyticsLevel("required");
+  assert.equal(sdk.config.before_send({ event: "$pageview", properties: {} }), null);
+});
 
 test("required-only and undecided visitors never download analytics or backfill pre-consent events", async () => {
   const { api, calls, storage } = setup();
@@ -396,7 +505,7 @@ test("the final payload boundary rejects enrichment, private identifiers and unk
   assert.equal(result.properties.$browser, "Chrome");
   assert.equal(result.properties.$process_person_profile, false);
   assert.equal(result.$set, undefined);
-  for (const name of ["$snapshot", "$autocapture", "$pageview", "$pageleave", "$identify", "$groupidentify", "private-event", "__proto__"]) {
+  for (const name of ["$snapshot", "$autocapture", "$pageleave", "$identify", "$groupidentify", "private-event", "__proto__"]) {
     assert.equal(sdk.config.before_send({ event: name, properties: {} }), null);
     assert.doesNotThrow(() => api.captureAnalyticsEvent(name, { reason: "secret" }));
   }

@@ -129,6 +129,168 @@
           ]
         },
         {
+          "key": "aggregate-traffic",
+          "name": "Aggregate traffic counts by page area",
+          "description": "Server-side daily counts from the Essential-only aggregate measurement path, split by fixed page group. Each event uses a fresh identifier and is not a unique visitor, session, or people count; do not compare it directly with consenting-browser DAU or interpret it as Search Console clicks.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "measurement_mode",
+                  "operator": "exact",
+                  "value": [
+                    "aggregate"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "action",
+                  "operator": "exact",
+                  "value": [
+                    "page_view"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "site_traffic_counted",
+                  "custom_name": "Aggregate traffic counts",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "page_group",
+                "breakdown_type": "event",
+                "breakdown_limit": 12
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2",
+            "aggregate-traffic"
+          ]
+        },
+        {
+          "key": "aggregate-downloads",
+          "name": "Aggregate download clicks by platform",
+          "description": "Server-side daily download-click counts from Essential-only aggregate measurement, split by fixed platform. Counts are actions, not unique visitors, sessions, completed downloads, or installs.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": { "date_from": "-30d" },
+              "interval": "day",
+              "properties": [
+                { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+                { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+                { "type": "event", "key": "measurement_mode", "operator": "exact", "value": ["aggregate"] },
+                { "type": "event", "key": "action", "operator": "exact", "value": ["download_click"] }
+              ],
+              "series": [{ "kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Download clicks", "math": "total" }],
+              "trendsFilter": { "display": "ActionsLineGraph" },
+              "breakdownFilter": { "breakdown": "platform", "breakdown_type": "event", "breakdown_limit": 12 }
+            }
+          },
+          "tags": ["pixelwall", "analytics-v2", "aggregate-traffic"]
+        },
+        {
+          "key": "aggregate-navigation",
+          "name": "Aggregate navigation clicks by destination",
+          "description": "Server-side daily navigation-click counts from Essential-only aggregate measurement, split by fixed destination. Counts are actions, not unique visitors or sessions.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": { "date_from": "-30d" },
+              "interval": "day",
+              "properties": [
+                { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+                { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+                { "type": "event", "key": "measurement_mode", "operator": "exact", "value": ["aggregate"] },
+                { "type": "event", "key": "action", "operator": "exact", "value": ["navigation_click"] }
+              ],
+              "series": [{ "kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Navigation clicks", "math": "total" }],
+              "trendsFilter": { "display": "ActionsLineGraph" },
+              "breakdownFilter": { "breakdown": "destination", "breakdown_type": "event", "breakdown_limit": 12 }
+            }
+          },
+          "tags": ["pixelwall", "analytics-v2", "aggregate-traffic"]
+        },
+        {
+          "key": "aggregate-exports",
+          "name": "Aggregate exports by type",
+          "description": "Server-side daily export-outcome counts from Essential-only aggregate measurement, split by reviewed export type. Counts are export actions, not unique visitors, sessions, or saved files.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": { "date_from": "-30d" },
+              "interval": "day",
+              "properties": [
+                { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+                { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+                { "type": "event", "key": "measurement_mode", "operator": "exact", "value": ["aggregate"] },
+                { "type": "event", "key": "action", "operator": "exact", "value": ["export"] }
+              ],
+              "series": [{ "kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Export outcomes", "math": "total" }],
+              "trendsFilter": { "display": "ActionsLineGraph" },
+              "breakdownFilter": { "breakdown": "export_type", "breakdown_type": "event", "breakdown_limit": 20 }
+            }
+          },
+          "tags": ["pixelwall", "analytics-v2", "aggregate-traffic"]
+        },
+        {
+          "key": "aggregate-export-outcomes",
+          "name": "Aggregate export outcomes",
+          "description": "Server-side daily export counts split into success, failure, and blocked outcomes. Counts are actions, not unique visitors, sessions, or saved files.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": { "date_from": "-30d" },
+              "interval": "day",
+              "properties": [
+                { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+                { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+                { "type": "event", "key": "measurement_mode", "operator": "exact", "value": ["aggregate"] },
+                { "type": "event", "key": "action", "operator": "exact", "value": ["export"] }
+              ],
+              "series": [{ "kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Export outcomes", "math": "total" }],
+              "trendsFilter": { "display": "ActionsLineGraph" },
+              "breakdownFilter": { "breakdown": "outcome", "breakdown_type": "event", "breakdown_limit": 3 }
+            }
+          },
+          "tags": ["pixelwall", "analytics-v2", "aggregate-traffic"]
+        },
+        {
           "key": "immediate-referrals",
           "name": "Page views by immediate referral source",
           "description": "Immediate referrer classification only. A later internal page can replace the external source. direct_or_unknown combines direct visits and unavailable referrers.",

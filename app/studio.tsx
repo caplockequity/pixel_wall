@@ -14,7 +14,7 @@ import { ExportPresets } from "./export-presets";
 import { ProDialog, useProAccess } from "./pro-access";
 import { DownloadReady, useDownload } from "./use-download";
 import { CELL_SIZES, useCanvasView } from "./use-canvas-view";
-import { captureAnalyticsEvent, getAnalyticsConsentStatus, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
+import { captureAnalyticsEvent, captureAnonymousExportOutcome, getAnalyticsConsentStatus, isAnonymousTrafficEnabled, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
 import type {
   ChangeEvent,
   CSSProperties,
@@ -974,6 +974,11 @@ export default function Studio() {
     tilemap_height: tilemap.height,
     tilemap_placed_cells: tilemapPlacedCells,
   };
+
+  function captureAnonymousExport(eligible: boolean, format: string, outcome: "success" | "failure" | "blocked") {
+    if (!eligible || !isAnonymousTrafficEnabled()) return;
+    try { captureAnonymousExportOutcome(format, outcome); } catch { /* analytics must not affect exports */ }
+  }
 
   const analyticsProjectShapeRef = useRef(analyticsProjectShape);
   useEffect(() => { analyticsProjectShapeRef.current = analyticsProjectShape; });
@@ -2916,6 +2921,7 @@ export default function Studio() {
 
   async function exportCurrentFrame() {
     if (exporting) return;
+    const anonymousExportEligible = isAnonymousTrafficEnabled();
     const startedAt = performance.now();
     shouldRestoreExportFocus.current = true;
     setExportMenuOpen(false);
@@ -2942,6 +2948,7 @@ export default function Studio() {
         exported_frame_count: 1,
         duration_ms: Math.round(performance.now() - startedAt),
       });
+      captureAnonymousExport(anonymousExportEligible, "frame_png", "success");
     } catch {
       setNotice("PNG export failed — try again");
       captureAnalyticsEvent("export_failed", {
@@ -2950,6 +2957,7 @@ export default function Studio() {
         reason: "render_or_download_error",
         duration_ms: Math.round(performance.now() - startedAt),
       });
+      captureAnonymousExport(anonymousExportEligible, "frame_png", "failure");
     } finally {
       setExporting(null);
     }
@@ -2958,6 +2966,7 @@ export default function Studio() {
   async function exportAnimatedGif() {
     if (exporting) return;
     if (!await proAccess.requestAccess()) { setExportMenuOpen(false); return; }
+    const anonymousExportEligible = isAnonymousTrafficEnabled();
     const startedAt = performance.now();
     const frameSnapshot = cloneFrames(frames);
     const layerSnapshot = cloneLayers(layers);
@@ -2987,15 +2996,18 @@ export default function Studio() {
       downloadBlob(new Blob([buffer], { type: "image/gif" }), `${exportFileStem(projectName)}-${exportFileStem(clipSnapshot?.name, "animation")}.gif`);
       setNotice(`GIF ready · ${plan.width} × ${plan.height}px · ${plan.sequence.length} frames`);
       captureAnalyticsEvent("export_completed", { ...properties, exported_frame_count: plan.sequence.length, duration_ms: Math.round(performance.now() - startedAt) });
+      captureAnonymousExport(anonymousExportEligible, "animated_gif", "success");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "GIF export failed. Try a smaller scale.");
       captureAnalyticsEvent("export_failed", { ...properties, reason: "render_or_encode_error", duration_ms: Math.round(performance.now() - startedAt) });
+      captureAnonymousExport(anonymousExportEligible, "animated_gif", "failure");
     } finally { setExporting(null); }
   }
 
   async function exportSpritePackage(format: "package" | "sheet" = "package") {
     if (exporting) return;
     if (!await proAccess.requestAccess()) { setExportMenuOpen(false); return; }
+    const anonymousExportEligible = isAnonymousTrafficEnabled();
     const startedAt = performance.now();
     shouldRestoreExportFocus.current = true;
     setExportMenuOpen(false);
@@ -3075,6 +3087,7 @@ export default function Studio() {
         downloadBlob(await canvasToPngBlob(sheet), plan.files.sheet);
         setNotice(`Sprite sheet ready · ${plan.sheet.width} × ${plan.sheet.height}px PNG · ${plan.frames.length} frames`);
         captureAnalyticsEvent("export_completed", { ...exportProperties, exported_frame_count: plan.frames.length, duration_ms: Math.round(performance.now() - startedAt) });
+        captureAnonymousExport(anonymousExportEligible, "sprite_sheet_png", "success");
         return;
       }
 
@@ -3108,6 +3121,7 @@ export default function Studio() {
         exported_frame_count: plan.frames.length,
         duration_ms: Math.round(performance.now() - startedAt),
       });
+      captureAnonymousExport(anonymousExportEligible, "sprite_package", "success");
     } catch {
       setNotice(`${format === "sheet" ? "Sprite sheet" : "Sprite package"} export failed — try fewer or smaller frames`);
       captureAnalyticsEvent("export_failed", {
@@ -3115,6 +3129,7 @@ export default function Studio() {
         reason: "render_or_package_error",
         duration_ms: Math.round(performance.now() - startedAt),
       });
+      captureAnonymousExport(anonymousExportEligible, format === "sheet" ? "sprite_sheet_png" : "sprite_package", "failure");
     } finally {
       setExporting(null);
     }
@@ -3136,6 +3151,7 @@ export default function Studio() {
       return;
     }
     if (!await proAccess.requestAccess()) { setExportMenuOpen(false); return; }
+    const anonymousExportEligible = isAnonymousTrafficEnabled();
     const startedAt = performance.now();
     shouldRestoreExportFocus.current = true;
     setExportMenuOpen(false);
@@ -3224,6 +3240,7 @@ export default function Studio() {
         ...exportProperties,
         duration_ms: Math.round(performance.now() - startedAt),
       });
+      captureAnonymousExport(anonymousExportEligible, "tilemap_package", "success");
     } catch {
       setNotice("Tilemap export failed — check the map and try again");
       captureAnalyticsEvent("export_failed", {
@@ -3231,6 +3248,7 @@ export default function Studio() {
         reason: "render_or_package_error",
         duration_ms: Math.round(performance.now() - startedAt),
       });
+      captureAnonymousExport(anonymousExportEligible, "tilemap_package", "failure");
     } finally {
       setExporting(null);
     }

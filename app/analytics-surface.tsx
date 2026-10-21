@@ -6,8 +6,11 @@ import release from "../public/desktop/latest.json";
 import {
   ANALYTICS_CONSENT_CHANGED_EVENT,
   captureAnalyticsEvent,
+  captureAnonymousPageView,
+  captureAnonymousSiteEvent,
   getAnalyticsConsentStatus,
   isAnalyticsConfigured,
+  isAnonymousTrafficEnabled,
 } from "./analytics";
 import { AnalyticsConsent } from "./analytics-consent";
 import { publicLinkEvent, sitePageGroup } from "./site-analytics-core.mjs";
@@ -15,10 +18,15 @@ import { publicLinkEvent, sitePageGroup } from "./site-analytics-core.mjs";
 export function AnalyticsSurface() {
   const pathname = usePathname();
   const lastPage = useRef<string | null>(null);
+  const lastTrafficPage = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isAnalyticsConfigured()) return;
     function captureCurrentPage() {
+      if (pathname && isAnonymousTrafficEnabled() && lastTrafficPage.current !== pathname) {
+        lastTrafficPage.current = pathname;
+        captureAnonymousPageView(pathname);
+      }
       if (getAnalyticsConsentStatus() !== "granted") {
         lastPage.current = null;
         return;
@@ -35,17 +43,19 @@ export function AnalyticsSurface() {
   useEffect(() => {
     if (!isAnalyticsConfigured()) return;
     function capturePublicLink(event: MouseEvent) {
-      if (event.defaultPrevented || event.button > 0 || getAnalyticsConsentStatus() !== "granted") return;
+      if (event.defaultPrevented || event.button > 0) return;
       if (!(event.target instanceof Element)) return;
       const link = event.target.closest<HTMLAnchorElement>("a[href]");
       if (!link?.closest(".public-site") || link.closest(".ph-no-capture, [data-ph-no-capture]")) return;
       const match = publicLinkEvent(link.getAttribute("href"), window.location.origin, release);
       if (!match) return;
       if (match.event === "desktop_download_clicked") {
+        captureAnonymousSiteEvent("desktop_download_clicked", match.properties);
         captureAnalyticsEvent("desktop_download_clicked", match.properties);
       } else {
         const placement = link.closest(".site-header") ? "header"
           : link.closest(".site-footer") ? "footer" : "content";
+        captureAnonymousSiteEvent("site_cta_clicked", { ...match.properties, placement });
         captureAnalyticsEvent("site_cta_clicked", { ...match.properties, placement });
       }
     }

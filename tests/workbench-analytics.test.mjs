@@ -120,6 +120,47 @@ test('an export that starts without permission cannot be backfilled after consen
   assert.deepEqual(events.map(({ event }) => event), ['export_started']);
 });
 
+test('anonymous export outcomes work without optional consent and never include document data', () => {
+  const aggregate = [];
+  const { analytics, consent } = setup({ consent: false, aggregateEnabled: true, captureAggregateExport: (format, outcome) => aggregate.push({ format, outcome }) });
+  const png = analytics.exportStarted('png');
+  analytics.exportFinished(png);
+  const blocked = analytics.exportStarted('gif');
+  analytics.exportFinished(blocked, { name: 'ProExportRequired', message: 'Secret license' });
+  const failed = analytics.exportStarted('sheet');
+  analytics.exportFinished(failed, { message: 'private-file-name' });
+  assert.deepEqual(aggregate, [
+    { format: 'png', outcome: 'success' },
+    { format: 'gif', outcome: 'blocked' },
+    { format: 'sheet', outcome: 'failure' },
+  ]);
+  assert.equal(JSON.stringify(aggregate).includes('Secret'), false);
+  consent(true);
+});
+
+test('anonymous export eligibility is fixed at start, completion is once-only, and callback failures are contained', () => {
+  let enabled = true;
+  const aggregate = [];
+  const { analytics } = setup({ aggregateEnabled: () => enabled, captureAggregateExport: (format, outcome) => { aggregate.push({ format, outcome }); throw new Error('reporting failed'); } });
+  const attempt = analytics.exportStarted('png');
+  analytics.exportFinished(attempt);
+  analytics.exportFinished(attempt, { message: 'duplicate' });
+  assert.deepEqual(aggregate, [{ format: 'png', outcome: 'success' }]);
+
+  const deniedMidExport = analytics.exportStarted('gif');
+  enabled = false;
+  analytics.exportFinished(deniedMidExport);
+  enabled = true;
+  analytics.exportFinished(deniedMidExport);
+  assert.deepEqual(aggregate, [{ format: 'png', outcome: 'success' }]);
+
+  enabled = true;
+  const startedDenied = analytics.exportStarted('zip');
+  enabled = false;
+  analytics.exportFinished(startedDenied, { name: 'ProExportRequired' });
+  assert.deepEqual(aggregate, [{ format: 'png', outcome: 'success' }]);
+});
+
 test('sheet import has a separate explicit completion milestone and fixed safe format', () => {
   const { analytics, events } = setup();
   assert.equal(events.length, 0);

@@ -17,9 +17,9 @@ import {
 const PRIVACY_CHOICES = [
   {
     value: "required",
-    title: "Required only",
+    title: "Essential only",
     badge: "DEFAULT",
-    description: "Keep artwork, preferences and your privacy choice on this device. No optional analytics.",
+    description: "Share anonymous totals for page visits, recognized public navigation, downloads and generated exports. No persistent visitor ID, analytics cookie, or optional analytics.",
   },
   {
     value: "usage",
@@ -103,8 +103,8 @@ export function AnalyticsConsent() {
       setStatus(nextStatus);
       setLevel(getAnalyticsLevel());
       setError(nextStatus === "blocked"
-        ? "Your browser’s privacy signal keeps optional analytics disabled. You can use Required only."
-        : "We couldn’t save your choice. Optional analytics are disabled for this visit. Check your browser’s storage settings and try again.");
+        ? "Your browser’s privacy signal keeps all analytics disabled. You can use Essential only."
+        : "We couldn’t save your choice. All analytics are disabled for this visit. Check your browser’s storage settings and try again.");
       if (!open) setOpen(true);
       return;
     }
@@ -118,9 +118,10 @@ export function AnalyticsConsent() {
   return (
     <div className="analytics-consent ph-no-capture">
       {showBanner ? <aside className="privacy-banner" aria-label="Privacy choices">
-        <div><strong>Your privacy</strong><p>Optional analytics are off. You can share usage to help improve PixelWall. Your artwork stays on your device.</p></div>
+        <div><strong>Your privacy</strong><p>Essential only shares anonymous totals for page visits, recognized public navigation, downloads and generated exports. Optional usage analytics can help improve PixelWall and plan future paid features. Your artwork stays on your device.</p></div>
         <div className="privacy-banner-actions">
-          <button type="button" onClick={() => { sourceRef.current = "initial_prompt"; saveChoice("required"); }}>Required only</button>
+          <button type="button" onClick={() => { sourceRef.current = "initial_prompt"; saveChoice("required"); }}>Essential only</button>
+          <button type="button" aria-label="Allow usage analytics" onClick={() => { sourceRef.current = "initial_prompt"; saveChoice("usage"); }}>Allow usage analytics</button>
           <button type="button" aria-haspopup="dialog" aria-expanded={open} aria-controls="analytics-consent-dialog" onClick={() => openPreferences("initial_prompt")}>Choose what to share</button>
         </div>
         {error && !open && <p className="privacy-message" role="alert">{error}</p>}
@@ -131,7 +132,7 @@ export function AnalyticsConsent() {
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls="analytics-consent-dialog"
-        aria-label={`Privacy preferences: ${level === "enhanced" ? "Enhanced diagnostics" : level === "usage" ? "Usage analytics" : "Required only"}`}
+        aria-label={`Privacy preferences: ${level === "enhanced" ? "Enhanced diagnostics" : level === "usage" ? "Usage analytics" : "Essential only"}`}
         onClick={() => openPreferences("privacy_settings")}
       >Privacy preferences</button>}
       <dialog
@@ -151,8 +152,8 @@ export function AnalyticsConsent() {
             </div>
             <button type="button" className="privacy-close" aria-label="Close privacy preferences" onClick={closeDialog}>×</button>
           </div>
-          <p id="analytics-consent-description">Drawing, autosave and exports work with every choice. Choose how much optional information you share to help improve PixelWall.</p>
-          {browserBlocked && <p className="privacy-message" role="status">Your browser’s Do Not Track or Global Privacy Control signal keeps optional analytics disabled.</p>}
+          <p id="analytics-consent-description">Drawing, autosave and exports work with every choice. Essential only counts anonymous page visits, recognized public navigation, downloads and generated export outcomes. Choose optional usage analytics or enhanced diagnostics to help improve PixelWall and plan future paid features.</p>
+          {browserBlocked && <p className="privacy-message" role="status">Your browser’s Do Not Track or Global Privacy Control signal keeps all analytics disabled, including anonymous counts.</p>}
           <fieldset className="privacy-choices">
             <legend className="visually-hidden">Choose a privacy level</legend>
             {PRIVACY_CHOICES.map((choice) => (
@@ -174,10 +175,10 @@ export function AnalyticsConsent() {
               </label>
             ))}
           </fieldset>
-          <p className="privacy-detail">Optional analytics use a stored browser ID for repeat visits. No session recordings. Artwork, files, names, license codes, scripts and full URLs are excluded. Change your choice anytime. <Link href="/privacy" target="_blank" rel="noopener noreferrer" prefetch={false}>Read our privacy policy</Link>.</p>
+          <p className="privacy-detail">Anonymous totals sent to PostHog exclude IP addresses, browser identifiers and referring addresses. Optional usage analytics uses a stored browser ID to recognize repeat visits. No session recordings. Artwork, files, names, license codes and scripts are excluded. Change your choice anytime. <Link href="/privacy" target="_blank" rel="noopener noreferrer" prefetch={false}>Read our privacy policy</Link>.</p>
           {error && <p className="privacy-message" role="alert">{error}</p>}
           <div className="privacy-actions">
-            <button type="button" onClick={() => saveChoice("required")}>Use required only</button>
+            <button type="button" onClick={() => saveChoice("required")}>Use Essential only</button>
             <button type="button" onClick={() => saveChoice(selection)}>Save preferences</button>
           </div>
         </div>

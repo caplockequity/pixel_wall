@@ -28,7 +28,22 @@ const GUIDE_PATHS = new Set([
   '/guides/pixijs-animated-sprites', '/guides/tiled-tilemaps', '/guides/desert-signal',
   '/guides/scripting', '/guides/command-api', '/guides/command-line',
   '/guides/offline-and-downloads', '/guides/file-compatibility',
+  '/guides/ai-agents',
 ]);
+
+const CATEGORY_PATHS = new Map([
+  ['home', '/'], ['editor', '/editor'], ['classic_editor', '/editor/classic'],
+  ['downloads', '/downloads'], ['guides', '/guides'], ['workflow', '/workflow'],
+  ['pricing', '/pricing'], ['support', '/support'], ['about', '/about'],
+  ['privacy', '/privacy'], ['terms', '/terms'], ['other', '/other'],
+]);
+
+// These are reporting categories, not the browser's full visited address.
+// Consolidate www/apex traffic under the site's canonical public host.
+export function webAnalyticsPageProperties(pageGroup) {
+  const pathname = CATEGORY_PATHS.get(pageGroup) ?? '/other';
+  return { $host: 'www.pixelwall.dev', $pathname: pathname, $current_url: `https://www.pixelwall.dev${pathname}` };
+}
 
 export function sitePageGroup(pathname) {
   if (typeof pathname !== 'string') return 'other';

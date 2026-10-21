@@ -1,5 +1,7 @@
 // Downloaded editors have no telemetry SDK, identifiers, or consent UI.
 export const captureAnalyticsEvent = () => {};
+export const captureAnonymousExportOutcome = () => {};
+export const isAnonymousTrafficEnabled = () => false;
 export const getAnalyticsConsentStatus = () => "unavailable";
 export const isAnalyticsConfigured = () => false;
 export const initializeAnalytics = () => {};

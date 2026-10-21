@@ -64,29 +64,52 @@ PostHog region. The relay does not bypass privacy preferences, Do Not Track or
 Global Privacy Control.
 
 A shared, nonmodal prompt and Privacy preferences control cover public pages and
-both hosted editors. **Required only** is the default and does not download or
-initialize the SDK. **Usage analytics** enables explicit page, navigation,
-download and product events. **Enhanced diagnostics** adds scrubbed error reports
-and performance measurements. Session recording, automatic interaction capture,
-heatmaps, surveys and person profiles are disabled at every level. Optional modes
-use a stored browser identifier for repeat visits; do not describe it as anonymous.
+both hosted editors. **Essential only** is the default: it sends anonymous totals
+for page visits, recognized public navigation, downloads and generated exports through a first-party
+`site_traffic_counted` event. It has no SDK, persistent visitor ID, analytics cookie, IP,
+user-agent or referrer forwarding. **Usage analytics** is an explicit opt-in for
+page, navigation, download and product events. **Enhanced diagnostics** adds
+scrubbed error reports and performance measurements. Session recording, replay,
+automatic interaction capture, heatmaps, surveys and person profiles are disabled
+at every level. Optional modes use a stored browser identifier for repeat visits.
 
-The v2 preference preserves refusals and maps legacy permission to Usage only.
-Permission is checked again after asynchronous SDK loading. Changes apply
-immediately and synchronize across tabs. Activity before permission is discarded,
-never backfilled. A grant records only the current page, not previously visited
-pages. If saving a choice fails, optional collection stops for the visit.
+The v3 preference preserves prior required-only refusals when it falls back to
+v2; an explicit new choice enables the anonymous counters. Legacy permission
+maps to Usage only. Permission is checked again after asynchronous SDK loading.
+Changes apply immediately and synchronize across tabs. Activity before permission
+is discarded, never backfilled. A grant records only the current page, not
+previously visited pages. If saving a choice fails, optional collection stops for
+the visit.
 
 The final payload sanitizer permits only reviewed event properties and coarse SDK
 metadata. Artwork, uploaded references, project/layer/animation/slice names,
 filenames, license and purchase identifiers, scripts, raw error messages, full
-URLs and campaign parameters are excluded. Document content is never attached to
-an event. Immediate referral classification uses fixed categories and does not
-reconstruct attribution across earlier page visits.
+URLs and campaign parameters are excluded. Optional standard pageviews use a
+canonical page-category address, never a full visited URL. Document content is
+never attached to an event. Immediate referral classification uses fixed
+categories and does not reconstruct attribution across earlier page visits.
+
+The built-in PostHog Web Analytics dashboard covers only the explicit Usage
+analytics and Enhanced diagnostics subset. Standard `$pageview` events retain
+session IDs and canonical category addresses for visitor, view, session and path
+counts. Automatic page-leave and click collection remain disabled, so bounce and
+duration metrics are incomplete; use the explicit product milestones for engagement.
+Referral categories remain available in the custom acquisition chart; full referrers,
+campaigns and IP-derived geography are excluded. Essential-only `site_traffic_counted` events are
+anonymous aggregate totals: each event gets a fresh event ID, not a visitor ID,
+and must not be interpreted as unique users or sessions. This is why the first-party
+aggregate traffic view and PostHog Web Analytics will not line up. Compare the
+same date range and canonical domain in both tools; the supplied screenshots use
+different ranges (9/22–10/19 versus 9/23–10/21), so their totals cannot be
+compared directly.
 
 The event inventory covers:
 
-- Public navigation: `site_page_viewed`, `site_cta_clicked`,
+- Essential traffic: `site_traffic_counted` records anonymous page visits,
+  recognized public navigation, app download clicks and generated export outcomes
+  without visitor linkage. Successful PNG, sprite-sheet and other exports mean
+  an artifact was generated, not that a browser finished saving it to disk.
+- Optional public navigation: `site_page_viewed`, `site_cta_clicked`,
   `desktop_download_clicked`. Download clicks match the four current release
   assets; they indicate a click, not a completed download or installation.
 - Hosted Workbench: document and command use, imports, storage/recovery, exports,
@@ -102,7 +125,7 @@ catalog and final payload filtering. Test with an isolated SDK or intercepted
 requests so validation traffic is not mistaken for real visitors.
 
 The versioned dashboard definitions are in `docs/analytics/posthog-dashboards.json`.
-They cover website/downloads, editor/exports, and Pro/reliability (28 insights).
+They cover website/downloads, editor/exports, and Pro/reliability (33 insights).
 Only schema 2 production events are included; no historical activity is backfilled.
 To manage them, use a personal API key with project/read, dashboard/read,
 insight/read and query/read access; applying also needs dashboard/write and

@@ -61,10 +61,16 @@ function commandFamilies(commands) {
   visit(commands);
   return families;
 }
-export function createWorkbenchAnalytics({ capture, consented, getDocument, now = () => performance.now() }) {
+export function createWorkbenchAnalytics({ capture, consented, getDocument, now = () => performance.now(), aggregateEnabled = false, captureAggregateExport = () => {} }) {
   let loaded = false, activated = false, saveFailed = false, readySource = null;
   const tools = new Set();
   const allowed = () => { try { return consented() === true; } catch { return false; } };
+  const aggregateAllowed = () => {
+    try { return typeof aggregateEnabled === 'function' ? aggregateEnabled() === true : aggregateEnabled === true; } catch { return false; }
+  };
+  const aggregateExport = (format, outcome) => {
+    try { captureAggregateExport(format, outcome); } catch { /* reporting cannot affect exports */ }
+  };
   const emit = (event, properties, shape) => {
     if (!allowed()) return false;
     try {
@@ -109,17 +115,25 @@ export function createWorkbenchAnalytics({ capture, consented, getDocument, now 
       });
     },
     exportStarted(format, source = 'ui') {
-      const attempt = { format: analyticsFormat(format), source: source === 'automation' ? 'automation' : 'ui', startedAt: now(), shape: workbenchShape(getDocument()), captured: false };
+      const attempt = { format: analyticsFormat(format), source: source === 'automation' ? 'automation' : 'ui', startedAt: now(), shape: workbenchShape(getDocument()), captured: false, aggregateEligible: aggregateAllowed(), aggregateFinished: false };
       attempt.captured = emit('export_started', { export_type: attempt.format, source: attempt.source }, attempt.shape);
       return attempt;
     },
     exportFinished(attempt, error) {
-      if (!attempt?.captured) return;
+      if (!attempt) return;
       const blocked = error?.name === 'ProExportRequired';
-      emit(blocked ? 'export_blocked' : error ? 'export_failed' : 'export_completed', {
-        export_type: attempt.format, source: attempt.source, duration_ms: count(Math.round(now() - attempt.startedAt)),
-        ...(error ? { reason: blocked ? 'pro_required' : 'render_or_encode_error' } : {}),
-      }, attempt.shape);
+      if (attempt.captured) {
+        emit(blocked ? 'export_blocked' : error ? 'export_failed' : 'export_completed', {
+          export_type: attempt.format, source: attempt.source, duration_ms: count(Math.round(now() - attempt.startedAt)),
+          ...(error ? { reason: blocked ? 'pro_required' : 'render_or_encode_error' } : {}),
+        }, attempt.shape);
+      }
+      if (!attempt.aggregateFinished) {
+        attempt.aggregateFinished = true;
+        if (attempt.aggregateEligible && aggregateAllowed()) {
+          aggregateExport(attempt.format, blocked ? 'blocked' : error ? 'failure' : 'success');
+        }
+      }
     },
     recovery(action, outcome, error) {
       if (!['view', 'restore'].includes(action) || !['completed', 'failed'].includes(outcome)) return;
