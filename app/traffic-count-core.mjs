@@ -95,6 +95,14 @@ async function readPayload(request) {
       if (keys.join(",") !== "event,page_group") return null;
       return { ...parsed, action: "page_view" };
     }
+    if (parsed.event === "editor_activated") {
+      if (keys.join(",") !== "event,page_group") return null;
+      return { ...parsed, action: "creation" };
+    }
+    if (parsed.event === "checkout_started") {
+      if (keys.join(",") !== "billing_mode,event,page_group" || parsed.billing_mode !== "live") return null;
+      return { ...parsed, action: "checkout_start" };
+    }
     if (parsed.event === "site_cta_clicked") {
       if (keys.join(",") !== "destination,event,page_group,placement"
         || typeof parsed.destination !== "string" || !DESTINATIONS.has(parsed.destination)
@@ -199,6 +207,8 @@ export async function handleTrafficCountRequest(request, {
   } else if (payload.event === "export_outcome") {
     event.properties.export_type = payload.export_type;
     event.properties.outcome = payload.outcome;
+  } else if (payload.event === "checkout_started") {
+    event.properties.billing_mode = payload.billing_mode;
   }
   const controller = new AbortController();
   const abortRequest = () => controller.abort();

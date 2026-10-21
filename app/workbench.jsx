@@ -46,7 +46,7 @@ import TilePixelEditor from "./tile-pixel-editor";
 import { registerOffline } from "./offline-client.mjs";
 import { sameFrameRender } from "./frame-render-equality.mjs";
 import SheetImportPreview from "./sheet-import-preview.jsx";
-import { captureAnalyticsEvent, captureAnonymousExportOutcome, getAnalyticsConsentStatus, isAnonymousTrafficEnabled, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
+import { captureAnalyticsEvent, captureAnonymousCreation, captureAnonymousExportOutcome, getAnalyticsConsentStatus, isAnonymousTrafficEnabled, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
 import { createWorkbenchAnalytics, analyticsFormat } from "./workbench-analytics.mjs";
 import { encodeClipboardImage, decodeClipboardImage } from "./native-clipboard-payload.mjs";
 import { renderScaledExportFrame } from "./export-render.mjs";
@@ -506,6 +506,7 @@ export default function Workbench() {
       consented: () => getAnalyticsConsentStatus() === "granted",
       getDocument: () => docRef.current,
       aggregateEnabled: isAnonymousTrafficEnabled,
+      captureAggregateCreation: captureAnonymousCreation,
       captureAggregateExport: captureAnonymousExportOutcome,
     });
   }

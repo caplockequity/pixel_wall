@@ -569,6 +569,121 @@
       ]
     },
     {
+      "key": "product-signals",
+      "name": "PixelWall — Product signals",
+      "description": "Aggregate Essential-only action counts are anonymous totals and are not conversions or linked journeys. Optional reports use consenting, pseudonymous browsers to show product journeys; they do not prove causation, completed saves, installs, purchases, or revenue. Generated exports mean files prepared by the editor, not necessarily files saved to disk.",
+      "tags": ["pixelwall", "analytics-v2", "product-signals"],
+      "insights": [
+        {
+          "key": "aggregate-creation-export-success",
+          "name": "Aggregate creations and successful exports",
+          "description": "Daily Essential-only aggregate action totals: editor activation as creation and successful generated exports. These are unrelated anonymous actions, not unique users or a conversion rate.",
+          "query": {"kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": {"date_from": "-30d"}, "interval": "day",
+            "properties": [
+              {"type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"]},
+              {"type": "event", "key": "environment", "operator": "exact", "value": ["production"]},
+              {"type": "event", "key": "measurement_mode", "operator": "exact", "value": ["aggregate"]}
+            ],
+            "series": [
+              {"kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Aggregate creations", "math": "total", "properties": [{"type": "event", "key": "action", "operator": "exact", "value": ["creation"]}]},
+              {"kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Aggregate successful exports", "math": "total", "properties": [{"type": "event", "key": "action", "operator": "exact", "value": ["export"]}, {"type": "event", "key": "outcome", "operator": "exact", "value": ["success"]}]}
+            ], "trendsFilter": {"display": "ActionsLineGraph"}
+          }},
+          "tags": ["pixelwall", "analytics-v2", "product-signals", "aggregate-traffic"]
+        },
+        {
+          "key": "aggregate-pro-restrictions",
+          "name": "Aggregate Pro restrictions by export type",
+          "description": "Daily Essential-only aggregate counts of exports blocked because Pro is required, split by export type. These are anonymous actions, not unique users or unmet demand.",
+          "query": {"kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": {"date_from": "-30d"}, "interval": "day",
+            "properties": [
+              {"type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"]},
+              {"type": "event", "key": "environment", "operator": "exact", "value": ["production"]},
+              {"type": "event", "key": "measurement_mode", "operator": "exact", "value": ["aggregate"]},
+              {"type": "event", "key": "action", "operator": "exact", "value": ["export"]},
+              {"type": "event", "key": "outcome", "operator": "exact", "value": ["blocked"]}
+            ],
+            "series": [{"kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Pro-required restrictions", "math": "total"}],
+            "trendsFilter": {"display": "ActionsLineGraph"}, "breakdownFilter": {"breakdown": "export_type", "breakdown_type": "event", "breakdown_limit": 20}
+          }},
+          "tags": ["pixelwall", "analytics-v2", "product-signals", "aggregate-traffic"]
+        },
+        {
+          "key": "aggregate-live-checkout-interest",
+          "name": "Aggregate live checkout interest",
+          "description": "Daily Essential-only aggregate counts of live checkout starts. These are anonymous actions, not unique visitors, completed payments, or revenue.",
+          "query": {"kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": {"date_from": "-30d"}, "interval": "day",
+            "properties": [
+              {"type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"]},
+              {"type": "event", "key": "environment", "operator": "exact", "value": ["production"]},
+              {"type": "event", "key": "measurement_mode", "operator": "exact", "value": ["aggregate"]},
+              {"type": "event", "key": "action", "operator": "exact", "value": ["checkout_start"]}
+            ],
+            "series": [{"kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Live checkout starts", "math": "total"}],
+            "trendsFilter": {"display": "ActionsLineGraph"}
+          }},
+          "tags": ["pixelwall", "analytics-v2", "product-signals", "aggregate-traffic"]
+        },
+        {
+          "key": "optional-editor-activation-export-funnel",
+          "name": "Optional editor loaded → activated → export",
+          "description": "A one-day ordered funnel for consenting, pseudonymous browsers across both editors. Export means generated output; this does not prove causation or a saved file.",
+          "query": {"kind": "InsightVizNode", "source": {
+            "kind": "FunnelsQuery", "dateRange": {"date_from": "-30d"},
+            "properties": [
+              {"type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"]},
+              {"type": "event", "key": "environment", "operator": "exact", "value": ["production"]}
+            ],
+            "series": [
+              {"kind": "EventsNode", "event": "editor_loaded", "custom_name": "Editor loaded"},
+              {"kind": "EventsNode", "event": "editor_activated", "custom_name": "Editor activated"},
+              {"kind": "EventsNode", "event": "export_completed", "custom_name": "Export generated"}
+            ],
+            "funnelsFilter": {"funnelOrderType": "ordered", "funnelVizType": "steps", "funnelWindowInterval": 1, "funnelWindowIntervalUnit": "day"}
+          }},
+          "tags": ["pixelwall", "analytics-v2", "product-signals", "optional-analytics"]
+        },
+        {
+          "key": "optional-pro-restriction-checkout-funnel",
+          "name": "Optional Pro restriction → live checkout",
+          "description": "A seven-day ordered funnel for consenting, pseudonymous browsers: a Pro-required export block followed by a live checkout start. The dialog step is omitted because it can occur before the restriction; this does not prove causation or purchase.",
+          "query": {"kind": "InsightVizNode", "source": {
+            "kind": "FunnelsQuery", "dateRange": {"date_from": "-30d"},
+            "properties": [
+              {"type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"]},
+              {"type": "event", "key": "environment", "operator": "exact", "value": ["production"]}
+            ],
+            "series": [
+              {"kind": "EventsNode", "event": "export_blocked", "custom_name": "Pro-required export blocked", "properties": [{"type": "event", "key": "reason", "operator": "exact", "value": ["pro_required"]}]},
+              {"kind": "EventsNode", "event": "checkout_started", "custom_name": "Live checkout started", "properties": [{"type": "event", "key": "billing_mode", "operator": "exact", "value": ["live"]}]}
+            ],
+            "funnelsFilter": {"funnelOrderType": "ordered", "funnelVizType": "steps", "funnelWindowInterval": 7, "funnelWindowIntervalUnit": "day"}
+          }},
+          "tags": ["pixelwall", "analytics-v2", "product-signals", "optional-analytics"]
+        },
+        {
+          "key": "optional-pro-restrictions-and-checkout-daily",
+          "name": "Optional Pro restrictions and checkout starters",
+          "description": "Daily consenting-browser counts for Pro-required export blocks and live checkout starts. These are two separate series with no implied conversion relationship.",
+          "query": {"kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": {"date_from": "-30d"}, "interval": "day",
+            "properties": [
+              {"type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"]},
+              {"type": "event", "key": "environment", "operator": "exact", "value": ["production"]}
+            ],
+            "series": [
+              {"kind": "EventsNode", "event": "export_blocked", "custom_name": "Browsers blocked by Pro requirement", "math": "dau", "properties": [{"type": "event", "key": "reason", "operator": "exact", "value": ["pro_required"]}]},
+              {"kind": "EventsNode", "event": "checkout_started", "custom_name": "Browsers starting live checkout", "math": "dau", "properties": [{"type": "event", "key": "billing_mode", "operator": "exact", "value": ["live"]}]}
+            ], "trendsFilter": {"display": "ActionsLineGraph"}
+          }},
+          "tags": ["pixelwall", "analytics-v2", "product-signals", "optional-analytics"]
+        }
+      ]
+    },
+    {
       "key": "editor-value",
       "name": "PixelWall \u2014 Editor & exports",
       "description": "Only consenting browsers on the public site, after the schema 2 launch. No historical backfill, private preview traffic, desktop usage, or visitors who decline analytics. Pseudonymous browser counts are not people. Generated exports indicate files prepared by the editor; they do not prove the user saved a file to disk. Activation funnel is scoped to the current workbench.",

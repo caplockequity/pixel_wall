@@ -61,8 +61,8 @@ function commandFamilies(commands) {
   visit(commands);
   return families;
 }
-export function createWorkbenchAnalytics({ capture, consented, getDocument, now = () => performance.now(), aggregateEnabled = false, captureAggregateExport = () => {} }) {
-  let loaded = false, activated = false, saveFailed = false, readySource = null;
+export function createWorkbenchAnalytics({ capture, consented, getDocument, now = () => performance.now(), aggregateEnabled = false, captureAggregateExport = () => {}, captureAggregateCreation = () => {} }) {
+  let loaded = false, activated = false, aggregateActivated = false, saveFailed = false, readySource = null;
   const tools = new Set();
   const allowed = () => { try { return consented() === true; } catch { return false; } };
   const aggregateAllowed = () => {
@@ -70,6 +70,9 @@ export function createWorkbenchAnalytics({ capture, consented, getDocument, now 
   };
   const aggregateExport = (format, outcome) => {
     try { captureAggregateExport(format, outcome); } catch { /* reporting cannot affect exports */ }
+  };
+  const aggregateCreation = () => {
+    try { captureAggregateCreation(); } catch { /* reporting cannot affect editing */ }
   };
   const emit = (event, properties, shape) => {
     if (!allowed()) return false;
@@ -91,9 +94,19 @@ export function createWorkbenchAnalytics({ capture, consented, getDocument, now 
       if (readySource !== null) methods.loaded(readySource);
     },
     committed(commands, changed) {
-      if (!changed || !allowed()) return;
-      for (const family of commandFamilies(commands)) {
-        if (!activated && emit('editor_activated', { activation_type: family })) activated = true;
+      if (!changed) return;
+      const families = commandFamilies(commands);
+      if (!families.size) return;
+      if (!aggregateActivated && aggregateAllowed()) {
+        aggregateCreation();
+        aggregateActivated = true;
+      }
+      if (!allowed()) return;
+      for (const family of families) {
+        if (!activated) {
+          const captured = emit('editor_activated', { activation_type: family });
+          activated = captured;
+        }
         if (!tools.has(family) && emit('editor_tool_used', { tool_family: family })) tools.add(family);
       }
     },

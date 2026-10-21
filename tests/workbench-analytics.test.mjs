@@ -46,6 +46,16 @@ test('visits and tool deduplication are not consumed before consent; no backfill
   assert.equal(events.at(-1).properties.tool_family, 'drawing');
 });
 
+test('anonymous creation counts first changed edit without optional consent and only once', () => {
+  const aggregate = [];
+  const { analytics } = setup({ consent: false, aggregateEnabled: true, captureAggregateCreation: () => aggregate.push('creation') });
+  analytics.committed({ type: 'document.update', patch: { name: 'Private name' } }, true);
+  assert.deepEqual(aggregate, []);
+  analytics.committed({ type: 'draw.stroke' }, true);
+  analytics.committed({ type: 'draw.fill' }, true);
+  assert.deepEqual(aggregate, ['creation']);
+});
+
 test('large scripted batches emit one activation and only finite used families', () => {
   const { analytics, events } = setup();
   const commands = Array.from({ length: 2000 }, () => ({ type: 'draw.stroke', secret: 'Private drawing data' }));

@@ -639,6 +639,16 @@ export function captureAnonymousExportOutcome(format: string, outcome: "success"
   });
 }
 
+export function captureAnonymousCreation() {
+  if (!isAnonymousTrafficEnabled()) return;
+  sendAnonymousCount({ event: "editor_activated", page_group: analyticsPageGroup(window.location.pathname ?? "/") });
+}
+
+export function captureAnonymousCheckoutStart(billingMode: string) {
+  if (!isAnonymousTrafficEnabled() || billingMode !== "live") return;
+  sendAnonymousCount({ event: "checkout_started", page_group: analyticsPageGroup(window.location.pathname ?? "/"), billing_mode: "live" });
+}
+
 function persistAnalyticsConsent(choice: AnalyticsLevel) {
   try {
     // Keep tabs running v2 aligned with the optional analytics choice.

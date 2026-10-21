@@ -5,7 +5,7 @@ import { X, Sparkles, Check, Download } from "lucide-react";
 import { verifyOfflineLicense } from "./offline-license.mjs";
 import { openStore } from "./storage.mjs";
 import {PINNED_PUBLIC_KEYS} from "./license-public-keys.mjs";
-import { captureAnalyticsEvent } from "./analytics";
+import { captureAnalyticsEvent, captureAnonymousCheckoutStart } from "./analytics";
 
 type BillingReply = { pro?: boolean; checkoutAvailable?: boolean; mode?: "test" | "live"; url?: string; recoveryCode?: string; offlineLicense?: string; offline?: boolean; reason?: string };
 class PurchaseError extends Error {
@@ -164,6 +164,7 @@ export function useProAccess() {
   }
   async function checkout(beforeLeave: () => void | Promise<void>) {
     await run(async () => {
+      captureAnonymousCheckoutStart?.(status.mode ?? LICENSE_MODE);
       captureAnalyticsEvent("checkout_started", { billing_mode: status.mode ?? LICENSE_MODE });
       const data = await billing("checkout");
       if (data.pro) { await acceptOwned(data.offlineLicense); setStatus((current) => ({ ...current, pro: true })); return; }

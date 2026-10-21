@@ -65,7 +65,8 @@ Global Privacy Control.
 
 A shared, nonmodal prompt and Privacy preferences control cover public pages and
 both hosted editors. **Essential only** is the default: it sends anonymous totals
-for page visits, recognized public navigation, downloads and generated exports through a first-party
+for page visits, first meaningful edits, recognized public navigation, downloads,
+generated exports and checkout starts through a first-party
 `site_traffic_counted` event. It has no SDK, persistent visitor ID, analytics cookie, IP,
 user-agent or referrer forwarding. **Usage analytics** is an explicit opt-in for
 page, navigation, download and product events. **Enhanced diagnostics** adds
@@ -106,7 +107,8 @@ compared directly.
 The event inventory covers:
 
 - Essential traffic: `site_traffic_counted` records anonymous page visits,
-  recognized public navigation, app download clicks and generated export outcomes
+  first meaningful edits, recognized public navigation, app download clicks,
+  generated export outcomes and checkout starts
   without visitor linkage. Successful PNG, sprite-sheet and other exports mean
   an artifact was generated, not that a browser finished saving it to disk.
 - Optional public navigation: `site_page_viewed`, `site_cta_clicked`,
@@ -125,7 +127,7 @@ catalog and final payload filtering. Test with an isolated SDK or intercepted
 requests so validation traffic is not mistaken for real visitors.
 
 The versioned dashboard definitions are in `docs/analytics/posthog-dashboards.json`.
-They cover website/downloads, editor/exports, and Pro/reliability (33 insights).
+They cover website/downloads, product signals, editor/exports, and Pro/reliability (39 insights).
 Only schema 2 production events are included; no historical activity is backfilled.
 To manage them, use a personal API key with project/read, dashboard/read,
 insight/read and query/read access; applying also needs dashboard/write and

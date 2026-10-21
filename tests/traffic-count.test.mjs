@@ -125,3 +125,18 @@ test("accepts reviewed export outcomes and excludes document metadata", async ()
     { event: "export_outcome", page_group: "editor", export_type: "png", outcome: "success", project_name: "secret" },
   ]) assert.equal((await handleTrafficCountRequest(request(payload), { env, fetchImpl: fake.fetchImpl })).status, 400);
 });
+
+test("accepts anonymous creation and live checkout counts only", async () => {
+  const fake = fakeFetch();
+  for (const payload of [
+    { event: "editor_activated", page_group: "editor" },
+    { event: "checkout_started", page_group: "pricing", billing_mode: "live" },
+  ]) assert.equal((await handleTrafficCountRequest(request(payload), { env, fetchImpl: fake.fetchImpl })).status, 204);
+  assert.equal(fake.calls[0].body.properties.action, "creation");
+  assert.equal(fake.calls[1].body.properties.action, "checkout_start");
+  assert.equal(fake.calls[1].body.properties.billing_mode, "live");
+  for (const payload of [
+    { event: "editor_activated", page_group: "editor", activation_type: "drawing" },
+    { event: "checkout_started", page_group: "pricing", billing_mode: "test" },
+  ]) assert.equal((await handleTrafficCountRequest(request(payload), { env, fetchImpl: fake.fetchImpl })).status, 400);
+});

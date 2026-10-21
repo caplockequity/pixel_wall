@@ -14,7 +14,7 @@ import { ExportPresets } from "./export-presets";
 import { ProDialog, useProAccess } from "./pro-access";
 import { DownloadReady, useDownload } from "./use-download";
 import { CELL_SIZES, useCanvasView } from "./use-canvas-view";
-import { captureAnalyticsEvent, captureAnonymousExportOutcome, getAnalyticsConsentStatus, isAnonymousTrafficEnabled, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
+import { captureAnalyticsEvent, captureAnonymousCreation, captureAnonymousExportOutcome, getAnalyticsConsentStatus, isAnonymousTrafficEnabled, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
 import type {
   ChangeEvent,
   CSSProperties,
@@ -910,6 +910,7 @@ export default function Studio() {
   const editorSource = useRef<"fresh_demo" | "restored_v3" | "upgraded_v2" | "upgraded_v1">("fresh_demo");
   const editorLoadedCaptured = useRef(false);
   const editorActivatedCaptured = useRef(false);
+  const anonymousCreationCaptured = useRef(false);
   const guideSource = useRef<"automatic" | "footer" | "toolbar">("automatic");
   const shouldRestoreExportFocus = useRef(false);
   const referenceDrag = useRef<null | {
@@ -980,10 +981,23 @@ export default function Studio() {
     try { captureAnonymousExportOutcome(format, outcome); } catch { /* analytics must not affect exports */ }
   }
 
+  function captureBlockedExport(format: string) {
+    captureAnalyticsEvent("export_blocked", {
+      ...analyticsProjectShape,
+      export_type: format,
+      reason: "pro_required",
+    });
+    captureAnonymousExport(isAnonymousTrafficEnabled(), format, "blocked");
+  }
+
   const analyticsProjectShapeRef = useRef(analyticsProjectShape);
   useEffect(() => { analyticsProjectShapeRef.current = analyticsProjectShape; });
 
   function captureActivation(activation_type: "drawing" | "structure") {
+    if (!anonymousCreationCaptured.current && isAnonymousTrafficEnabled()) {
+      anonymousCreationCaptured.current = true;
+      captureAnonymousCreation();
+    }
     if (editorActivatedCaptured.current || getAnalyticsConsentStatus() !== "granted") return;
     editorActivatedCaptured.current = true;
     captureAnalyticsEvent("editor_activated", { ...analyticsProjectShape, activation_type });
@@ -2965,7 +2979,11 @@ export default function Studio() {
 
   async function exportAnimatedGif() {
     if (exporting) return;
-    if (!await proAccess.requestAccess()) { setExportMenuOpen(false); return; }
+    if (!await proAccess.requestAccess()) {
+      captureBlockedExport("animated_gif");
+      setExportMenuOpen(false);
+      return;
+    }
     const anonymousExportEligible = isAnonymousTrafficEnabled();
     const startedAt = performance.now();
     const frameSnapshot = cloneFrames(frames);
@@ -3006,7 +3024,11 @@ export default function Studio() {
 
   async function exportSpritePackage(format: "package" | "sheet" = "package") {
     if (exporting) return;
-    if (!await proAccess.requestAccess()) { setExportMenuOpen(false); return; }
+    if (!await proAccess.requestAccess()) {
+      captureBlockedExport(format === "sheet" ? "sprite_sheet_png" : "sprite_package");
+      setExportMenuOpen(false);
+      return;
+    }
     const anonymousExportEligible = isAnonymousTrafficEnabled();
     const startedAt = performance.now();
     shouldRestoreExportFocus.current = true;
@@ -3150,7 +3172,11 @@ export default function Studio() {
       });
       return;
     }
-    if (!await proAccess.requestAccess()) { setExportMenuOpen(false); return; }
+    if (!await proAccess.requestAccess()) {
+      captureBlockedExport("tilemap_package");
+      setExportMenuOpen(false);
+      return;
+    }
     const anonymousExportEligible = isAnonymousTrafficEnabled();
     const startedAt = performance.now();
     shouldRestoreExportFocus.current = true;
