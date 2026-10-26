@@ -1,0 +1,16 @@
+[
+  {
+    "type": "scene.water",
+    "scene": "stream",
+    "view": "isometric",
+    "seed": 2048,
+    "season": "summer",
+    "frames": 12,
+    "durationMs": 125,
+    "details": 2,
+    "palette": {
+      "water": "#3b82c4ff",
+      "foam": "#d9f4ffff"
+    }
+  }
+]

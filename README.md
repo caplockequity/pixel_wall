@@ -13,6 +13,7 @@ External agents use the same deterministic commands as the editor.
 - Rectangle, ellipse, lasso, polygon and wand selections; combined masks, translation, scale, rotation and flips.
 - Groups, blend modes, reference layers, positioned and linked cels, a layer-by-frame timeline and configurable onion skin.
 - Deterministic tween and particle baking, independent tilesets, tilemap layers and Manual/Auto/Stack tile-pixel editing.
+- Isometric 2:1 guide and snapping, editable tile/block/ramp shape stamps, and deterministic animated water scenes with independent shoreline and ripple seeds.
 - Native Aseprite files, editable PNG/BMP/TGA/GIF imports, image sequences and padded sprite sheets.
 - Free frame PNG/BMP/TGA and portable PixelWall/Aseprite exports. Pro GIF, packed atlas PNG+JSON and game ZIP with real Tiled assets.
 - Named slices, pivots, nine-patch metadata, layer/clip export scope, padding, extrusion, scale and power-of-two packing.
@@ -21,10 +22,11 @@ External agents use the same deterministic commands as the editor.
 - Offline browser and desktop builds with signed, perpetual Pro ownership licenses.
 
 See [format and CLI reference](docs/formats-cli.md) and [storage and ownership](docs/ownership-storage.md).
+Regenerate the documented isometric shape and water previews with `node scripts/export-isometric-examples.mjs`.
 Native compatibility is tracked in [Aseprite parity](docs/aseprite-parity.md).
 ICC profiles support assignment, conversion and managed previews. Lua supports a growing Aseprite API subset; arbitrary plug-ins and exact RotSprite behavior remain incomplete.
 GIF uses binary transparency and quantizes larger palettes. PNG and project files retain full alpha.
-3D is deferred.
+Isometric tools are 2D pixel composition aids; 3D rendering, height-aware terrain, depth sorting, collision maps and universal isometric tilemap export remain deferred.
 
 ## Download builds
 

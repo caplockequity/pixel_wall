@@ -1,0 +1,69 @@
+[
+  {
+    "type": "draw.isometric",
+    "shape": "tile",
+    "x": 64,
+    "y": 32,
+    "width": 64,
+    "elevation": 0,
+    "color": "#6e9f56ff",
+    "filled": true
+  },
+  {
+    "type": "draw.isometric",
+    "shape": "tile",
+    "x": 32,
+    "y": 48,
+    "width": 32,
+    "elevation": 0,
+    "color": "#4f7e50ff",
+    "filled": true
+  },
+  {
+    "type": "draw.isometric",
+    "shape": "tile",
+    "x": 96,
+    "y": 48,
+    "width": 32,
+    "elevation": 0,
+    "color": "#86b967ff",
+    "filled": true
+  },
+  {
+    "type": "draw.isometric",
+    "shape": "block",
+    "x": 64,
+    "y": 32,
+    "width": 32,
+    "elevation": 24,
+    "color": "#c3915bff",
+    "leftColor": "#855b3fff",
+    "rightColor": "#e2b371ff",
+    "filled": true
+  },
+  {
+    "type": "draw.isometric",
+    "shape": "block",
+    "x": 40,
+    "y": 52,
+    "width": 24,
+    "elevation": 12,
+    "color": "#a9784dff",
+    "leftColor": "#6d4a37ff",
+    "rightColor": "#cb9961ff",
+    "filled": true
+  },
+  {
+    "type": "draw.isometric",
+    "shape": "ramp",
+    "x": 88,
+    "y": 52,
+    "width": 32,
+    "elevation": 16,
+    "direction": "right",
+    "color": "#b9824eff",
+    "leftColor": "#744d37ff",
+    "rightColor": "#d5a264ff",
+    "filled": true
+  }
+]

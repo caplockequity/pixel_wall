@@ -61,6 +61,9 @@ import LuaCommandView from "./lua-command-view.jsx";
 import { assertPackageRunCurrent, capturePackageRun, packageRunSettings } from "./aseprite-package-session.mjs";
 import { createNativeDocumentSession } from "./native-document-session.mjs";
 import { createAsepriteExtensionRegistry } from "./aseprite-extensions.mjs";
+import { isoProject, snapIso } from "./isometric.mjs";
+import { isometricFaces } from "./isometric-shapes.mjs";
+import { generateWaterScene } from "./water-generator.mjs";
 import AsepritePackagesPanel from "./aseprite-packages-panel.jsx";
 import {
   Pencil,
@@ -245,6 +248,59 @@ function Modal({ title, onClose, children, wide = false }) {
     </dialog>
   );
 }
+function WaterPreview({ options, onValidityChange }) {
+  const ref = useRef(null);
+  const [playing, setPlaying] = useState(true);
+  const [repeat, setRepeat] = useState(1);
+  const generated = useMemo(() => {
+    try { return { scene: generateWaterScene(options), error: null }; }
+    catch (error) { return { scene: null, error }; }
+  }, [options]);
+  const scene = generated.scene;
+  useEffect(() => { onValidityChange?.(!generated.error && !!scene); }, [generated.error, scene, onValidityChange]);
+  const renderedFrames = useMemo(() => scene ? scene.frames.map(frame => rgbaImage(renderFrame(scene, frame.id), scene.width, scene.height)) : [], [scene]);
+  useEffect(() => {
+    let index = 0, elapsed = 0, last = performance.now(), raf;
+    const draw = () => {
+      const canvas = ref.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!scene) return;
+      const now = performance.now();
+      if (playing) { elapsed += now - last; if (elapsed >= (scene.frames[index]?.durationMs || 125)) { elapsed = 0; index = (index + 1) % scene.frames.length; } }
+      last = now;
+      ctx.imageSmoothingEnabled = false;
+      const bitmap = renderedFrames[index];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let row = 0; row < repeat; row++) for (let col = 0; col < repeat; col++) ctx.drawImage(bitmap, col * scene.width, row * scene.height);
+      if (playing) raf = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => cancelAnimationFrame(raf);
+  }, [scene, playing, repeat, renderedFrames]);
+  if (generated.error) return <div className="wb-water-preview-wrap" role="alert">{generated.error.message}</div>;
+  if (!scene) return null;
+  return <div className="wb-water-preview-wrap"><canvas className="wb-water-preview" ref={ref} width={scene.width * repeat} height={scene.height * repeat} aria-label="Animated generated water scene preview" /><div><button type="button" onClick={() => setPlaying(v => !v)} aria-pressed={playing}>{playing ? "Pause preview" : "Play preview"}</button> <button type="button" onClick={() => setRepeat(v => v === 1 ? 3 : 1)} aria-pressed={repeat === 3}>{repeat}× repeat</button></div></div>;
+}
+function IsoShapePreview({ options }) {
+  const ref = useRef(null);
+  const rendered = useMemo(() => {
+    try {
+      const points = isometricFaces(options).flatMap(face => face.points);
+      const minX = Math.min(...points.map(point => point.x)), minY = Math.min(...points.map(point => point.y));
+      const width = Math.max(...points.map(point => point.x)) - minX + 9, height = Math.max(...points.map(point => point.y)) - minY + 9;
+      const base = createDocument({ width, height, name: "Isometric preview" });
+      const next = applyCommand(base, { type: "draw.isometric", ...options, x: options.x - minX + 4, y: options.y - minY + 4 });
+      return { pixels: renderFrame(next), width, height };
+    } catch (error) { return { error: error.message }; }
+  }, [options]);
+  useEffect(() => {
+    const canvas = ref.current; if (!canvas) return;
+    const ctx = canvas.getContext("2d"); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.imageSmoothingEnabled = false;
+    if (rendered.pixels) ctx.putImageData(new ImageData(new Uint8ClampedArray(rendered.pixels), rendered.width, rendered.height), 0, 0);
+  }, [rendered]);
+  return rendered.error ? <p role="alert">{rendered.error}</p> : <canvas className="wb-iso-preview" ref={ref} width={rendered.width} height={rendered.height} aria-label="Isometric shape preview" />;
+}
 function FrameThumb({ doc, frameId, repeat = 1, colorManager }) {
   const ref = useRef(null);
   const lastInputs = useRef(null);
@@ -352,6 +408,9 @@ export default function Workbench() {
     [dither, setDither] = useState(false);
   const [zoom, setZoom] = useState(6),
     [grid, setGrid] = useState(false),
+    [isometricGrid, setIsometricGrid] = useState(false),
+    [isometricSnap, setIsometricSnap] = useState(false),
+    [isometricTileWidth, setIsometricTileWidth] = useState(16),
     [seamless, setSeamless] = useState(false),
     [selection, setSelection] = useState(null),
     [selectionMode, setSelectionMode] = useState("replace"),
@@ -417,6 +476,24 @@ export default function Workbench() {
       scaleY: 1,
       angle: 0,
     });
+  const [waterOptions, setWaterOptions] = useState({
+    name: "Water study",
+    width: 64,
+    height: 48,
+    scene: "pond",
+    view: "isometric",
+    seed: 1,
+    waterSeed: 1,
+    season: "summer",
+    frames: 12,
+    durationMs: 125,
+    details: 2,
+    palette: {},
+    rippleDensity: .55,
+    phaseOffset: 0,
+  });
+  const [waterPreviewValid, setWaterPreviewValid] = useState(true);
+  const [isoShapeOptions, setIsoShapeOptions] = useState({ shape: "tile", x: 16, y: 16, width: 16, elevation: 0, direction: "right", color: "#247fa2ff", leftColor: "#17627aff", rightColor: "#9de2dcff", filled: true });
   const [rotationMethod, setRotationMethod] = useState("rotsprite");
   const [paletteText, setPaletteText] = useState(""),
     [importKind, setImportKind] = useState("document"),
@@ -469,6 +546,7 @@ export default function Workbench() {
     pathRef = useRef([]),
     canvasRef = useRef(null),
     overlayRef = useRef(null),
+    isoOverlayRef = useRef(null),
     viewportRef = useRef(null),
     rgbaRef = useRef(null),
     fileRef = useRef(null),
@@ -793,6 +871,28 @@ export default function Workbench() {
     },
     [save, activate, setBusy],
   );
+  const newWaterScene = useCallback(async (options = {}) => {
+    automationRef.current?.desktop.assertEditable();
+    if (busyRef.current || luaAbortRef.current || nativeSessionRef.current?.busy || operationRef.current || restoringRef.current) throw Error("Finish the current operation before generating a scene.");
+    setBusy(true);
+    try {
+      const next = createDocument({ id: crypto.randomUUID(), name: options.name || "Water study", width: options.width || 64, height: options.height || 48 });
+      // scene.water is intentionally applied to a fresh document. This keeps
+      // the current artwork in its own saved tab and lets the generator own
+      // the replacement semantics for the new blank document.
+      const generated = applyCommand(next, { type: "scene.water", ...options });
+      const saved = await save();
+      if (docRef.current && !saved) throw Error("Save the current project before generating a water scene.");
+      await activate(generated);
+      analyticsRef.current.project("new", "completed");
+      analyticsRef.current.committed({ type: "scene.water" }, true);
+      setModal(null);
+      setNotice("Water scene generated in a new project tab.");
+      return generated;
+    } finally {
+      setBusy(false);
+    }
+  }, [activate, save, setBusy]);
   useEffect(() => {
     let mounted = true;
     const generation = ++loadGeneration.current;
@@ -820,6 +920,9 @@ export default function Workbench() {
         setSettings(prefs);
         setPinnedPanels(prefs.pinnedPanels || []);
         setClosedDocuments(prefs.closedDocuments || []);
+        setIsometricGrid(!!prefs.isometricGrid);
+        setIsometricSnap(!!prefs.isometricSnap);
+        setIsometricTileWidth(clamp(Math.round((prefs.isometricTileWidth || 16) / 4) * 4, 4, 128));
       }
       const migrations = await store.importLegacy({
         convert: (raw) => {
@@ -911,9 +1014,9 @@ export default function Workbench() {
   useEffect(() => {
     if (storeRef.current)
       void storeRef.current
-        .setSetting("workspace", { ...settings, pinnedPanels, closedDocuments })
+        .setSetting("workspace", { ...settings, pinnedPanels, closedDocuments, isometricGrid, isometricSnap, isometricTileWidth })
         .catch(report);
-  }, [settings, pinnedPanels, closedDocuments, report]);
+  }, [settings, pinnedPanels, closedDocuments, isometricGrid, isometricSnap, isometricTileWidth, report]);
   const layer = doc?.layers.find((l) => l.id === activeLayer),
     frame = doc?.frames.find((f) => f.id === activeFrame),
     selectedClip = doc?.clips?.find((c) => c.id === clipId),
@@ -1015,6 +1118,27 @@ export default function Workbench() {
           overlay.fillRect(i % doc.width, Math.floor(i / doc.width), 1, 1);
     }
   }, [selection, playing, doc?.width, doc?.height, doc]);
+  useEffect(() => {
+    const canvas = isoOverlayRef.current;
+    if (!canvas || !doc) return;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, doc.width, doc.height);
+    if (!isometricGrid) return;
+    const origin = { x: Math.floor(doc.width / 2), y: Math.floor(doc.height / 4) };
+    const span = Math.ceil((doc.width + doc.height) / isometricTileWidth) + 2;
+    ctx.save();
+    ctx.strokeStyle = "rgba(70, 64, 150, .27)";
+    ctx.lineWidth = 0.5;
+    for (let i = -span; i <= span; i++) {
+      const a = isoProject(i, -span, isometricTileWidth, origin);
+      const b = isoProject(i, span, isometricTileWidth, origin);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      const c = isoProject(-span, i, isometricTileWidth, origin);
+      const d = isoProject(span, i, isometricTileWidth, origin);
+      ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.stroke();
+    }
+    ctx.restore();
+  }, [isometricGrid, isometricTileWidth, doc]);
   const targetLayers = () =>
     selectedLayers.includes(activeLayer) ? selectedLayers : [activeLayer];
   const targetCels = () =>
@@ -1065,7 +1189,7 @@ export default function Workbench() {
   }
   function point(event) {
     const r = canvasRef.current.getBoundingClientRect();
-    return {
+    const raw = {
       x: clamp(
         Math.floor(((event.clientX - r.left) * doc.width) / r.width),
         0,
@@ -1078,6 +1202,13 @@ export default function Workbench() {
       ),
       pressure: pressure ? event.pressure || 0.5 : 0.5,
     };
+    const snapTools = new Set(["pencil", "eraser", "line", "curve", "rect", "ellipse", "polygon", "gradient", "text"]);
+    if (isometricSnap && isometricGrid && snapTools.has(tool)) {
+      const snapped = snapIso(raw.x, raw.y, isometricTileWidth, { x: Math.floor(doc.width / 2), y: Math.floor(doc.height / 4) });
+      raw.x = clamp(Math.round(snapped.x), 0, doc.width - 1);
+      raw.y = clamp(Math.round(snapped.y), 0, doc.height - 1);
+    }
+    return raw;
   }
   function commandFor(kind, points) {
     const a = points[0],
@@ -1429,6 +1560,9 @@ export default function Workbench() {
       pathRef.current = [];
       setNotice("Polygon drawn");
     }
+  }
+  function stampIsometricShape() {
+    if (run({ type: "draw.isometric", frameId: activeFrame, layerId: activeLayer, selection: selection || undefined, ...isoShapeOptions }, "Insert isometric shape")) setModal(null);
   }
   function selectAll() {
     if (luaAbortRef.current || nativeSessionRef.current?.busy || automationRef.current?.desktop.locked) return;
@@ -2519,6 +2653,7 @@ export default function Workbench() {
             label="New project"
             onClick={() => setModal("new")}
           />
+          <button className="wb-button-link" onClick={() => setModal("water")} title="Generate an animated procedural water scene in a new project">Water scene</button>
           <IconButton
             icon={FolderOpen}
             label="Open project or image"
@@ -2695,6 +2830,18 @@ export default function Workbench() {
           />
           Grid
         </label>
+        <label title="Show a 2:1 diamond guide over the canvas">
+          <input type="checkbox" checked={isometricGrid} onChange={(e) => setIsometricGrid(e.target.checked)} />
+          Isometric guide
+        </label>
+        <label title="Snap drawing points to the isometric guide">
+          <input type="checkbox" checked={isometricSnap} disabled={!isometricGrid} onChange={(e) => setIsometricSnap(e.target.checked)} />
+          Iso snap
+        </label>
+        <Field label="Iso tile width">
+          <input type="number" min="4" max="128" step="4" value={isometricTileWidth} onChange={(e) => setIsometricTileWidth(clamp(Math.round((+e.target.value || 16) / 4) * 4, 4, 128))} />
+        </Field>
+        <button onClick={() => { setIsoShapeOptions(current => ({ ...current, x: Math.floor(doc.width / 2), y: Math.max(current.elevation + 1, Math.floor(doc.height / 4)), width: isometricTileWidth })); setModal("isometricShape"); }} title="Stamp an editable isometric tile, block, or ramp">Isometric shapes</button>
         <button
           onClick={() => {
             setResizeOptions({
@@ -2773,6 +2920,14 @@ export default function Workbench() {
                   width={doc.width}
                   height={doc.height}
                   className="wb-selection-overlay"
+                  style={{ width: doc.width * zoom, height: doc.height * zoom }}
+                  aria-hidden="true"
+                />
+                <canvas
+                  ref={isoOverlayRef}
+                  width={doc.width}
+                  height={doc.height}
+                  className="wb-isometric-overlay"
                   style={{ width: doc.width * zoom, height: doc.height * zoom }}
                   aria-hidden="true"
                 />
@@ -4028,6 +4183,64 @@ export default function Workbench() {
               Create project
             </button>
           </form>
+        </Modal>
+      )}
+      {modal === "water" && (
+        <Modal title="Generate water scene" wide onClose={() => setModal(null)}>
+          <form onSubmit={(e) => { e.preventDefault(); void newWaterScene(waterOptions).catch(report); }}>
+            <p className="wb-dialog-hint">Creates a new project tab and leaves your current artwork untouched.</p>
+            <WaterPreview options={waterOptions} onValidityChange={setWaterPreviewValid} />
+            <Field label="Project name"><input value={waterOptions.name} onChange={(e) => setWaterOptions({...waterOptions, name:e.target.value})} /></Field>
+            <div className="wb-two-fields">
+              <Field label="Width"><input type="number" min="8" max="256" value={waterOptions.width} onChange={(e) => setWaterOptions({...waterOptions, width:clamp(Math.trunc(+e.target.value || 8),8,256)})} /></Field>
+              <Field label="Height"><input type="number" min="8" max="256" value={waterOptions.height} onChange={(e) => setWaterOptions({...waterOptions, height:clamp(Math.trunc(+e.target.value || 8),8,256)})} /></Field>
+            </div>
+            <div className="wb-two-fields">
+              <Field label="Scene"><select value={waterOptions.scene} onChange={(e) => setWaterOptions({...waterOptions, scene:e.target.value})}>{["pond","river","stream","waterfall","shoreline"].map(v=><option key={v}>{v}</option>)}</select></Field>
+              <Field label="View"><select value={waterOptions.view} onChange={(e) => setWaterOptions({...waterOptions, view:e.target.value})}><option value="top-down">Top down</option><option value="isometric">Isometric</option></select></Field>
+            </div>
+            <div className="wb-two-fields">
+              <Field label="Season"><select value={waterOptions.season} onChange={(e) => setWaterOptions({...waterOptions, season:e.target.value})}>{["spring","summer","autumn","winter"].map(v=><option key={v}>{v}</option>)}</select></Field>
+              <Field label="Water color"><input type="color" value={(waterOptions.palette.water || {spring:"#368fab",summer:"#338eaa",autumn:"#448b9b",winter:"#6ba6ba"}[waterOptions.season]).slice(0,7)} onChange={(e) => setWaterOptions({...waterOptions, palette:{...waterOptions.palette, water:`${e.target.value}ff`}})} /></Field>
+            </div>
+            <div className="wb-two-fields">
+              <Field label="Frames"><input type="number" min="1" max="32" value={waterOptions.frames} onChange={(e) => setWaterOptions({...waterOptions, frames:clamp(Math.trunc(+e.target.value || 1),1,32)})} /></Field>
+              <Field label="Frame duration (ms)"><input type="number" min="1" max="65535" value={waterOptions.durationMs} onChange={(e) => setWaterOptions({...waterOptions, durationMs:clamp(Math.trunc(+e.target.value || 1),1,65535)})} /></Field>
+            </div>
+            <Field label="Shoreline seed"><input type="number" min="0" max="4294967295" step="1" value={waterOptions.seed} onChange={(e) => setWaterOptions({...waterOptions, seed:clamp(Math.trunc(+e.target.value || 0),0,4294967295)})} /></Field>
+            <Field label="Water seed"><input type="number" min="0" max="4294967295" step="1" value={waterOptions.waterSeed} onChange={(e) => setWaterOptions({...waterOptions, waterSeed:+e.target.value})} /></Field>
+            <div className="wb-two-fields">
+              <Field label="Ripple density"><input type="number" min="0" max="1" step=".05" value={waterOptions.rippleDensity} onChange={(e) => setWaterOptions({...waterOptions, rippleDensity:clamp(+e.target.value || 0, 0, 1)})} /></Field>
+              <Field label="Phase offset"><input type="number" min="-65535" max="65535" step="1" value={waterOptions.phaseOffset} onChange={(e) => setWaterOptions({...waterOptions, phaseOffset:Math.trunc(+e.target.value || 0)})} /></Field>
+            </div>
+            <button type="button" onClick={() => setWaterOptions({...waterOptions, palette:{}})}>Reset seasonal colors</button>
+            <p className="wb-dialog-hint">3× repeat checks seams; these scenes loop in time but are not guaranteed to tile spatially. Water seed and ripple density keep the shoreline fixed.</p>
+            <Field label="Detail level"><select value={waterOptions.details} onChange={(e) => setWaterOptions({...waterOptions, details:+e.target.value})}>{[0,1,2,3,4].map(v=><option key={v} value={v}>{v} · {v === 0 ? "minimal" : v === 4 ? "rich" : ""}</option>)}</select></Field>
+            <button className="wb-primary" type="submit" disabled={!waterPreviewValid}>Generate water scene</button>
+          </form>
+        </Modal>
+      )}
+      {modal === "isometricShape" && (
+        <Modal title="Isometric shapes" wide onClose={() => setModal(null)}>
+          <p className="wb-dialog-hint">Stamp a reusable 2:1 tile, elevated block, or ramp into the active frame and layer. Ground X and Y place its back corner; elevation raises the top.</p>
+          <IsoShapePreview options={isoShapeOptions} />
+          <div className="wb-two-fields">
+            <Field label="Shape"><select value={isoShapeOptions.shape} onChange={(e) => setIsoShapeOptions({...isoShapeOptions, shape:e.target.value, elevation:e.target.value !== "tile" && isoShapeOptions.elevation === 0 ? isoShapeOptions.width / 2 : isoShapeOptions.elevation})}><option value="tile">Tile</option><option value="block">Block</option><option value="ramp">Ramp</option></select></Field>
+            <Field label="Width (multiple of 4)"><input type="number" min="4" max="512" step="4" value={isoShapeOptions.width} onChange={(e) => setIsoShapeOptions({...isoShapeOptions, width:+e.target.value})} /></Field>
+          </div>
+          <div className="wb-two-fields">
+            <Field label="Ground X"><input type="number" value={isoShapeOptions.x} onChange={(e) => setIsoShapeOptions({...isoShapeOptions, x:+e.target.value})} /></Field>
+            <Field label="Ground Y"><input type="number" value={isoShapeOptions.y} onChange={(e) => setIsoShapeOptions({...isoShapeOptions, y:+e.target.value})} /></Field>
+          </div>
+          <Field label="Elevation"><input type="number" min="0" max="512" disabled={isoShapeOptions.shape === "tile"} value={isoShapeOptions.elevation} onChange={(e) => setIsoShapeOptions({...isoShapeOptions, elevation:+e.target.value})} /></Field>
+          {isoShapeOptions.shape === "ramp" && <Field label="Ramp direction"><select value={isoShapeOptions.direction} onChange={(e) => setIsoShapeOptions({...isoShapeOptions, direction:e.target.value})}><option value="right">Right</option><option value="left">Left</option></select></Field>}
+          <div className="wb-two-fields">
+            <Field label="Top color"><input type="color" value={isoShapeOptions.color.slice(0,7)} onChange={(e) => setIsoShapeOptions({...isoShapeOptions, color:`${e.target.value}ff`})} /></Field>
+            <Field label="Left color"><input type="color" value={isoShapeOptions.leftColor.slice(0,7)} onChange={(e) => setIsoShapeOptions({...isoShapeOptions, leftColor:`${e.target.value}ff`})} /></Field>
+          </div>
+          <Field label="Right color"><input type="color" value={isoShapeOptions.rightColor.slice(0,7)} onChange={(e) => setIsoShapeOptions({...isoShapeOptions, rightColor:`${e.target.value}ff`})} /></Field>
+          <label><input type="checkbox" checked={isoShapeOptions.filled} onChange={(e) => setIsoShapeOptions({...isoShapeOptions, filled:e.target.checked})} /> Filled</label>
+          <button className="wb-primary" onClick={stampIsometricShape}>Stamp shape</button>
         </Modal>
       )}
       {modal === "resize" && (

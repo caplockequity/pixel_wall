@@ -3,6 +3,8 @@
   "product": "PixelWall",
   "officialSite": "https://www.pixelwall.dev",
   "guide": "https://www.pixelwall.dev/guides/ai-agents",
+  "sceneWaterGuide": "https://www.pixelwall.dev/guides/isometric-water",
+  "isometricPixelArtGuide": "https://www.pixelwall.dev/guides/isometric-pixel-art",
   "interfaces": {
     "cli": {
       "available": true,
@@ -41,6 +43,8 @@
   },
   "examples": {
     "animatedNinjaPandaCommands": "https://www.pixelwall.dev/examples/agent-ninja-panda-commands.json",
+    "isometricWaterCommands": "https://www.pixelwall.dev/examples/isometric-water.json",
+    "isometricShapeCommands": "https://www.pixelwall.dev/examples/isometric-shapes.json",
     "animatedNinjaPandaProject": "https://www.pixelwall.dev/examples/agent-ninja-panda.pixelwall",
     "renderedNinjaPandaPng": "https://www.pixelwall.dev/examples/agent-ninja-panda.png"
   }

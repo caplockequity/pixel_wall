@@ -9,7 +9,7 @@ const STORAGE_REASONS = new Map([
 ]);
 const FAMILIES = new Map([
   ['draw.stroke', 'drawing'], ['draw.fill', 'fill'], ['draw.gradient', 'gradient'], ['draw.text', 'text'],
-  ...['line', 'rect', 'ellipse', 'polygon', 'curve'].map(type => [`draw.${type}`, 'shapes']),
+  ...['line', 'rect', 'ellipse', 'polygon', 'curve', 'isometric'].map(type => [`draw.${type}`, 'shapes']),
   ...['add', 'update', 'reorder', 'duplicate', 'mergeDown', 'remove'].map(type => [`layer.${type}`, 'layers']),
   ...['add', 'update', 'reorder', 'duplicate', 'reverse', 'remove'].map(type => [`frame.${type}`, 'animation']),
   ...['add', 'update', 'remove'].map(type => [`clip.${type}`, 'animation']),
@@ -17,7 +17,7 @@ const FAMILIES = new Map([
   ['image.stamp', 'paste'], ['selection.transform', 'selection'], ['selection.clear', 'selection'],
   ['document.resize', 'canvas'], ['document.colorMode', 'palette'],
   ['palette.update', 'palette'], ['palette.remap', 'palette'], ['effect.apply', 'effects'],
-  ['animation.tween', 'animation'], ['animation.particles', 'animation'],
+  ['animation.tween', 'animation'], ['animation.particles', 'animation'], ['scene.water', 'animation'],
   ...['add', 'update', 'remove'].map(type => [`slice.${type}`, 'slices']),
   ...['add', 'update', 'remove'].map(type => [`tileset.${type}`, 'tilemap']),
   ['tilemap.paint', 'tilemap'], ['tilemap.edit', 'tilemap'],

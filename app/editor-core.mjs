@@ -1,4 +1,5 @@
 import { TILE_BACKDROP_CLEAR } from './tile-render-flags.mjs';
+import { isometricFaces } from './isometric-shapes.mjs';
 import { setNativePalette, generateNativePalette, convertNativeColorMode } from './native-color-commands.mjs';
 import { applyColorProfileCommand } from './color-profile-command.mjs';
 import { createNativeTileset, changeTilesetSlots, assignLayerTileset } from './tileset-structure.mjs';
@@ -6,6 +7,7 @@ import { rasterizeRotation } from './rotation-raster.mjs';
 import { tilesetSlots, assertTilesetEditable } from './tileset-access.mjs';
 import { indexedConversionOptions, quantizePalette, mapIndexedImage } from './indexed-color.mjs';
 import { validateAsepriteUserData } from './aseprite-properties.mjs';
+import { generateWaterScene } from './water-generator.mjs';
 /** PixelWall v4: a portable, transactional 2D document and raster engine. No DOM. */
 export const LIMITS = Object.freeze({ edge: 65535, canvasPixels: 4194304, imageEdge: 65535, pixels: 16777216, layers: 256, frames: 2048, palette: 65536, operations: 67108864 });
 export const BLEND_MODES = Object.freeze(['normal','multiply','screen','overlay','darken','lighten','color-dodge','color-burn','hard-light','soft-light','difference','exclusion','addition','subtract','divide','hue','saturation','color','luminosity']);
@@ -674,6 +676,18 @@ function flattenDocument(doc,c){
 export function applyCommand(input,command){
  if(!record(command)||typeof command.type!=='string')fail('Command type is missing','INVALID_COMMAND');if(input?.format!=='pixelwall-document'||input.version!==4)fail('Normalize the document before editing');const doc=shallowDocument(input),c=command,changed=new Set();
  switch(c.type){
+ case'scene.water':{
+  const layer=doc.layers[0];
+  const defaultLayer=doc.layers.length===1&&layer?.id==='layer-1'&&layer.name==='Layer 1'&&layer.type==='image'&&layer.parentId===null&&layer.visible===true&&!layer.locked&&layer.opacity===1&&layer.blendMode==='normal';
+  const defaultClips=doc.clips.length===1&&doc.clips[0].id==='clip-1'&&doc.clips[0].name==='default'&&doc.clips[0].direction==='forward'&&doc.clips[0].loop===true&&doc.clips[0].frameIds.length===1&&doc.clips[0].frameIds[0]===doc.frames[0]?.id;
+  const hasCel=doc.frames.some(frame=>Object.keys(frame.cels??{}).length>0);
+  const occupied=!defaultLayer||!defaultClips||doc.frames.length!==1||hasCel||Object.keys(doc.images).length>0||doc.tilesets.length>0||doc.slices.length>0||Object.keys(doc.metadata??{}).length>0;
+  if(occupied&&c.replace!==true)fail('Water scene requires a blank document; pass replace:true to replace artwork','DOCUMENT_NOT_EMPTY');
+  const generated=generateWaterScene({...c,width:doc.width,height:doc.height,id:doc.id,name:c.name??doc.name});
+  const replacement=normalizeDocument(generated);
+  for(const key of ['name','width','height','colorMode','colorProfile','palette','layers','frames','images','clips','slices','tilesets','metadata'])doc[key]=replacement[key];
+  break;
+ }
  case'batch':{if(!Array.isArray(c.commands)||c.commands.length>1024)fail('Invalid command batch');let result=input;for(const command of c.commands)result=applyCommand(result,command);return result;}
  case'object.userData':{let target;if(c.target==='sprite')target=doc;else if(c.target==='layer')target=layerFor(doc,c.layerId,true);else if(c.target==='cel'){const layer=layerFor(doc,c.layerId,true);target=frameFor(doc,c.frameId).cels[layer.id];}else if(c.target==='tileset'||c.target==='tile'){const ts=doc.tilesets.find(t=>t.id===c.tilesetId);if(!ts)fail('Tileset missing');assertTilesetEditable(doc,ts.id);if(c.target==='tileset')target=ts;else{const slots=tilesetSlots(doc,ts),index=integer(c.tileIndex,'Tile index',0,slots.count-1);ts.tileUserData=[...(ts.tileUserData??[])];const userData=validateAsepriteUserData(c.userData);ts.tileUserData[index]=userData;target=slots.entries.get(index);if(target)target.userData=userData;break;}}else if(c.target==='tag')target=doc.clips.find(v=>v.id===c.clipId);else if(c.target==='slice')target=doc.slices.find(v=>v.id===c.sliceId);else fail('Unsupported user-data target');if(!target)fail('User-data target missing');target.userData=validateAsepriteUserData(c.userData);break;}
  case'document.update':{if(!record(c.patch))fail('Document patch missing');for(const key of Object.keys(c.patch))if(!['name','metadata'].includes(key))fail(`Document field ${key} cannot be patched`);if(c.patch.name!==undefined)doc.name=name(c.patch.name,'Untitled Sprite');if(c.patch.metadata!==undefined)doc.metadata=jsonCopy(c.patch.metadata);break;}
@@ -708,6 +722,12 @@ export function applyCommand(input,command){
  case'draw.rect':drawShape(context(doc,c,changed),c,false);break;
  case'draw.ellipse':drawShape(context(doc,c,changed),c,true);break;
  case'draw.polygon':drawPolygon(context(doc,c,changed),c);break;
+ case'draw.isometric':{
+  const faces=isometricFaces(c),ctx=context(doc,c,changed);
+  const colors={top:c.color===undefined?'#79b35bff':c.color,left:c.leftColor===undefined?'#375b42ff':c.leftColor,right:c.rightColor===undefined?'#527a48ff':c.rightColor};
+  for(const face of faces)drawPolygon(ctx,{points:face.points,color:colors[face.role],filled:c.filled!==false,size:c.size??1});
+  break;
+ }
  case'draw.curve':drawCurve(context(doc,c,changed),c);break;
  case'draw.fill':{const ctx=context(doc,c,changed),mask=floodMask(ctx.doc,ctx.get,c),color=encodeColor(ctx.doc,(c.color===undefined?ctx.doc.palette[0]:c.color));for(let i=0;i<mask.length;i++)if(mask[i])ctx.put(i%doc.width,Math.floor(i/doc.width),color);break;}
  case'draw.gradient':gradient(context(doc,c,changed),c);break;
@@ -746,6 +766,7 @@ const STROKE={...DRAW,size:'Integer 1–256 (default 1).',brush:'square | circle
 /** Machine-readable public catalog. Every listed command is executable. */
 export const COMMANDS=Object.freeze([
  ['batch','Apply an ordered command list atomically.',{commands:'Array of up to 1024 command objects.'}],
+ ['scene.water','Generate a deterministic animated water scene into a blank document.',{scene:'pond | river | stream | waterfall | shoreline',view:'top-down (default) | isometric (2:1)',seed:'Unsigned shoreline/land seed',waterSeed:'Optional unsigned independent water animation seed; defaults to seed',season:'spring | summer | autumn | winter',frames:'1–32, default 12',durationMs:'1–65535, default 125',details:'0–4 scene detail level',rippleDensity:'0–1, default .5',phaseOffset:'Integer -65535…65535; wraps by frame count. Use for isolated pieces.',palette:'Named color-role object with RGB/RGBA hex values; no arrays',replace:'Required true when replacing non-empty artwork.'}],
  ['object.userData','Replace native user data on a sprite, layer, cel, tag, slice, tileset or tile.',{target:'sprite | layer | cel | tag | slice | tileset | tile',tilesetId:'Tileset/tile target ID',tileIndex:'Zero-based native tile index',layerId:'Layer target ID',frameId:'Cel frame ID',clipId:'Tag target ID',sliceId:'Slice target ID',userData:'{text?,color?:#rrggbbaa,propertiesBytes?:native property block}'}],
  ['document.update','Rename the document or replace metadata.',{patch:'{name?:string,metadata?:object}'}],
  ['document.colorProfile','Assign a working profile or apply a bounded precomputed color conversion.',{profile:'{type:0|1|2,flags?:0|1,gamma?:number,icc?:byte[],name?:string}',replacements:'Optional validated images/palette/framePalettes; preserves dimensions, IDs, links, layers and color mode.'}],
@@ -779,6 +800,7 @@ export const COMMANDS=Object.freeze([
  ['draw.rect','Draw a rectangle.',{...DRAW,x:'Integer left',y:'Integer top',width:'Positive width',height:'Positive height',filled:'Boolean',size:'Outline thickness1–256'}],
  ['draw.ellipse','Draw an ellipse.',{...DRAW,x:'Integer left',y:'Integer top',width:'Positive width',height:'Positive height',filled:'Boolean',size:'Outline thickness1–256'}],
  ['draw.polygon','Draw a closed polygon or its filled interior.',{...STROKE,points:'2–4096 vertices {x,y}; at least3 for fill.',filled:'Boolean'}],
+ ['draw.isometric','Stamp an editable 2:1 ground diamond, raised block or planar ramp.',{...DRAW,shape:'tile (default) | block | ramp',x:'Ground diamond back vertex X, integer -64000…64000; default0',y:'Ground diamond back vertex Y, integer -64000…64000; default0',width:'Multiple of4, 4–512; default16. Ground depth is width/2.',elevation:'Vertical pixel rise 0–512; defaults to width/2 for block/ramp. Tile ignores elevation.',direction:'Ramp high edge: left | right (default).',leftColor:'Left face color, palette index or null; default #375b42ff',rightColor:'Right face color, palette index or null; default #527a48ff',filled:'Boolean; default true',size:'Outline thickness 1–256; default1'}],
  ['draw.curve','Rasterize quadratic or cubic Bézier curve.',{...STROKE,points:'[start,control,end] or [start,control1,control2,end].'}],
  ['draw.fill','Flood fill matching connected pixels or all matching colors.',{...DRAW,x:'Seed x',y:'Seed y',tolerance:'Channel tolerance0–255',contiguous:'Boolean; default true'}],
  ['draw.gradient','Paint an RGBA gradient or ordered two-color Bayer dither.',{...DRAW,from:'{x,y}',to:'{x,y}',endColor:'Ending color',dither:'Boolean; default false'}],
