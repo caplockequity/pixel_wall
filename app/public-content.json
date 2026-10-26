@@ -1448,18 +1448,11 @@
           "PixelWall does not currently publish a standalone MCP server, public REST editing API, JavaScript or Python SDK, or universal agent protocol. There is no automatic connection from an arbitrary ChatGPT conversation. An agent needs explicit access to the local CLI, the running editor page, or the visible application."
         ],
         "links": [
-          {
-            "href": "/guides/command-line",
-            "label": "Read the CLI reference"
-          },
-          {
-            "href": "/guides/command-api",
-            "label": "Read the browser command API"
-          },
-          {
-            "href": "/guides/scripting",
-            "label": "Read scripting and command-batch support"
-          }
+          { "href": "/guides/command-line", "label": "Read the CLI reference" },
+          { "href": "/guides/command-api", "label": "Read the browser command API" },
+          { "href": "/guides/scripting", "label": "Read scripting and command-batch support" },
+          { "href": "/agent-integration.json", "label": "Open the machine-readable capability statement" },
+          { "href": "/llms.txt", "label": "Open the LLM discovery file" }
         ]
       },
       {
