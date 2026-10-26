@@ -28,7 +28,7 @@ const GUIDE_PATHS = new Set([
   '/guides/pixijs-animated-sprites', '/guides/tiled-tilemaps', '/guides/desert-signal',
   '/guides/scripting', '/guides/command-api', '/guides/command-line',
   '/guides/offline-and-downloads', '/guides/file-compatibility',
-  '/guides/ai-agents',
+  '/guides/ai-agents', '/guides/isometric-water', '/guides/isometric-pixel-art',
 ]);
 
 const CATEGORY_PATHS = new Map([

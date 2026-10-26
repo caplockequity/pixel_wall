@@ -312,6 +312,23 @@
   inset: 0;
   pointer-events: none;
 }
+.wb-canvas-wrap .wb-isometric-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .9;
+}
+.wb-water-preview {
+  display: block;
+  width: min(320px, 100%);
+  height: auto;
+  margin: 8px 0 12px;
+  image-rendering: pixelated;
+  border: 1px solid var(--wb-line);
+  border-radius: 5px;
+}
+.wb-water-preview-wrap { display: grid; gap: 6px; justify-items: start; margin: 8px 0 12px; }
+.wb-iso-preview { display: block; width: min(240px, 100%); height: auto; max-height: 240px; object-fit: contain; margin: 8px 0 12px; image-rendering: pixelated; background: #eef0f5; border: 1px solid var(--wb-line); border-radius: 5px; }
 .wb-canvas-wrap.show-grid:after {
   content: "";
   position: absolute;

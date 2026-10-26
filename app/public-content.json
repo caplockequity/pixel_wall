@@ -1463,10 +1463,22 @@
         ],
         "code": "node pixelwall.mjs new --width 24 --height 24 --name \"Ninja Panda Idle\" --out ninja-panda.pixelwall\nnode pixelwall.mjs apply ninja-panda.pixelwall --commands agent-ninja-panda-commands.json --out ninja-panda-animated.pixelwall\nnode pixelwall.mjs inspect ninja-panda-animated.pixelwall\nnode pixelwall.mjs render ninja-panda-animated.pixelwall --frame 0 --scale 8 --out ninja-panda-preview.png",
         "links": [
-          { "href": "/downloads/pixelwall-cli.zip", "label": "Download the PixelWall CLI ZIP" },
-          { "href": "/examples/agent-ninja-panda-commands.json", "label": "Download the command batch" },
-          { "href": "/examples/agent-ninja-panda.pixelwall", "label": "Download the finished editable project" },
-          { "href": "/examples/agent-ninja-panda.png", "label": "Open the rendered PNG" }
+          {
+            "href": "/downloads/pixelwall-cli.zip",
+            "label": "Download the PixelWall CLI ZIP"
+          },
+          {
+            "href": "/examples/agent-ninja-panda-commands.json",
+            "label": "Download the command batch"
+          },
+          {
+            "href": "/examples/agent-ninja-panda.pixelwall",
+            "label": "Download the finished editable project"
+          },
+          {
+            "href": "/examples/agent-ninja-panda.png",
+            "label": "Open the rendered PNG"
+          }
         ]
       },
       {
@@ -1496,6 +1508,223 @@
       "guides/command-api",
       "guides/scripting",
       "guides/offline-and-downloads"
+    ]
+  },
+  {
+    "slug": "guides/isometric-water",
+    "lastModified": "2026-10-26",
+    "title": "Generate animated pixel water for an isometric scene",
+    "description": "Use PixelWall's deterministic scene.water command to make a small animated pond, river, stream, waterfall, or shoreline, then refine it as ordinary editable frames.",
+    "eyebrow": "ISOMETRIC WATER",
+    "intro": "PixelWall can generate original 2D pixel water as an editable frame sequence. Choose a water form, top-down or isometric view, a seed, a season, and a compact palette; the result stays inside the same document and command workflow used by the editor, browser API, and CLI.",
+    "sections": [
+      {
+        "heading": "What this can do",
+        "paragraphs": [
+          "In either the web editor or desktop app, choose Water scene. Pick a preset and view, adjust shoreline and water seeds separately, and watch the live preview. Use 3× repeat to inspect edge continuity. Generate water scene saves your current project first, then opens the result in a new project tab with separate Banks, Water, Rocks, and Grass & Reeds layers.",
+          "The scene.water command replaces the active document's blank artwork while preserving its document ID and canvas dimensions. It creates 12 frames by default, with 125 ms timing, and gives each frame a deterministic result for the same inputs. waterSeed varies the animation independently from the shoreline seed, rippleDensity controls highlight activity, and phaseOffset shifts the loop phase for an isolated piece. Set details to 0 for a quieter base pass, then paint highlights, banks, rocks, foam, or props on top.",
+          "Isometric view projects the ground, water, banks, and props into a 2:1 diamond scene with a visible soil edge. The result is ordinary editable 2D pixels; it does not create a heightfield, camera, lighting model, walkable terrain, or exported isometric tilemap."
+        ],
+        "media": {
+          "src": "/examples/isometric-water-preview.gif",
+          "alt": "Animated isometric pixel stream with blue water, banks, rocks, and reeds.",
+          "caption": "Original 96 × 80 looping stream animation generated from the documented command inputs."
+        },
+        "links": [
+          {
+            "href": "https://www.reddit.com/r/IndieDev/comments/1xfbglq/i_got_tired_of_animating_pixel_art_water_by_hand/",
+            "label": "Read the Reddit water-animation inspiration"
+          }
+        ]
+      },
+      {
+        "heading": "Run a water pass in the browser",
+        "steps": [
+          {
+            "title": "Make a blank canvas",
+            "text": "Create a document at the size you want to keep. scene.water replaces the blank artwork but retains the document ID and dimensions, so choose the final canvas before running the command."
+          },
+          {
+            "title": "Inspect and apply",
+            "text": "Read the current revision, then apply one scene.water command. Keep expectedRevision when another person or tool could edit the document at the same time."
+          },
+          {
+            "title": "Tune the scene",
+            "text": "Choose scene pond, river, stream, waterfall, or shoreline; view top-down or isometric; seed; season spring, summer, autumn, or winter; and an optional palette object containing named role overrides. Width and height are 8–256 pixels, frames 1–32, durationMs 1–65535, details 0–4, rippleDensity 0–1, and phaseOffset an integer from −65535 to 65535."
+          },
+          {
+            "title": "Refine and save",
+            "text": "Inspect the generated frames, add hand-painted details or a separate tile layer, preview the loop, and save. Render individual PNG frames freely; GIF, atlas, sheet, and game-package exports still follow the normal Pro license rules."
+          }
+        ],
+        "code": "const api = window.pixelwall;\nconst before = api.inspect();\nawait api.apply({\n  expectedRevision: before.revision,\n  label: \"Generate isometric summer stream\",\n  commands: [{\n    type: \"scene.water\",\n    scene: \"stream\",\n    view: \"isometric\",\n    seed: 2048,\n    waterSeed: 91,\n    season: \"summer\",\n    frames: 12,\n    durationMs: 125,\n    details: 2,\n    rippleDensity: 0.65,\n    phaseOffset: 0,\n    palette: { water: \"#3b82c4ff\", foam: \"#d9f4ffff\" }\n  }]\n});\nawait api.save();\nconst preview = await api.preview({ scale: 6 });"
+      },
+      {
+        "heading": "Run the same pass with the CLI",
+        "paragraphs": [
+          "The CLI consumes the same JSON command batch as the browser command API. Start from a document with the final dimensions, apply the batch, inspect the resulting frame count and timing, and render a frame for review."
+        ],
+        "code": "node pixelwall.mjs new --width 96 --height 80 --name \"Isometric Stream\" --out water.pixelwall\nnode pixelwall.mjs apply water.pixelwall --commands isometric-water.json --out water-generated.pixelwall\nnode pixelwall.mjs inspect water-generated.pixelwall\nnode pixelwall.mjs render water-generated.pixelwall --frame 0 --scale 6 --out water-preview.png",
+        "links": [
+          {
+            "href": "/examples/isometric-water.json",
+            "label": "Download the isometric water command batch"
+          },
+          {
+            "href": "/examples/isometric-water.pixelwall",
+            "label": "Download the editable water project"
+          },
+          {
+            "href": "/examples/isometric-water-preview.png",
+            "label": "View the generated water preview"
+          },
+          {
+            "href": "/examples/isometric-water-preview.gif",
+            "label": "Play the generated looping water preview"
+          },
+          {
+            "href": "/downloads/pixelwall-cli.zip",
+            "label": "Download the PixelWall CLI ZIP"
+          }
+        ],
+        "items": [
+          "scene accepts pond, river, stream, waterfall, or shoreline.",
+          "view accepts top-down or isometric. Isometric is a 2D pixel treatment, not a 3D export.",
+          "season accepts spring, summer, autumn, or winter. Winter adds frozen pond edges. seed makes the shoreline variation repeatable; waterSeed independently makes the animated ripples repeatable. rippleDensity accepts 0–1 and phaseOffset shifts the loop phase.",
+          "frames defaults to 12 and durationMs to 125; details accepts 0–4 scene detail levels. Palette overrides must be an object of known role names such as water, foam, bank, ice, or rock with valid six- or eight-digit hex colors."
+        ]
+      },
+      {
+        "heading": "Build an isometric foundation",
+        "paragraphs": [
+          "Use Isometric guide and Iso snap to align banks, bridges, rocks, and props. Set Iso tile width, then open Isometric shapes to stamp editable ground diamonds, raised blocks, or ramps. Water generation creates a separate project; it does not regenerate a single water layer inside existing hand-built artwork.",
+          "Isometric support is useful for composition and pixel alignment today. Generated scenes are marked spatiallyTileable:false; matching animation seeds do not guarantee seamless edges between separate pieces. PixelWall does not yet provide a full isometric map editor, height-aware terrain, depth sorting, or an isometric tilemap export format; assemble those systems in your game or tilemap tool after exporting the ordinary frames."
+        ],
+        "links": [
+          {
+            "href": "/tileset-maker",
+            "label": "Use tilesets and tilemaps around the water"
+          },
+          {
+            "href": "/guides/command-api",
+            "label": "Read the browser command API"
+          },
+          {
+            "href": "/guides/command-line",
+            "label": "Read the standalone CLI guide"
+          }
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Does the generator copy or animate an existing water sprite?",
+        "answer": "No. It creates original 2D pixel patterns from the command parameters and seed. You can still import or paint your own references and use the generated loop as a starting point."
+      },
+      {
+        "question": "Can I use it for a complete isometric game map?",
+        "answer": "It can provide an animated water element and a useful isometric composition guide. It does not create terrain height, collision, depth sorting, or a complete isometric tilemap."
+      },
+      {
+        "question": "Will the same command produce the same water later?",
+        "answer": "Yes, when the document dimensions and command inputs, including seed, are the same. Keep the JSON batch with the project so another agent can reproduce and revise the pass."
+      }
+    ],
+    "related": [
+      "guides/command-api",
+      "guides/command-line",
+      "tileset-maker",
+      "guides/ai-agents"
+    ]
+  },
+  {
+    "slug": "guides/isometric-pixel-art",
+    "lastModified": "2026-10-26",
+    "title": "Build an isometric pixel-art foundation",
+    "description": "Use PixelWall's 2:1 guide, snapping, editable diamond shapes, ramps, blocks, and deterministic water to prototype an isometric pixel-art scene.",
+    "eyebrow": "ISOMETRIC PIXEL ART",
+    "intro": "PixelWall's isometric toolkit is a 2D composition system: align pixels to a 2:1 diamond grid, stamp reusable terrain and building shapes, and combine those shapes with animated water. The same operations are available interactively and through command batches for agents.",
+    "sections": [
+      {
+        "heading": "Set up the 2:1 workspace",
+        "steps": [
+          {
+            "title": "Choose a tile width",
+            "text": "Open the current editor and set Iso tile width to an even value such as 16 or 32. The width controls the horizontal span of the 2:1 diamond guide."
+          },
+          {
+            "title": "Turn on alignment",
+            "text": "Enable Isometric guide to show the diamond grid, then enable Iso snap so drawing points land on the guide. Grid and snapping are editor aids; they do not alter the document's pixel dimensions."
+          },
+          {
+            "title": "Stamp a starter tile",
+            "text": "Open Isometric shapes, choose Tile, Block, or Ramp, and use Stamp shape to place editable pixels on the current layer and frame. Move and refine them like any other PixelWall artwork."
+          }
+        ],
+        "media": {
+          "src": "/examples/isometric-shapes-preview.png",
+          "alt": "A pixel-art isometric composition with a diamond tile, raised block, and ramp in warm colors.",
+          "caption": "Original isometric shape preview generated from draw.isometric commands."
+        }
+      },
+      {
+        "heading": "Compose terrain and structures",
+        "paragraphs": [
+          "The draw.isometric command creates one reusable 2D shape at a ground vertex. Choose shape tile, block, or ramp; set x and y, a width in multiples of four, elevation, and filled or outline treatment. Use leftColor and rightColor when you want a simple shaded face pair. The command is deterministic and remains ordinary editable pixels.",
+          "Use a small number of shared widths and elevations to keep an isometric scene readable. Place water, banks, paths, buildings, and props on layers that can be edited independently. A shape command does not infer neighboring terrain or collision."
+        ],
+        "code": "const before = window.pixelwall.inspect();\nawait window.pixelwall.apply({\n  expectedRevision: before.revision,\n  label: \"Block out an isometric dock\",\n  commands: [\n    { type: \"draw.isometric\", shape: \"tile\", x: 32, y: 18, width: 32, elevation: 0, color: \"#9b7046ff\", filled: true },\n    { type: \"draw.isometric\", shape: \"block\", x: 32, y: 18, width: 32, elevation: 12, color: \"#c2915bff\", leftColor: \"#8d623dff\", rightColor: \"#e0ae70ff\", filled: true },\n    { type: \"draw.isometric\", shape: \"ramp\", x: 64, y: 34, width: 24, elevation: 8, color: \"#b27e4dff\", filled: true }\n  ]\n});\nawait window.pixelwall.save();"
+      },
+      {
+        "heading": "Add water and export the foundation",
+        "paragraphs": [
+          "Run scene.water on a blank document or with replace:true when you intentionally replace existing artwork. Use waterSeed to vary the animation independently from the shoreline geometry, rippleDensity for quieter or busier highlights, and phaseOffset when matching a water piece to a neighboring loop. The generator does not guarantee spatial tiling between separate documents or pieces.",
+          "PixelWall exports ordinary pixel frames and editable projects. It does not currently export a 3D scene, height-aware terrain, depth sorting, collision map, connected autotiles, or a universal isometric tilemap. Bring the rendered frames and your shape metadata into the game or map tool that owns those systems; those are the natural next pieces for a fuller isometric workflow."
+        ],
+        "code": "node pixelwall.mjs new --width 96 --height 64 --name \"Isometric Dock\" --out dock.pixelwall\nnode pixelwall.mjs apply dock.pixelwall --commands isometric-dock.json --out dock-generated.pixelwall\nnode pixelwall.mjs render dock-generated.pixelwall --frame 0 --scale 4 --out dock-preview.png",
+        "links": [
+          {
+            "href": "/examples/isometric-shapes.json",
+            "label": "Download the isometric shape command batch"
+          },
+          {
+            "href": "/examples/isometric-shapes.pixelwall",
+            "label": "Download the editable shape project"
+          },
+          {
+            "href": "/examples/isometric-shapes-preview.png",
+            "label": "View the generated shape preview"
+          },
+          {
+            "href": "/examples/isometric-water.json",
+            "label": "Download the water command batch"
+          },
+          {
+            "href": "/guides/isometric-water",
+            "label": "Read the animated water guide"
+          }
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Does isometric mode make a 3D model?",
+        "answer": "No. It provides a 2:1 pixel grid, snapping, editable shape stamps, and 2D water treatments. Camera, height, lighting, collision, and depth systems remain outside PixelWall."
+      },
+      {
+        "question": "Can an agent reproduce the same scene?",
+        "answer": "Yes. Keep the JSON command batch, document dimensions, shape parameters, and water seeds together. Repeating the same inputs produces the same generated pixels."
+      },
+      {
+        "question": "Can separate water pieces tile perfectly?",
+        "answer": "No guarantee is provided for spatial tiling between separate generated pieces. Use one larger water document or hand-edit seams after rendering."
+      }
+    ],
+    "related": [
+      "guides/isometric-water",
+      "guides/command-api",
+      "guides/command-line",
+      "tileset-maker"
     ]
   }
 ]

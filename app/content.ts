@@ -7,6 +7,7 @@ export type ContentSection = {
   items?: string[];
   code?: string;
   links?: { href: string; label: string }[];
+  media?: { src: string; alt: string; caption?: string };
 };
 export type ContentPage = {
   slug: string;
@@ -17,6 +18,7 @@ export type ContentPage = {
   sections: ContentSection[];
   faqs?: { question: string; answer: string }[];
   related: string[];
+  lastModified?: string;
 };
 
 export const pages: ContentPage[] = documents;

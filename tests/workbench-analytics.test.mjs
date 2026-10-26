@@ -68,6 +68,14 @@ test('large scripted batches emit one activation and only finite used families',
   assert.equal(events.length, 3);
 });
 
+test('water generation counts as animation without recording generation parameters', () => {
+  const { analytics, events } = setup();
+  analytics.committed({ type: 'scene.water', name: 'Private pond', seed: 123456, palette: { water: '#123456' } }, true);
+  assert.deepEqual(events.map(({ event }) => event), ['editor_activated', 'editor_tool_used']);
+  assert.equal(events.at(-1).properties.tool_family, 'animation');
+  assert.doesNotMatch(JSON.stringify(events), /Private pond|123456|palette|seed/);
+});
+
 test('unknown commands and user metadata cannot enter capture properties', () => {
   const { analytics, events } = setup();
   analytics.committed({ type: 'Private project.name', label: 'private', code: 'private' }, true);
