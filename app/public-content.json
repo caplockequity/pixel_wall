@@ -1450,7 +1450,9 @@
         "links": [
           { "href": "/guides/command-line", "label": "Read the CLI reference" },
           { "href": "/guides/command-api", "label": "Read the browser command API" },
-          { "href": "/guides/scripting", "label": "Read scripting and command-batch support" }
+          { "href": "/guides/scripting", "label": "Read scripting and command-batch support" },
+          { "href": "/agent-integration.json", "label": "Open the machine-readable capability statement" },
+          { "href": "/llms.txt", "label": "Open the LLM discovery file" }
         ]
       },
       {

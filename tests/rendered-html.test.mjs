@@ -489,6 +489,7 @@ test("public pages expose canonical content and a connected crawlable site", asy
   const documents = JSON.parse(await readFile(new URL("app/public-content.json", projectRoot), "utf8"));
   const paths = ["/", "/guides", "/downloads", ...documents.map((page) => `/${page.slug}`)];
   const allowed = new Set([...paths, "/editor", "/editor/classic"]);
+  const discoveryFiles = new Set(["/agent-integration.json", "/llms.txt"]);
   const titles = new Set();
   for (const path of paths) {
     const response = await render(path);
@@ -503,7 +504,7 @@ test("public pages expose canonical content and a connected crawlable site", asy
     assert.doesNotMatch(html, /aria-label="Drawing tools"/, `${path} does not render the editor`);
     for (const match of html.matchAll(/<a\b[^>]*href="(\/[^"#?]*)/g)) {
       const href = match[1];
-      if (href.startsWith("/examples/") || href.startsWith("/downloads/")) await access(new URL(`public${href}`, projectRoot));
+      if (href.startsWith("/examples/") || href.startsWith("/downloads/") || discoveryFiles.has(href)) await access(new URL(`public${href}`, projectRoot));
       else assert.ok(allowed.has(href), `${path} links to known page ${href}`);
     }
     for (const match of html.matchAll(/<script\b[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/gs)) {
