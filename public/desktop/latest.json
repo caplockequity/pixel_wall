@@ -1,45 +1,46 @@
 {
   "schemaVersion": 1,
-  "version": "0.3.3",
-  "publishedAt": "2026-09-14",
-  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-3-3",
+  "version": "0.4.0",
+  "publishedAt": "2026-10-26",
+  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-4-0",
   "releaseNotes": [
-    "More tooltips explain editor controls and layer settings.",
-    "Float panels, then lock them back with Dock left or Dock right.",
-    "Long layer lists have their own scrollbar and a visible Delete layer button. Undo restores deleted layers.",
-    "Project tabs have scroll controls and close buttons. Reopen saved projects from All projects.",
-    "From PixelWall 0.3.2, choose Check for Updates, download the update, then Restart to update. Your artwork is saved before restarting."
+    "Generate animated ponds, rivers, streams, waterfalls, and shorelines in the web editor and desktop app, with top-down or isometric views.",
+    "Keep shorelines fixed while tuning water animation. Use seasonal palettes, frozen pond edges, live preview, and a 3× repeat check.",
+    "Draw with isometric guides and snapping, or stamp editable tiles, raised blocks, and ramps.",
+    "New water and isometric guides include reproducible commands and downloadable editable projects for people and agents.",
+    "Water animations loop in time; automatic seamless connections between terrain tiles are not included.",
+    "In PixelWall 0.3.2 or later, choose Check for Updates, download, then Restart to update. Your artwork is saved first."
   ],
   "downloads": {
     "darwin-arm64": {
-      "url": "https://www.pixelwall.dev/downloads/desktop/0.3.3/PixelWall-0.3.3-mac-arm64.zip",
-      "filename": "PixelWall-0.3.3-mac-arm64.zip",
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.0/PixelWall-0.4.0-mac-arm64.zip",
+      "filename": "PixelWall-0.4.0-mac-arm64.zip",
       "signed": true,
-      "size": 114559926,
-      "sha256": "855337aa29deda6b16f7ac7082e6bda3237492ae50d23d911ecd9217b901560e",
+      "size": 114572891,
+      "sha256": "249ea83ed38aae3783476cb8345877888ccae0b95c2eefc19d1f69ea1968c177",
       "notarized": true
     },
     "darwin-x64": {
-      "url": "https://www.pixelwall.dev/downloads/desktop/0.3.3/PixelWall-0.3.3-mac-x64.zip",
-      "filename": "PixelWall-0.3.3-mac-x64.zip",
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.0/PixelWall-0.4.0-mac-x64.zip",
+      "filename": "PixelWall-0.4.0-mac-x64.zip",
       "signed": true,
-      "size": 121308454,
-      "sha256": "ed1800647dbaf728660a7034b8a6eb2dc48c2fe5ab00fa01e4b02cbf391ac95d",
+      "size": 121322241,
+      "sha256": "f94b9d97a3a74ef97e2e53584928404bf24c50a91081625479583281fc6e3f6a",
       "notarized": true
     },
     "win32-x64": {
-      "url": "https://www.pixelwall.dev/downloads/desktop/0.3.3/PixelWall-0.3.3-windows-x64.exe",
-      "filename": "PixelWall-0.3.3-windows-x64.exe",
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.0/PixelWall-0.4.0-windows-x64.exe",
+      "filename": "PixelWall-0.4.0-windows-x64.exe",
       "signed": false,
-      "size": 95089469,
-      "sha256": "d97f189b00b5ad2f51e1aae65c8f373e8dfa6f0e09aeefcfb85a4ad19a2d09b4"
+      "size": 95102657,
+      "sha256": "5b9761d3ada17cb6ee92844d07d3595dbdc8c3f0020c46b87891466deee95274"
     },
     "linux-x64": {
-      "url": "https://www.pixelwall.dev/downloads/desktop/0.3.3/PixelWall-0.3.3-linux-x64.AppImage",
-      "filename": "PixelWall-0.3.3-linux-x64.AppImage",
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.0/PixelWall-0.4.0-linux-x64.AppImage",
+      "filename": "PixelWall-0.4.0-linux-x64.AppImage",
       "signed": false,
-      "size": 118182398,
-      "sha256": "4991040aeda7d8b21df1b36316274057e97a7b4f9358c1b736aae8bc78292384"
+      "size": 118194742,
+      "sha256": "13fc1b4382e76b9c732a41f2dd86a3a313c65d973567c5211ee989c32627c5ee"
     }
   }
 }
