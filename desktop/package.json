@@ -1,6 +1,6 @@
 {
   "name": "pixelwall-desktop",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "PixelWall local desktop studio",
   "private": true,
   "type": "module",
@@ -35,6 +35,7 @@
       "native-clipboard-ipc.mjs",
       "mcp-bridge.mjs",
       "mcp-catalog.mjs",
+      "mcp-schemas.mjs",
       "automation-telemetry.mjs",
       "clipboard-payload.mjs",
       "app/**/*",

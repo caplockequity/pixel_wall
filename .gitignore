@@ -44,7 +44,7 @@ yarn-error.log*
 /.pixelwall-keys/
 /desktop/app/
 /desktop/dist/
-/desktop/node_modules/
+/desktop/node_modules
 /releases/
 
 /desktop/release/

@@ -142,7 +142,7 @@ else {
           const picked = await dialog.showOpenDialog(window, { title: 'Choose the local agent export folder', properties: ['openDirectory', 'createDirectory'] });
           if (picked.canceled || !picked.filePaths[0]) { const item = Menu.getApplicationMenu()?.getMenuItemById('pixelwall-local-agent'); if (item) item.checked = false; return; }
           if (mcpBridge) await mcpBridge.stop();
-          mcpBridge = createMcpBridge({ webContents: window.webContents, configPath: join(app.getPath('home'), '.pixelwall', 'mcp.json'), exportRoot: picked.filePaths[0], telemetry: automationTelemetry, onStatus: status => window.webContents.send('pixelwall:mcp:changed', status) });
+          mcpBridge = createMcpBridge({ webContents: window.webContents, appVersion: app.getVersion(), configPath: join(app.getPath('home'), '.pixelwall', 'mcp.json'), exportRoot: picked.filePaths[0], telemetry: automationTelemetry, onStatus: status => window.webContents.send('pixelwall:mcp:changed', status) });
           await mcpBridge.start();
           void dialog.showMessageBox(window, { type: 'info', title: 'Local agent connection enabled', message: `Agents can control this window while PixelWall is open.\n\nApproved export folder:\n${picked.filePaths[0]}\n\nConfigure your MCP client to run:\nnode pixelwall-mcp.mjs`, buttons: ['OK'] });
         } else if (mcpBridge) await mcpBridge.stop();

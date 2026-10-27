@@ -2413,5 +2413,36 @@
       }
     ],
     "related": ["guides/command-api", "guides/desktop-mcp", "guides/export-formats", "guides/large-agent-edits"]
+  },
+  {
+    "slug": "guides/persistence-and-recovery",
+    "lastModified": "2026-10-27",
+    "title": "Keep working when the local library is full",
+    "description": "Understand library saves, temporary documents, file-backed projects, and verified checkpoints without losing editable artwork.",
+    "eyebrow": "PERSISTENCE",
+    "intro": "PixelWall keeps the local project library, recovery history, generated artifacts, and approved-folder files separate. A full library blocks a library save; it does not invalidate the open artwork or a verified project file.",
+    "sections": [
+      {"heading":"Read the save state","paragraphs":["The editor reports the open edit, the library revision, backup generation, approved-folder delivery, and reopen verification separately. A library save can fail while a .pixelwall checkpoint is delivered successfully. Do not treat one Saved label as proof of all five states."]},
+      {"heading":"Use a verified checkpoint","paragraphs":["Generate a project backup, save its artifact to the approved folder, verify its checksum and bytes, then reopen it with the CLI or desktop file path. The compact project preserves layers, frames, image links, palettes, and metadata. It does not preserve undo history or local recovery revisions. Browser download completion cannot be observed by PixelWall."]},
+      {"heading":"Open without adding to the library","paragraphs":["Open temporary loads a project for inspection or continued work without creating a library entry. File-backed mode keeps the project tied to its approved file and saves through that file. Before closing, temporary and file-backed documents need a verified checkpoint or a successful bound-file save. PixelWall never removes unrelated projects automatically."]},
+      {"heading":"Measure before cleanup","paragraphs":["The storage panel and persistence response separate the configured budget, current usage, artwork, recovery history, and available space. Remove or archive only a project you recognize, and keep a verified file checkpoint before changing library contents."]}
+    ],
+    "related":["guides/review-artifacts","guides/desktop-mcp","guides/command-line"]
+  },
+  {
+    "slug": "guides/agent-export-review",
+    "lastModified": "2026-10-27",
+    "title": "Plan and verify an agent export",
+    "description": "Preflight selected frames, timing, dimensions, entitlement, and file conflicts before writing an export.",
+    "eyebrow": "AGENT REVIEW",
+    "intro": "Use an export plan before a long render and verify the resulting project or image afterward. This keeps frame selection and licensing explicit across the CLI and desktop MCP workflow.",
+    "sections":[
+      {"heading":"Plan before writing","paragraphs":["The CLI plan reports source document IDs, selected frames, dimensions, timing, required entitlement, entitlement status, and overwrite conflicts. The desktop export-plan tool reports the exact selection, timing, dimensions, layer IDs, requiredEntitlement, entitlement, and canExport decision for the current document. Set an expected frame count for loops so an accidental default frame selection fails before any file is written."]},
+      {"heading":"Check the desktop connection","paragraphs":["CLI doctor discovers the standard local desktop MCP configuration path, or uses the path you provide or PIXELWALL_MCP_CONFIG. It verifies the loopback host, reaches the configured desktop launcher with a bounded ping, and reports the desktop version and protocol. An explicitly supplied path makes the connection required for a successful check; automatic discovery is optional and reports not-configured when absent. It never prints the connection token. Ordinary CLI file commands remain available."]},
+      {"heading":"Verify after writing","paragraphs":["CLI verify reopens a .pixelwall project or decodes a PNG and reports byte count, dimensions, frame count, and transparency evidence; editable projects additionally report layers and clips. For desktop artifacts, verify the artifact checksum, save it to the approved folder, and reopen the saved file. Delivery integrity and artwork validity are separate checks."]},
+      {"heading":"Use compact regional edits","paragraphs":["Rectangle, polygon, and run-length selections avoid sending a full canvas mask for a small recolor. Reusable selections are scoped to a document revision. Resolve the selection again after a revision changes; do not reuse an ID from another project or revision."]},
+      {"heading":"Review animation deliberately","paragraphs":["Use contact sheets and native-size plus integer-enlarged previews to inspect timing, missing exposures, drifting anchors, baseline changes, and the final-to-first loop transition. Diagnostics report evidence; they do not decide whether an intentional pose or blink is artistic error."]}
+    ],
+    "related":["guides/command-api","guides/command-line","guides/review-artifacts","guides/large-agent-edits"]
   }
 ]

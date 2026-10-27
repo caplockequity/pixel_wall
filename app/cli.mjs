@@ -5,7 +5,7 @@ import { documentProfile, isSRGB } from './color-management.mjs';
 import { renderScaledExportFrame } from './export-render.mjs';
 import { parseCliArguments } from './cli-arguments.mjs';
 import { runLuaScript } from './lua-runner-node.mjs';
-import { planExport, buildExportMetadata } from './cli-export-plan.mjs';
+import { planExport, buildExportMetadata, describeExportPlan } from './cli-export-plan.mjs';
 import { zipSync, unzipSync, strToU8 } from 'fflate';
 import {readFile,writeFile,rename,mkdir,unlink,stat,link,lstat,open} from 'node:fs/promises';
 import {resolve,dirname,extname,basename,join as joinPath} from 'node:path';
@@ -13,6 +13,11 @@ import { randomUUID } from 'node:crypto';
 import {realpathSync,existsSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {createDocument,normalizeDocument,applyCommand,describeDocument,COMMANDS} from './editor-core.mjs';
+import { capabilityReport, validateCommandManifest } from './command-contract.mjs';
+import {diagnoseDesktopConnection} from './cli-doctor.mjs';
+import { verifyOutputFile } from './cli-verification.mjs';
+import { access } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
 import {readAseprite,writeAseprite,readPng,writePng,importGif,importSequence,importSheet,packAtlas,encodeGif,makeGamePackage,readBmp,writeBmp,readTga,writeTga} from './formats.mjs';
 import {verifyOfflineLicense} from './offline-license.mjs';
 import {PINNED_PUBLIC_KEYS} from './license-public-keys.mjs';
@@ -22,6 +27,11 @@ const HELP=`PixelWall CLI — local sprite editing and export
   pixelwall new --width 32 --height 32 --name Hero --out hero.pixelwall
   pixelwall inspect hero.pixelwall
   pixelwall commands
+  pixelwall capabilities
+  pixelwall doctor [--export-folder PATH] [--mcp-config PATH]
+  pixelwall plan hero.pixelwall --format gif --clip walk --expected-frame-count 12
+  pixelwall verify hero.pixelwall
+  pixelwall verify hero.png
   pixelwall apply hero.pixelwall --commands edits.json --out hero.pixelwall
   pixelwall script hero.pixelwall --script ./draw.mjs --out hero.pixelwall
   pixelwall script hero.pixelwall --script ./draw.lua --params '{"shade":"red"}' --out hero.pixelwall
@@ -90,9 +100,9 @@ async function readDocument(path){if(!path)fail('Input file is required.');const
 async function atomicWrite(path,data){const target=resolve(path);await mkdir(dirname(target),{recursive:true});const temp=`${target}.${process.pid}.${Date.now()}.tmp`;try{await writeFile(temp,data);await rename(temp,target);}catch(error){await unlink(temp).catch(()=>{});throw error;}}
 async function saveDocument(path,document){const normalized=normalizeDocument(document),extension=extname(path).toLowerCase();await atomicWrite(path,extension==='.json'?JSON.stringify(normalized,null,2)+'\n':encodeProjectContainer(normalized));}
 function outputName(value,extension){let name=String(value||'sprite').replace(/\.(ase|aseprite|pixelwall|json|png|bmp|tga|gif|zip)$/i,'').replace(/[<>:"/\\|?*]/g,'_').split('').map(char=>char.charCodeAt(0)<32?'_':char).join('').replace(/^[. ]+|[. ]+$/g,'').slice(0,180)||'sprite';if(/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(name))name='_'+name;return `${name}.${extension}`;}
-async function writeOutputs(outputs,{exclusive=false}={}){
+async function writeOutputs(outputs,{exclusive=false,verify=false}={}){
  const seen=new Set();for(const output of outputs){const target=resolve(output.path),key=target.toLowerCase();if(seen.has(key))fail(`Output filenames collide: ${output.path}. Choose distinct names.`);seen.add(key);if(exclusive){try{await lstat(target);fail(`Output already exists: ${output.path}. Choose an empty --out-dir.`);}catch(error){if(error.code!=='ENOENT')throw error;}}}
- if(!exclusive){for(const output of outputs)await atomicWrite(output.path,output.data);return;}
+ if(!exclusive){for(const output of outputs)await atomicWrite(output.path,output.data);if(verify)await reportVerification(outputs);return;}
  const staged=[],installed=[];
  try{
   for(const output of outputs){const target=resolve(output.path);await mkdir(dirname(target),{recursive:true});const temporary=joinPath(dirname(target),`.pixelwall-${randomUUID()}.tmp`);const handle=await open(temporary,'wx');staged.push({target,temporary});try{await handle.writeFile(output.data);}finally{await handle.close();}}
@@ -101,12 +111,13 @@ async function writeOutputs(outputs,{exclusive=false}={}){
   for(const item of installed){const current=await lstat(item.target,{bigint:true}).catch(()=>null);if(current&&current.dev===item.identity.dev&&current.ino===item.identity.ino&&current.mtimeNs===item.identity.mtimeNs)await unlink(item.target).catch(()=>{});}
   throw error;
  }finally{for(const item of staged)await unlink(item.temporary).catch(()=>{});}
+ if(verify)await reportVerification(outputs);
 }
+async function reportVerification(outputs){const files=[];for(const output of outputs)files.push(await verifyOutputFile(output.path));process.stdout.write(JSON.stringify({verification:files},null,2)+'\n');}
 const jsonBytes=value=>strToU8(JSON.stringify(value,null,2)+'\n');
 const selectionKeys=['play-subtags','clip','tag','frame-tag','frame-range','split-tags','split-layers','split-slices','split-grid','grid'];
 
-/** Pure output construction, like the format codecs. The CLI checks Pro before calling this for paid formats. */
-export function buildCliExportOutputs(inputs,args,rendering={}){
+export function prepareCliExportPlan(inputs,args,rendering={}){
  const format=String(args.format).toLowerCase(),raster=['png','bmp','tga'].includes(format),imageName=format==='zip'?'sprites.png':basename(args.out||'sprites.png');
  if(!['png','bmp','tga','gif','atlas','sheet','zip'].includes(format))fail(`Unknown planned export format ${format}.`);
  const options={...args,mode:raster?'sequence':format==='gif'?'animation':'atlas',imageName};
@@ -115,6 +126,14 @@ export function buildCliExportOutputs(inputs,args,rendering={}){
  if(['atlas','zip'].includes(format)){options.trim=args.trim??true;options.padding=args['shape-padding']??args.padding??1;options.border=args['border-padding']??args.border??options.padding;}
  if(format==='sheet'){options['sheet-type']=args['sheet-type']??args.layout??'rows';options.padding=args['shape-padding']??args.padding??0;options.border=args['border-padding']??args.border??0;}
  const plan=planExport(inputs,options,rendering);if(!plan.entries.length)fail('No frames matched the export selection. No output was written.');
+ const expected=args['expected-frame-count']??args.expectedFrameCount;
+ if(expected!==undefined&&(!Number.isSafeInteger(Number(expected))||Number(expected)<1||Number(expected)!==plan.entries.length))fail(`Expected ${expected} frames, but the export selects ${plan.entries.length}. No output was written.`);
+ return plan;
+}
+/** Pure output construction. The CLI checks Pro before calling this for paid formats. */
+export function buildCliExportOutputs(inputs,args,rendering={}){
+ const format=String(args.format).toLowerCase(),raster=['png','bmp','tga'].includes(format),imageName=format==='zip'?'sprites.png':basename(args.out||'sprites.png');
+ const plan=prepareCliExportPlan(inputs,args,rendering);
  let outputs;
  if(raster){const encoder=format==='bmp'?writeBmp:format==='tga'?writeTga:writePng;outputs=plan.entries.map(entry=>({name:outputName(entry.name,format),data:encoder(entry.width,entry.height,entry.rgba),entryId:entry.id}));}
  else if(format==='gif')outputs=plan.jobs.filter(job=>job.entries.length).map(job=>{const name=args['filename-format']?job.entries[0].name:`${basename(job.filename,extname(job.filename))}${job.layer?` (${job.layerPath})`:''}${job.tag?` (${job.tag.name})`:''}${job.slice?` (${job.slice.name})`:''}`;return {name:outputName(name,'gif'),data:encodeGif(job.entries,{loop:number(args,'loop',0)}),jobId:job.id};});
@@ -151,16 +170,67 @@ export function buildCliExportOutputs(inputs,args,rendering={}){
 }
 export function extractLicenseToken(text){if(Buffer.byteLength(text,'utf8')>65536)fail('Ownership license file exceeds 64 KiB.');const candidates=text.split(/\s+/).filter(word=>word.startsWith('PW2.'));if(candidates.length!==1)fail(candidates.length?'Ownership license file contains multiple PW2 codes; keep exactly one code in the file.':'Ownership license file does not contain a PW2 code.');const token=candidates[0];if(!/^PW2\.[A-Za-z0-9_-]{1,2667}\.[A-Za-z0-9_-]{86}$/.test(token))fail('Ownership license file contains a malformed PW2 code.');return token;}
 async function requirePro(args){let token=process.env.PIXELWALL_PRO_LICENSE||'';if(args.license){const value=required(args,'license');if(value.startsWith('PW2.'))token=value;else{const path=resolve(value);if((await stat(path)).size>65536)fail('Ownership license file exceeds 64 KiB.');token=extractLicenseToken(await readFile(path,'utf8'));}}const claims=await verifyOfflineLicense(token,{publicKeys:PINNED_PUBLIC_KEYS,mode:'live'});if(!claims)fail('A valid PixelWall Pro license is required for this export. Supply --license license.txt or PIXELWALL_PRO_LICENSE.');return claims;}
+async function entitlementStatus(args){if(!args.license&&!process.env.PIXELWALL_PRO_LICENSE)return 'missing';try{await requirePro(args);return 'valid-pro';}catch{return 'invalid';}}
+function editableExportPlan(inputs,args) {
+ if(args.out&&args['out-dir'])fail('Choose --out or --out-dir, not both.');
+ if(inputs.length>1&&!args['out-dir'])fail('Multiple editable projects require --out-dir so every input is saved.');
+ if(inputs.some(source=>source.transforms?.length))fail('Ordered scale operations are available for rendered exports only. Editable exports preserve the original project.');
+ if(inputs.some(source=>(source.options?.['split-grid']??args['split-grid']) || (source.options?.grid??args.grid)!=null))fail('--split-grid and --grid are available for sheet, atlas and ZIP exports only.');
+ if(inputs.some(source=>[...selectionKeys,'layer','ignore-layer','slice','crop','frame','all-layers','trim-sprite'].some(key=>{const value=source.options?.[key]??args[key];return value!=null&&value!==false;})))fail('Native editable exports preserve the complete project. Use raster exports for layer, frame, tag, slice or crop selections.');
+ const format=args.format,extension=['ase','aseprite'].includes(format)?'aseprite':format==='json'?'json':'pixelwall';
+ const selectedFrames=inputs.reduce((sum,source)=>sum+source.document.frames.length,0),expected=args['expected-frame-count'];
+ if(expected!==undefined&&(!Number.isSafeInteger(Number(expected))||Number(expected)<1||Number(expected)!==selectedFrames))fail(`Expected ${expected} frames, but the export selects ${selectedFrames}. No output was written.`);
+ const outputs=inputs.map(source=>({filename:args.out?basename(args.out):outputName(basename(source.filename),extension),path:args['out-dir']?resolve(args['out-dir'],outputName(basename(source.filename),extension)):args.out?resolve(args.out):null,documentId:source.document.id,width:source.document.width,height:source.document.height,frames:source.document.frames.length,frameIds:source.document.frames.map(frame=>frame.id),durationsMs:source.document.frames.map(frame=>frame.durationMs),layerIds:source.document.layers.map(layer=>layer.id)}));
+ const names=new Set();for(const output of outputs){const name=output.filename.toLowerCase();if(names.has(name))fail(`Output filenames collide after filename sanitizing: ${output.filename}.`);names.add(name);}
+ return {extension,selectedFrames,outputs};
+}
+async function describeCliPlan(inputs,args,rendering={}){
+ const format=String(args.format||'png').toLowerCase(),entitlement=await entitlementStatus(args);
+ if (['pixelwall','json','ase','aseprite'].includes(format)) {
+  const plan=editableExportPlan(inputs,{...args,format}),conflicts=[];
+  for(const item of plan.outputs)if(item.path&&await lstat(item.path).then(()=>true,error=>{if(error.code==='ENOENT')return false;throw error;}))conflicts.push(item.path);
+  return {format:'pixelwall-export-plan',version:1,exportFormat:format,documentIds:inputs.map(source=>source.document.id),entitlement,requiredEntitlement:'free',canWrite:!args['out-dir']||conflicts.length===0,outputs:plan.outputs,conflicts,overwritePolicy:args['out-dir']?'refuse-existing':'replace-explicit-output',selectedFrames:plan.selectedFrames,scale:1,freeAlternative:null};
+ }
+ if(args.out&&args['out-dir'])fail('Choose --out or --out-dir, not both.');
+ if(args['out-dir']&&['sheet','atlas','zip'].includes(format))fail(`Combined ${format} export requires --out; --out-dir is for separate files.`);
+ const plan=prepareCliExportPlan(inputs,{...args,format},rendering);
+ const summary=describeExportPlan(inputs,{...plan.options,format},{entitlement,plan});
+ let outputs=[];
+ if(['png','bmp','tga'].includes(format))outputs=plan.entries.map(entry=>({filename:outputName(entry.name,format),width:entry.width,height:entry.height,frames:1}));
+ else if(format==='gif')outputs=plan.jobs.map(job=>({filename:outputName(args['filename-format']?job.entries[0].name:`${basename(job.filename,extname(job.filename))}${job.layer?` (${job.layerPath})`:''}${job.tag?` (${job.tag.name})`:''}${job.slice?` (${job.slice.name})`:''}`,'gif'),width:job.entries[0].width,height:job.entries[0].height,frames:job.entries.length}));
+ else {
+   if(format==='sheet'&&!plan.atlasOptions.columns&&!plan.options.rows&&['rows','grid'].includes(plan.options.sheetType))plan.atlasOptions.columns=plan.entries.length;
+   const atlas=packAtlas(plan.entries,plan.atlasOptions);
+   outputs=[{filename:basename(args.out||`sprites.${format==='zip'?'zip':'png'}`),width:atlas.width,height:atlas.height,frames:plan.entries.length}];
+   if(format!=='zip')outputs.push({filename:basename(args.metadata||`${basename(args.out||'sprites.png',extname(args.out||'sprites.png'))}.json`),kind:'metadata'});
+ }
+ const plannedNames=new Set();for(const item of outputs){const key=item.filename.toLowerCase();if(plannedNames.has(key))fail(`Output filenames collide after filename sanitizing: ${item.filename}. Use a distinct --filename-format.`);plannedNames.add(key);}
+ const conflicts=[];
+ for(const item of outputs){item.path=args['out-dir']?resolve(args['out-dir'],item.filename):args.out?item.kind==='metadata'?resolve(args.metadata||joinPath(dirname(args.out),item.filename)):resolve(args.out):null;if(item.path&&await lstat(item.path).then(()=>true,error=>{if(error.code==='ENOENT')return false;throw error;}))conflicts.push(item.path);}
+ const multipleNeedsDirectory=['png','bmp','tga','gif'].includes(format)&&outputs.length>1&&!args['out-dir'];
+ return {...summary,outputs,conflicts,overwritePolicy:args['out-dir']?'refuse-existing':'replace-explicit-output',canWrite:summary.canWrite&&!multipleNeedsDirectory&&(!args['out-dir']||conflicts.length===0),...(multipleNeedsDirectory?{reason:'Multiple outputs require --out-dir.'}:{}),freeAlternative:summary.requiredEntitlement==='pro'?'Export explicit PNG frames with --out-dir.':null};
+}
 function framesFor(doc,args,rendering={}){if(args['include-reference-layers']!==true)doc={...doc,layers:doc.layers.map(layer=>layer.type==='reference'?{...layer,visible:false}:layer)};let frames=doc.frames;if(args.clip){const clip=doc.clips.find(c=>c.id===args.clip||c.name===args.clip);if(!clip)fail('Unknown clip.');frames=clip.frameIds.map(id=>doc.frames.find(f=>f.id===id));if(clip.direction==='reverse'||clip.direction==='pingpong_reverse')frames.reverse();if(clip.direction==='pingpong'||clip.direction==='pingpong_reverse')frames=[...frames,...frames.slice(1,-1).reverse()];}if(args.frame!=null){const frame=doc.frames.find(f=>f.id===args.frame)||doc.frames[Number(args.frame)];if(!frame)fail('Unknown frame.');frames=[frame];}const scale=number(args,'scale',1);return frames.map((frame,index)=>({id:frame.id,name:`${doc.name.replace(/[^a-z0-9_-]/gi,'_')}-${String(index+1).padStart(4,'0')}`,...renderScaledExportFrame(doc,frame.id,scale,rendering),durationMs:frame.durationMs}));}
 export async function main(argv=process.argv.slice(2)){
- const {args,inputs:inputScopes,orderedScaleCount}=parseCliArguments(argv),[command,input,...rest]=args._;if(!command||command==='help'||args.help){process.stdout.write(HELP);return;}
+ const {args,inputs:inputScopes}=parseCliArguments(argv),[command,input,...rest]=args._;if(!args.file&&input)args.file=input;if(!command||command==='help'||args.help){process.stdout.write(HELP);return;}
  if(command==='commands'){process.stdout.write(JSON.stringify(COMMANDS,null,2)+'\n');return;}
+ if(command==='capabilities'){process.stdout.write(JSON.stringify(capabilityReport({interfaceName:'cli',includeSchemas:args.schemas===true}),null,2)+'\n');return;}
+ if(command==='doctor'){
+   const folder=args['export-folder']||args['out-dir'];let folderOk=true;
+   if(folder){try{folderOk=(await stat(resolve(folder))).isDirectory();await access(resolve(folder),fsConstants.W_OK|fsConstants.X_OK);}catch{folderOk=false;}}
+   const [major,minor]=process.versions.node.split('.').map(Number),nodeOk=major>22||(major===22&&minor>=13),entitlement=await entitlementStatus(args);
+   const connection=await diagnoseDesktopConnection(args['mcp-config']);
+   const result={ok:folderOk&&nodeOk&&entitlement!=='invalid'&&(!connection.required||connection.status==='connected'),checks:{node:{supported:nodeOk,actual:process.version,minimum:'22.13.0'},exportFolder:{status:folder?(folderOk?'writable':'unavailable'):'not-requested'},entitlement:{status:entitlement,source:'portable-license',desktopEntitlementShared:false},connection},capabilities:capabilityReport({interfaceName:'cli'})};
+   process.stdout.write(JSON.stringify(result,null,2)+'\n');if(!result.ok)process.exitCode=1;return;
+ }
  if(command==='new'){const doc=createDocument({width:number(args,'width',32),height:number(args,'height',number(args,'width',32)),name:args.name||'Untitled Sprite',colorMode:args['color-mode']||'rgba',durationMs:number(args,'duration',100)});await saveDocument(required(args,'out'),doc);return;}
  if(command==='import-sequence'){const paths=[input,...rest].filter(Boolean);if(!paths.length)fail('Provide one or more PNG filenames.');const entries=[];for(const path of paths){const result=await readManagedPng(new Uint8Array(await readFile(resolve(path))));warn(result.warnings);entries.push(result);}await saveDocument(required(args,'out'),importSequence(entries,{name:args.name||'Imported sequence',durationMs:number(args,'duration',100)}));return;}
+ if(command==='plan') { const paths=[input,...rest].filter(Boolean);if(!paths.length)fail('Plan requires at least one input project.');const inputs=[];for(const [index,path]of paths.entries())inputs.push({filename:path,document:await readDocument(path),options:inputScopes[index]?.options,transforms:inputScopes[index]?.transforms});const colorManager=inputs.some(source=>!isSRGB(documentProfile(source.document)))?await loadNodeColorManager():undefined;process.stdout.write(JSON.stringify(await describeCliPlan(inputs,args,{colorManager}),null,2)+'\n');return; }
+ if(command==='verify') { const path=args.file||input;if(!path)fail('Verify requires a file path.');process.stdout.write(JSON.stringify(await verifyOutputFile(path),null,2)+'\n');return; }
  let doc=await readDocument(input);
  if(command==='inspect'){process.stdout.write(JSON.stringify({...describeDocument(doc),layerDetails:doc.layers,frameDetails:doc.frames.map(f=>({id:f.id,durationMs:f.durationMs,cels:Object.keys(f.cels)})),clips:doc.clips,slices:doc.slices,metadata:doc.metadata},null,2)+'\n');return;}
  if(command==='import'){if(args['frame-width']||args['frame-height']){if(extname(input).toLowerCase()!=='.png')fail('Sheet import requires a PNG image.');doc=importSheet(await readManagedPng(new Uint8Array(await readFile(resolve(input)))),{frameWidth:number(args,'frame-width'),frameHeight:number(args,'frame-height'),margin:number(args,'margin',0),spacing:number(args,'spacing',0),count:number(args,'count'),durationMs:number(args,'duration',100),order:args.order||'row',name:args.name||'Imported sheet'});}await saveDocument(required(args,'out'),doc);return;}
- if(command==='apply'){const data=JSON.parse(await readFile(resolve(required(args,'commands')),'utf8')),commands=Array.isArray(data)?data:data.commands;if(!Array.isArray(commands))fail('Command file must be a JSON array or {commands:[...]}.');for(const cmd of commands)doc=applyCommand(doc,cmd);await saveDocument(required(args,'out'),doc);return;}
+ if(command==='apply'){const data=JSON.parse(await readFile(resolve(required(args,'commands')),'utf8')),commands=Array.isArray(data)?data:data.commands;try{validateCommandManifest(commands);}catch(error){fail(`${error.code||'INVALID_COMMAND'} at ${error.path||'commands'}: ${error.message}`);}for(const cmd of commands)doc=applyCommand(doc,cmd);await saveDocument(required(args,'out'),doc);return;}
  if(command==='script'){
   const scriptPath=resolve(required(args,'script'));
   if(extname(scriptPath).toLowerCase()==='.lua'){
@@ -182,22 +252,19 @@ export async function main(argv=process.argv.slice(2)){
   if(['gif','sheet','atlas','zip'].includes(format))await requirePro(args);
   const inputs=[];for(const [index,path]of paths.entries()){const originalDocument=index===0?doc:await readDocument(path);inputs.push({filename:path,document:originalDocument,originalDocument,options:inputScopes[index]?.options,transforms:inputScopes[index]?.transforms});}
   if(['ase','aseprite','pixelwall','json'].includes(format)){
-   if(orderedScaleCount)fail('Ordered scale operations are available for rendered exports only. Editable exports preserve the original project.');
-   if(inputs.some(source=>(source.options?.['split-grid']??args['split-grid']) || (source.options?.grid??args.grid)!=null))fail('--split-grid and --grid are available for sheet, atlas and ZIP exports only.');
-   if(inputs.length>1&&!outDir)fail('Multiple editable projects require --out-dir so every input is saved.');
-   if(inputs.some(source=>[...selectionKeys,'layer','ignore-layer','slice','crop','frame','all-layers','trim-sprite'].some(key=>{const value=source.options?.[key]??args[key];return value!=null&&value!==false;})))fail('Native editable exports preserve the complete project. Use raster exports for layer, frame, tag, slice or crop selections.');
-   const extension=['ase','aseprite'].includes(format)?'aseprite':format==='json'?'json':'pixelwall',outputs=inputs.map(source=>({path:outDir?joinPath(outDir,outputName(basename(source.filename),extension)):out,data:extension==='aseprite'?writeAseprite(source.document):format==='json'?jsonBytes(source.document):encodeProjectContainer(source.document)}));
-   await writeOutputs(outputs,{exclusive:!!outDir});return;
+   const editable=editableExportPlan(inputs,{...args,format}),extension=editable.extension;
+   const outputs=editable.outputs.map((output,index)=>({path:output.path,data:extension==='aseprite'?writeAseprite(inputs[index].document):format==='json'?jsonBytes(inputs[index].document):encodeProjectContainer(inputs[index].document)}));
+   await writeOutputs(outputs,{exclusive:!!outDir,verify:args.verify});return;
   }
   const colorManager=inputs.some(source=>!isSRGB(documentProfile(source.document)))?await loadNodeColorManager():undefined;
   const {plan,outputs}=buildCliExportOutputs(inputs,{...args,format},{colorManager,intent:number(args,'intent',1)});
   if(['png','bmp','tga','gif'].includes(format)){
    if(!outDir&&(outputs.length>1||(format==='gif'&&(inputs.some(source=>['split-layers','split-tags','split-slices'].some(key=>source.options?.[key]??args[key]))||inputs.length>1))))fail('Multiple frames or split animation jobs require --out-dir; no output was written.');
    if(format==='gif')warn(['GIF reduces alpha to binary transparency and quantizes images that exceed 255 opaque colors.']);
-   await writeOutputs(outputs.map(output=>({path:outDir?joinPath(outDir,output.name):out,data:output.data})),{exclusive:!!outDir});return;
+   await writeOutputs(outputs.map(output=>({path:outDir?joinPath(outDir,output.name):out,data:output.data})),{exclusive:!!outDir,verify:args.verify});return;
   }
   const files=outputs.map(output=>({path:output.kind==='metadata'?(args.metadata?required(args,'metadata'):joinPath(dirname(out),basename(out,extname(out))+'.json')):out,data:output.data}));
-  if(plan.entries.length)await writeOutputs(files);return;
+  if(plan.entries.length)await writeOutputs(files,{verify:args.verify});return;
  }
  fail(`Unknown command ${command}. Run pixelwall help.`);
 }

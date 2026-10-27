@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "version": "0.6.0",
+  "publishedAt": "2026-10-27",
+  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-6-0",
+  "releaseNotes": [
+    "Fixed the desktop MCP write EPIPE crash after a client disconnects, including late replies and duplicate cancellation.",
+    "Added storage usage and save estimates, temporary documents, file-backed projects, verified checkpoints, and recovery when the local library is full.",
+    "Separated committed edits, library saves, generated files, disk delivery, and reopen verification. Temporary work remains available when switching tabs and warns before closing.",
+    "Added durable retry receipts, progress phases, command schemas, CLI doctor checks, compact regional selections, and one-pass color mappings.",
+    "Added animation review and diagnostics, protected component recipes, pinned periodic motion, and composable river patches.",
+    "Added export plans with exact frame counts and sheet dimensions, entitlement checks, approved-folder conflicts, and optional decoded output verification.",
+    "Published a maintained desktop-MCP/CLI workflow example and fixed-fixture profiling notes."
+  ],
+  "downloads": {
+    "darwin-arm64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.0/PixelWall-0.6.0-mac-arm64.zip",
+      "filename": "PixelWall-0.6.0-mac-arm64.zip",
+      "signed": true,
+      "size": 114793908,
+      "sha256": "63eddad3b5577d356b0c195c8ada93b8fcf49561c10ddff68ec9f88cea2975de",
+      "notarized": true
+    },
+    "darwin-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.0/PixelWall-0.6.0-mac-x64.zip",
+      "filename": "PixelWall-0.6.0-mac-x64.zip",
+      "signed": true,
+      "size": 121542676,
+      "sha256": "94ec1bede0b71e53630d00046de6c9c63c42cdca39d21fdfe4a6f91ec9735a78",
+      "notarized": true
+    },
+    "win32-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.0/PixelWall-0.6.0-windows-x64.exe",
+      "filename": "PixelWall-0.6.0-windows-x64.exe",
+      "signed": false,
+      "size": 95199595,
+      "sha256": "b2f3f97fc4c4166bffa7a95fb981f8f2a16a6eb05ebb3c0efacb614e64f0a69e"
+    },
+    "linux-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.0/PixelWall-0.6.0-linux-x64.AppImage",
+      "filename": "PixelWall-0.6.0-linux-x64.AppImage",
+      "signed": false,
+      "size": 118416197,
+      "sha256": "ca2abe001624e4dbb69bc54b7fb8e2ee3b860082b8d89c6a028d2dbb26925eed"
+    }
+  }
+}

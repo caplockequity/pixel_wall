@@ -930,3 +930,18 @@
 .wb-scene-component-controls label {display:grid;gap:4px;}
 .wb-scene-component-controls input,.wb-scene-component-controls select {width:100%;min-height:32px;}
 .wb-scene-component-preview {display:block;margin:20px auto;max-width:100%;image-rendering:pixelated;background:repeating-conic-gradient(#ebe9e2 0% 25%,#fff 0% 50%) 0 0/16px 16px;border:1px solid #deded7;}
+
+.animation-review-panel {display:grid;gap:16px;margin-top:24px;border-top:1px solid #deded7;padding-top:16px;min-width:0;}
+.animation-review-toolbar,.animation-review-panel fieldset {display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.animation-review-panel label {display:flex;align-items:center;gap:6px;}
+.animation-review-panel input[type=number] {width:72px;}
+.animation-review-panel fieldset {border:1px solid #deded7;padding:12px;border-radius:8px;}
+.animation-review-views {display:flex;gap:16px;align-items:flex-start;min-width:0;}
+.animation-review-views figure {margin:0;max-width:48%;overflow:auto;max-height:480px;flex:1;}
+.animation-review-views canvas {display:block;image-rendering:pixelated;max-width:none;flex-shrink:0;background:repeating-conic-gradient(#ebe9e2 0% 25%,#fff 0% 50%) 0 0/16px 16px;}
+.animation-review-canvas {position:relative;width:max-content;}
+.animation-review-canvas .animation-review-overlay {position:absolute;inset:0;background:none;pointer-events:none;}
+.animation-review-contact-sheet {margin:0;max-width:100%;max-height:480px;overflow:auto;}
+.animation-review-contact-sheet canvas {image-rendering:pixelated;display:block;max-width:none;}
+.animation-review-panel figcaption {font-weight:600;margin:8px 0;}
+@media(max-width:600px){.animation-review-views{flex-direction:column;}.animation-review-views figure{max-width:100%;}}

@@ -1,3 +1,4 @@
+import editorSchemas from './mcp-schemas.mjs';
 export const MCP_PROTOCOL_VERSION = '2025-06-18';
 export const MCP_TOOLS = Object.freeze([
   ['pixelwall_inspect', 'Read the active PixelWall document and revision.', true],
@@ -15,6 +16,19 @@ export const MCP_TOOLS = Object.freeze([
   ['pixelwall_undo', 'Undo the most recent editor transaction.', false],
   ['pixelwall_redo', 'Redo the most recently undone editor transaction.', false],
   ['pixelwall_projects', 'List editable projects in the local PixelWall library.', true],
+  ['pixelwall_storage', 'Read local library budget, artwork usage, recovery usage, and save estimates.', true],
+  ['pixelwall_persistence', 'Read active document, library, checkpoint, and file-delivery persistence state.', true],
+  ['pixelwall_checkpoint', 'Create a guarded project checkpoint without requiring a local library save.', false],
+  ['pixelwall_capabilities', 'Read versioned automation capabilities and limits.', true],
+  ['pixelwall_command_schema', 'Read the JSON schema for editing commands.', true],
+  ['pixelwall_open_temporary', 'Open project bytes without adding them to the local library.', false],
+  ['pixelwall_temporary_projects', 'List retained temporary documents available for recovery.', true],
+  ['pixelwall_open_temporary_project', 'Restore a retained temporary or file-backed document.', false],
+  ['pixelwall_selection', 'Create, list or remove a bounded revision-scoped selection.', false],
+  ['pixelwall_export_plan', 'Plan an export without starting delivery.', true],
+  ['pixelwall_receipt', 'Read a durable request receipt.', true],
+  ['pixelwall_wait_operation', 'Wait for a long-running operation update.', true],
+  ['pixelwall_animation_review', 'Read animation diagnostics and loop review data.', true],
   ['pixelwall_open_project', 'Open a selected local PixelWall project.', false],
   ['pixelwall_import_project', 'Import a supplied PixelWall project into the local library.', false],
   ['pixelwall_validate', 'Validate a command batch without committing it.', true],
@@ -25,14 +39,12 @@ export const MCP_TOOLS = Object.freeze([
   ['pixelwall_download_artifact', 'Save a durable artifact through the approved desktop export handoff.', false],
   ['pixelwall_save_artifact', 'Save a durable artifact into the approved desktop export folder.', false],
 ]);
-export const MCP_SCHEMAS = Object.freeze({
-  pixelwall_inspect: { type: 'object', properties: {}, additionalProperties: false }, pixelwall_commands: { type: 'object', properties: {}, additionalProperties: false },
-  pixelwall_apply: { type: 'object', properties: { commands: { type: 'array', minItems: 1, maxItems: 2000 }, expectedRevision: { type: 'integer', minimum: 0 }, label: { type: 'string', maxLength: 100 }, wait: { type: 'boolean' }, requestKey: { type: 'string', minLength: 1, maxLength: 200 } }, required: ['commands'], additionalProperties: false },
-  pixelwall_operation: { type: 'object', properties: { operationId: { type: 'string', minLength: 1, maxLength: 200 } }, required: ['operationId'], additionalProperties: false }, pixelwall_new_document: { type: 'object', properties: { name: { type: 'string' }, width: { type: 'integer', minimum: 1, maximum: 65535 }, height: { type: 'integer', minimum: 1, maximum: 65535 }, colorMode: { type: 'string', enum: ['rgba', 'indexed', 'grayscale'] } }, additionalProperties: false },
-  pixelwall_capture_preview: { type: 'object', properties: {}, additionalProperties: false },  pixelwall_preview: { type: 'object', properties: { frameId: { type: 'string' }, scale: { type: 'integer', minimum: 1, maximum: 8 }, kind: { type: 'string', enum: ['frame', 'contact-sheet', 'comparison'] }, layerIds: { type: 'array', minItems: 1, maxItems: 256, items: { type: 'string' } }, frameIds: { type: 'array', minItems: 1, maxItems: 64, items: { type: 'string' } }, crop: { type: 'object', properties: { x: { type: 'integer' }, y: { type: 'integer' }, width: { type: 'integer', minimum: 1 }, height: { type: 'integer', minimum: 1 } }, required: ['x', 'y', 'width', 'height'], additionalProperties: false }, columns: { type: 'integer', minimum: 1, maximum: 64 }, gap: { type: 'integer', minimum: 0, maximum: 64 }, beforeFrameId: { type: 'string' }, beforeLayerIds: { type: 'array', maxItems: 256, items: { type: 'string' } } }, additionalProperties: false }, pixelwall_save: { type: 'object', properties: {}, additionalProperties: false }, pixelwall_export: { type: 'object', properties: { format: { type: 'string', enum: ['png', 'bmp', 'tga', 'project', 'aseprite', 'gif', 'sheet', 'zip'] }, download: { type: 'boolean' } }, required: ['format'], additionalProperties: false }, pixelwall_export_result: { type: 'object', properties: {}, additionalProperties: false }, pixelwall_undo: { type: 'object', properties: {}, additionalProperties: false }, pixelwall_redo: { type: 'object', properties: {}, additionalProperties: false },
-  pixelwall_projects: { type: 'object', properties: {}, additionalProperties: false }, pixelwall_open_project: { type: 'object', properties: { documentId: { type: 'string', minLength: 1, maxLength: 200 } }, required: ['documentId'], additionalProperties: false }, pixelwall_import_project: { type: 'object', properties: { bytes: { type: 'array', minItems: 1, maxItems: 1048576, items: { type: 'integer', minimum: 0, maximum: 255 } }, name: { type: 'string', minLength: 1, maxLength: 240 } }, required: ['bytes'], additionalProperties: false }, pixelwall_validate: { type: 'object', properties: { commands: { type: 'array', maxItems: 2000 }, expectedRevision: { type: 'integer', minimum: 0 }, timeoutMs: { type: 'integer', minimum: 50, maximum: 10000 } }, required: ['commands'], additionalProperties: false }, pixelwall_cancel: { type: 'object', properties: { operationId: { type: 'string', minLength: 1, maxLength: 200 } }, required: ['operationId'], additionalProperties: false },
-  pixelwall_artifacts: { type: 'object', properties: {}, additionalProperties: false }, pixelwall_read_artifact: { type: 'object', properties: { artifactId: { type: 'string', minLength: 1, maxLength: 200 }, offset: { type: 'integer', minimum: 0 }, length: { type: 'integer', minimum: 1, maximum: 1048576 } }, required: ['artifactId'], additionalProperties: false }, pixelwall_remove_artifact: { type: 'object', properties: { artifactId: { type: 'string', minLength: 1, maxLength: 200 } }, required: ['artifactId'], additionalProperties: false }, pixelwall_download_artifact: { type: 'object', properties: { artifactId: { type: 'string', minLength: 1, maxLength: 200 } }, required: ['artifactId'], additionalProperties: false },
-  pixelwall_lua: { type: 'object', properties: { source: { type: 'string', maxLength: 262144 }, params: { type: 'object' }, timeoutMs: { type: 'integer', minimum: 50, maximum: 10000 }, expectedRevision: { type: 'integer', minimum: 0 } }, required: ['source'], additionalProperties: false }, pixelwall_color_profile: { type: 'object', properties: { operation: { type: 'string', enum: ['inspect', 'assign', 'convert'] }, icc: { type: 'array', maxItems: 4194304, items: { type: 'integer', minimum: 0, maximum: 255 } }, intent: { type: 'integer', minimum: 0, maximum: 3 }, expectedRevision: { type: 'integer', minimum: 0 } }, additionalProperties: false },
-  pixelwall_save_artifact: { type: 'object', properties: { artifactId: { type: 'string', minLength: 1, maxLength: 200 }, filename: { type: 'string', minLength: 1, maxLength: 240 } }, required: ['artifactId'], additionalProperties: false },
-});
+// Share the editor contract; desktop transport caps project byte arrays at 1 MiB.
+const schemas = structuredClone(editorSchemas);
+for (const name of ['pixelwall_import_project','pixelwall_open_temporary']) {
+  schemas[name] = {...schemas[name], properties:{...schemas[name].properties, bytes:{...schemas[name].properties.bytes,maxItems:1048576}}};
+}
+schemas.pixelwall_save_artifact = {type:'object',properties:{artifactId:{type:'string',minLength:1,maxLength:200},filename:{type:'string',minLength:1,maxLength:240}},required:['artifactId'],additionalProperties:false};
+export const MCP_SCHEMAS = Object.freeze(schemas);
+
 export function toolDefinitions() { return MCP_TOOLS.map(([name, description, readOnly]) => ({ name, description, inputSchema: MCP_SCHEMAS[name], ...(readOnly ? { annotations: { readOnlyHint: true } } : {}) })); }

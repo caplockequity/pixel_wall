@@ -3,12 +3,15 @@
  * changedImageIds can invalidate fingerprints when integrating mutable buffers.
  * Every successful save is atomic (head + recovery revision + image records).
  */
+import { zlibSync, unzlibSync } from 'fflate';
 export const STORAGE_VERSION = 1;
 export const DEFAULT_STORAGE_BUDGET = 96 * 1024 * 1024;
 export const DEFAULT_REVISION_LIMIT = 40;
 export const LEGACY_DOCUMENT_KEYS = ['pixelwall-project-v3', 'pixelwall-project-v2', 'pixelwall-project-v1'];
 const STORES = ['documents', 'revisions', 'images', 'imageInfo', 'settings'];
 const encoder = new TextEncoder();
+const decoder = new TextDecoder("utf-8", {fatal:true});
+const MAX_IMAGE_BYTES = 64 * 1024 * 1024;
 export class DocumentStorageError extends Error {
   constructor(message, code = 'STORAGE_FAILED', cause) { super(message, { cause }); this.name = 'DocumentStorageError'; this.code = code; }
 }
@@ -32,6 +35,27 @@ function canonical(value, seen = new Set()) {
   seen.delete(value);
   return result;
 }
+const typedArrays = {Uint8Array, Uint8ClampedArray, Uint16Array, Uint32Array, Int8Array, Int16Array, Int32Array, Float32Array, Float64Array};
+function wireEncode(value, seen = new Set()) {
+  if (value === undefined) return {t:'u'}; if (value === null || typeof value !== 'object') return {t:'p',v:value};
+  if (seen.has(value)) throw new DocumentStorageError('Circular image data cannot be saved.', 'INVALID_DOCUMENT'); seen.add(value); let result;
+  if (ArrayBuffer.isView(value)) { const bytes=Array.from(new Uint8Array(value.buffer,value.byteOffset,value.byteLength)); result=value instanceof DataView?{t:'dv',b:bytes}:{t:'ta',n:value.constructor.name,b:bytes}; }
+  else if (value instanceof ArrayBuffer) result={t:'ab',b:Array.from(new Uint8Array(value))};
+  else if (Array.isArray(value)) result={t:'a',v:value.map(item=>wireEncode(item,seen))};
+  else result={t:'o',v:Object.entries(value).map(([key,item])=>[key,wireEncode(item,seen)])};
+  seen.delete(value); return result;
+}
+function wireDecode(value) {
+  if (!value || typeof value !== 'object' || typeof value.t !== 'string') throw new DocumentStorageError('The saved image encoding is invalid.', 'CORRUPT_RECORD');
+  if (value.t==='u') return undefined; if (value.t==='p') return value.v;
+  if (['ab','dv','ta'].includes(value.t) && (!Array.isArray(value.b) || value.b.length>MAX_IMAGE_BYTES)) throw new DocumentStorageError('The saved image encoding exceeds the safety limit.', 'CORRUPT_RECORD');
+  const raw=new Uint8Array(value.b ?? []); if(value.t==='ab') return raw.buffer; if(value.t==='dv') return new DataView(raw.buffer);
+  if(value.t==='ta'){const Type=typedArrays[value.n];if(!Type||raw.byteLength%Type.BYTES_PER_ELEMENT)throw new DocumentStorageError('The saved image buffer is invalid.','CORRUPT_RECORD');return new Type(raw.buffer);}
+  if(value.t==='a'){if(!Array.isArray(value.v)||value.v.length>MAX_IMAGE_BYTES)throw new DocumentStorageError('The saved image array is invalid.','CORRUPT_RECORD');return value.v.map(wireDecode);}
+  if(value.t==='o'){if(!Array.isArray(value.v)||value.v.length>MAX_IMAGE_BYTES)throw new DocumentStorageError('The saved image object is invalid.','CORRUPT_RECORD');const result={};for(const entry of value.v){if(!Array.isArray(entry)||typeof entry[0]!=='string')throw new DocumentStorageError('The saved image object is invalid.','CORRUPT_RECORD');Object.defineProperty(result,entry[0],{value:wireDecode(entry[1]),enumerable:true,writable:true,configurable:true});}return result;}
+  throw new DocumentStorageError('The saved image encoding tag is unsupported.', 'CORRUPT_RECORD');
+}
+function parseWire(text) { try { return wireDecode(JSON.parse(text)); } catch (error) { if (error instanceof DocumentStorageError) throw error; throw new DocumentStorageError('The saved image encoding is not valid JSON.', 'CORRUPT_RECORD', error); } }
 function summary(record) { return { id: record.id, name: record.metadata.name, width: record.metadata.width, height: record.metadata.height, frameCount: record.metadata.frames.length, layerCount: record.metadata.layers.length, colorMode: record.metadata.colorMode, savedAt: record.updatedAt, revision: record.revision, metadataBytes: record.bytes }; }
 function revisionSummary(record) { return { id: record.id, documentId: record.documentId, revision: record.revision, savedAt: record.updatedAt, label: record.label, pinned: record.pinned, name: record.metadata.name }; }
 function keysIn(records) { const keys = new Set(); for (const record of records) for (const key of Object.values(record.imageRefs)) keys.add(key); return keys; }
@@ -51,7 +75,7 @@ export async function openStore(options = {}) {
   const db = await request(opening).catch((error) => { throw storageError(error); });
   db.onversionchange = () => { db.close(); options.onVersionChange?.(); };
   const now = options.now ?? Date.now;
-  const budgetBytes = Math.max(1024, options.budgetBytes ?? DEFAULT_STORAGE_BUDGET);
+  let budgetBytes = Math.max(1024, Math.min(1024 * 1024 * 1024, options.budgetBytes ?? DEFAULT_STORAGE_BUDGET));
   const maxRevisions = Math.max(2, options.maxRevisions ?? DEFAULT_REVISION_LIMIT);
   const fingerprints = new WeakMap();
   let sequence = Promise.resolve();
@@ -76,7 +100,15 @@ export async function openStore(options = {}) {
     validate(document);
     const { images, ...metadata } = document;
     const imageRefs = {}; const records = new Map(); const changed = new Set(settings.changedImageIds ?? []);
-    await Promise.all(Object.entries(images).map(async ([id, value]) => { const info = await fingerprint(value, changed.has(id)); imageRefs[id] = info.key; records.set(info.key, { ...info, value }); }));
+    await Promise.all(Object.entries(images).map(async ([id, value]) => {
+      const info = await fingerprint(value, changed.has(id)); imageRefs[id] = info.key;
+      const raw = encoder.encode(JSON.stringify(wireEncode(value)));
+      if (raw.length > MAX_IMAGE_BYTES) throw new DocumentStorageError('The image record exceeds the 64 MiB safety limit.', 'IMAGE_LIMIT');
+      const compressed = zlibSync(raw);
+      records.set(info.key, compressed.length < raw.length
+        ? { key:info.key, bytes:compressed.length, logicalBytes:raw.length, codec:'zlib-v1', data:compressed }
+        : { key:info.key, bytes:raw.length, logicalBytes:raw.length, codec:null, value:structuredClone(value) });
+    }));
     return { metadata: structuredClone(metadata), imageRefs, records, bytes: encoder.encode(canonical({ metadata, imageRefs })).byteLength };
   }
   function prune(heads, snapshots, imageInfo) {
@@ -122,7 +154,7 @@ export async function openStore(options = {}) {
       }
       const retained = prune([...candidates.values()],nextSnapshots,imageInfo);
       for(const result of results){tx.objectStore('documents').put(result.head);tx.objectStore('revisions').put(result.snapshot);}
-      for(const record of records.values())if(!existingKeys.has(record.key)){tx.objectStore('images').put(record);tx.objectStore('imageInfo').put({key:record.key,bytes:record.bytes});}
+      for(const record of records.values()){tx.objectStore('images').put(record);tx.objectStore('imageInfo').put({key:record.key,bytes:record.bytes,logicalBytes:record.logicalBytes ?? record.bytes});}
       for(const removed of retained.pruned)tx.objectStore('revisions').delete(removed.id);
       for(const key of imageInfo.keys())if(!retained.referenced.has(key)){tx.objectStore('images').delete(key);tx.objectStore('imageInfo').delete(key);}
       for (const {change,previous} of guardedSettings) if (Object.hasOwn(change, 'value')) tx.objectStore('settings').put({key:change.key,value:change.value,revision:nextSettingRevision(previous),updatedAt:now()});
@@ -140,14 +172,42 @@ export async function openStore(options = {}) {
     const images = {};
     const unique = [...new Set(Object.values(record.imageRefs))];
     const stored = new Map(await Promise.all(unique.map(async (key) => { const image = await request(tx.objectStore('images').get(key)); if (!image) throw new DocumentStorageError('A saved image is missing. Try another recovery version or open your project backup.', 'CORRUPT_RECORD'); return [key, image]; })));
-    for (const [id, key] of Object.entries(record.imageRefs)) { const image = stored.get(key); images[id] = image.value; if (image.value && typeof image.value === 'object') fingerprints.set(image.value, { key, bytes: image.bytes }); }
+    for (const [id, key] of Object.entries(record.imageRefs)) { const image = stored.get(key); let value = image.value; if (image.codec === 'zlib-v1') { if (!Number.isSafeInteger(image.logicalBytes) || image.logicalBytes < 1 || image.logicalBytes > MAX_IMAGE_BYTES) throw new DocumentStorageError('The saved image declares an unsafe expanded size.', 'CORRUPT_RECORD'); const raw = unzlibSync(new Uint8Array(image.data), {out:new Uint8Array(image.logicalBytes + 1)}); if (raw.length !== image.logicalBytes) throw new DocumentStorageError('A saved image failed its decompression length check.', 'CORRUPT_RECORD'); value = parseWire(decoder.decode(raw)); } images[id] = value; if (value && typeof value === 'object') fingerprints.set(value, { key, bytes: image.bytes }); }
     return { document: { ...record.metadata, images }, revision: record.revision, savedAt: record.updatedAt };
   }
+  async function usageSnapshot() {
+    const [heads, snapshots, infos] = await read(['documents', 'revisions', 'imageInfo'], async tx => Promise.all(['documents', 'revisions', 'imageInfo'].map(name => request(tx.objectStore(name).getAll()))));
+    const imageBytes = infos.reduce((sum, item) => sum + (item.bytes ?? 0), 0);
+    const headBytes = heads.reduce((sum, item) => sum + (item.bytes ?? 0), 0);
+    const recoveryBytes = snapshots.reduce((sum, item) => sum + (item.bytes ?? 0), 0);
+    return { heads, snapshots, infos, imageBytes, headBytes, recoveryBytes, usedBytes: imageBytes + headBytes + recoveryBytes };
+  }
+  async function estimate(document, settings = {}) {
+    const value = await prepare(document, settings);
+    const current = await usageSnapshot();
+    const previous = current.heads.find(item => item.id === document.id);
+    const knownImages = new Set(current.infos.map(item => item.key));
+    const newImageBytes = [...value.records.values()].reduce((sum, item) => sum + (knownImages.has(item.key) ? 0 : item.bytes), 0);
+    const projectedBytes = current.usedBytes - (previous?.bytes ?? 0) + value.bytes * 2 + newImageBytes;
+    return { ...statsFrom(current), requiredBytes: Math.max(0, projectedBytes - current.usedBytes), projectedBytes, wouldFit: projectedBytes <= budgetBytes };
+  }
+  function statsFrom(current) {
+    return { budgetBytes, usedBytes: current.usedBytes, availableBytes: Math.max(0, budgetBytes - current.usedBytes), artworkBytes: current.imageBytes + current.headBytes, logicalArtworkBytes: current.infos.reduce((sum,item) => sum + (item.logicalBytes ?? item.bytes ?? 0), 0) + current.headBytes, recoveryBytes: current.recoveryBytes, documentCount: current.heads.length, revisionCount: current.snapshots.length, maxRevisions };
+  }
+  const configuredBudget = await read(['settings'], async tx => request(tx.objectStore('settings').get('storageBudgetBytes')));
+  if (Number.isSafeInteger(configuredBudget?.value) && configuredBudget.value >= 16 * 1024 * 1024 && configuredBudget.value <= 1024 * 1024 * 1024) budgetBytes = configuredBudget.value;
   const store = {
     listDocuments: () => read(['documents'], async (tx) => (await request(tx.objectStore('documents').getAll())).sort((a, b) => b.updatedAt - a.updatedAt).map(summary)),
     saveDocument: (document, settings) => serialize(() => persist(document, settings)),
     saveDocuments: (entries, options) => serialize(() => persistMany(entries, options)),
     loadDocument: (id) => read(['documents', 'images'], async (tx) => hydrate(await request(tx.objectStore('documents').get(id)), tx)),
+    stats: async () => statsFrom(await usageSnapshot()),
+    estimateSave: estimate,
+    setBudget: value => serialize(async () => {
+      if (!Number.isSafeInteger(value) || value < 16 * 1024 * 1024 || value > 1024 * 1024 * 1024) throw new DocumentStorageError('Storage budget must be between 16 MiB and 1 GiB.', 'INVALID_SETTINGS');
+      const current = await usageSnapshot(); if (value < current.usedBytes) throw new DocumentStorageError('The requested budget is below protected usage. Remove projects explicitly before reducing it.', 'BUDGET_EXCEEDED');
+      await write(async tx => { const previous = await request(tx.objectStore('settings').get('storageBudgetBytes')); tx.objectStore('settings').put({key:'storageBudgetBytes',value,revision:nextSettingRevision(previous),updatedAt:now()}); }); budgetBytes = value; return statsFrom(await usageSnapshot());
+    }),
     listRevisions: (id) => read(['revisions'], async (tx) => (await request(tx.objectStore('revisions').getAll())).filter((item) => item.documentId === id).sort((a, b) => b.revision - a.revision).map(revisionSummary)),
     restoreRevision: (id, revisionId) => serialize(async () => {
       const loaded = await read(['documents', 'revisions', 'images'], async (tx) => {
