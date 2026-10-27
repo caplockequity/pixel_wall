@@ -33,6 +33,9 @@ export function generateWaterScene(options = {}) {
   const maxDimension = options.allowLarge === true ? 2048 : 256;
   const width = integer(options.width, 64, 'Width', 8, maxDimension), height = integer(options.height, width, 'Height', 8, maxDimension);
   const frames = integer(options.frames, 12, 'Frames', 1, 32), durationMs = integer(options.durationMs, 125, 'Duration', 1, 65535);
+  const riverWidth = integer(options.riverWidth, scene === 'stream' ? 12 : 24, 'riverWidth', 2, 512);
+  const riverPath = Array.isArray(options.riverPath) ? options.riverPath.map((point, index) => ({ x: integer(point?.x, 0, `riverPath[${index}].x`, -65535, 65535), y: integer(point?.y, 0, `riverPath[${index}].y`, -65535, 65535) })) : null;
+  if (riverPath && (riverPath.length < 2 || riverPath.length > 128)) throw new RangeError('riverPath must contain 2–128 points.');
   const details = integer(options.details, 2, 'Details', 0, 4), seed = integer(options.seed, 1, 'Seed', 0, 0xffffffff);
   const waterSeed = integer(options.waterSeed, seed, 'Water seed', 0, 0xffffffff);
   const offset = integer(options.phaseOffset, 0, 'Phase offset', -65535, 65535), phaseOffset = ((offset % frames) + frames) % frames;
@@ -51,6 +54,7 @@ export function generateWaterScene(options = {}) {
   const shift = (noise(0, 5, seed) - .5) * .09;
   const center = v => .5 + shift + Math.sin(v * TAU + shorePhase) * .085 + Math.sin(v * TAU * 2 + shorePhase) * .02;
   function shore(u, v) {
+    if (riverPath && (scene === 'river' || scene === 'stream')) { const nearest = nearestPath(u * width, v * height); return riverWidth / 2 / Math.max(width, height) - nearest.distance / Math.max(width, height); }
     if (scene === 'pond') {
       const dx = (u - .5 - shift) / .34, dy = (v - .5) / .32, angle = Math.atan2(dy, dx);
       return (Math.hypot(dx, dy) - 1 - Math.sin(angle * 3 + shorePhase) * .07 - Math.cos(angle * 5 - shorePhase) * .035) * .28;
@@ -62,6 +66,11 @@ export function generateWaterScene(options = {}) {
       return Math.min(v < .65 ? channel : Infinity, pool);
     }
     return Math.abs(u - center(v)) - (scene === 'stream' ? .075 : .165) * (1 + Math.sin(v * TAU + shorePhase) * .12);
+  }
+  function nearestPath(px, py) {
+    let best = { distance: Infinity, tangent: { x: 1, y: 0 } };
+    for (let i = 0; i < (riverPath?.length ?? 0) - 1; i++) { const a = riverPath[i], b = riverPath[i + 1], vx = b.x - a.x, vy = b.y - a.y, length = Math.hypot(vx, vy) || 1, t = Math.max(0, Math.min(1, ((px - a.x) * vx + (py - a.y) * vy) / (length * length))), dx = px - (a.x + vx * t), dy = py - (a.y + vy * t), distance = Math.hypot(dx, dy); if (distance < best.distance) best = { distance, tangent: { x: vx / length, y: vy / length } }; }
+    return best;
   }
   // The entire scene uses one projection, including the shoreline and decorations.
   const iso = view === 'isometric', rim = Math.max(1, Math.min(6, Math.floor(height / 14)));
@@ -129,7 +138,8 @@ export function generateWaterScene(options = {}) {
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
       const i = y * width + x, d = depth[i];
       if (!plane[i] || d > 0) continue;
-      const wave = Math.sin((x * (.14 * flow.x) + y * (.31 * flow.y)) + phase + waterPhase);
+      const localFlow = riverPath && (scene === 'river' || scene === 'stream') ? nearestPath(x + .5, y + .5).tangent : flow;
+      const wave = Math.sin((x * (.14 * localFlow.x) + y * (.31 * localFlow.y)) + phase + waterPhase);
       water[i] = d > -.025 ? pal.waterLight : d < -.10 && noise(x >> 3, y >> 3, seed) < .35 ? pal.waterDeep : pal.water;
       // Short horizontal glints: density affects surface motion, never shoreline geometry.
       const gx = Math.floor(x / 7), gy = Math.floor(y / 5), n = noise(gx, gy, waterSeed);
@@ -158,7 +168,7 @@ export function generateWaterScene(options = {}) {
     format:'pixelwall-document', version:4, id:options.id ?? 'water-scene', name:options.name ?? `${scene[0].toUpperCase() + scene.slice(1)} Water`, width,height,colorMode:'rgba',colorProfile:'sRGB',palette:[...new Set(Object.values(pal))],
     layers:layerIds.map(id=>({id,name:{banks:'Banks',water:'Water (animated)',rocks:'Rocks',grass:'Grass & Reeds'}[id],type:'image',parentId:null,visible:true,locked:false,opacity:1,blendMode:'normal'})),
     frames:outputFrames,images,clips:[{id:'water-loop',name:'Water Loop',frameIds:outputFrames.map(f=>f.id),direction:'forward',loop:true}],slices:[],tilesets:[],
-    metadata:{generator:'water',generatorVersion:3,scene,view,season,seed,waterSeed,rippleDensity,phaseOffset,details,flowDirection:flow,flowSpeed,foamRegions,waterfallRegions,seamless:true,spatiallyTileable:false,paletteRoles:pal},
+    metadata:{generator:'water',generatorVersion:4,scene,view,season,seed,waterSeed,rippleDensity,phaseOffset,details,flowDirection:flow,flowSpeed,riverPath,riverWidth,foamRegions,waterfallRegions,seamless:true,spatiallyTileable:false,paletteRoles:pal},
   };
 }
 export const WATER_SCENES = Object.freeze([...SCENES]);

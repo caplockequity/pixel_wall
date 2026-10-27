@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateWaterScene } from '../app/water-generator.mjs';
+import { generateWaterScene, generateWaterPatch } from '../app/water-generator.mjs';
 import { applyCommand, createDocument, normalizeDocument, renderFrame } from '../app/editor-core.mjs';
 import { readAseprite, writeAseprite, readPng, writePng } from '../app/formats.mjs';
 
@@ -51,6 +51,17 @@ test('flow direction and integer speed alter the animated water field', () => {
   assert.notDeepEqual(east.images[east.frames[1].cels.water.imageId].pixels, south.images[south.frames[1].cels.water.imageId].pixels);
   assert.notDeepEqual(east.images[east.frames[1].cels.water.imageId].pixels, fast.images[fast.frames[1].cels.water.imageId].pixels);
   assert.equal(east.metadata.flowSpeed, 1); assert.equal(fast.metadata.flowSpeed, 2);
+});
+
+test('global river paths produce matching adjacent patch samples', () => {
+  const options = { scene: 'river', seed: 9, waterSeed: 4, flowSpeed: 2, riverWidth: 32, riverPath: [{ x: 0, y: 180 }, { x: 256, y: 120 }, { x: 512, y: 190 }], frames: 4, fieldWidth: 512, fieldHeight: 384 };
+  const left = generateWaterPatch({ ...options, id: 'left', width: 128, height: 128, originX: 192, originY: 96 });
+  const right = generateWaterPatch({ ...options, id: 'right', width: 128, height: 128, originX: 320, originY: 96 });
+  const mono = generateWaterPatch({ ...options, id: 'mono', width: 256, height: 128, originX: 192, originY: 96 });
+  for (let frame = 0; frame < 4; frame++) {
+    const lp = left.images[left.frames[frame].cels.water.imageId].pixels, rp = right.images[right.frames[frame].cels.water.imageId].pixels, mp = mono.images[mono.frames[frame].cels.water.imageId].pixels;
+    for (let y = 0; y < 128; y++) { assert.deepEqual(lp.slice(y * 128, y * 128 + 128), mp.slice(y * 256, y * 256 + 128)); assert.deepEqual(rp.slice(y * 128, y * 128 + 128), mp.slice(y * 256 + 128, y * 256 + 256)); }
+  }
 });
 
 test('waterfall regions work independently of scene and remain clipped to their rectangles', () => {
