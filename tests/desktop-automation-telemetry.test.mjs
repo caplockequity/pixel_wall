@@ -99,6 +99,7 @@ test('bridge reports authoritative validation, artifact misses, and export persi
   await telemetry.start(); await telemetry.setEnabled(true);
   const bridge = createMcpBridge({ configPath: join('/tmp', `pixelwall-mcp-test-${Date.now()}-3.json`), telemetry, webContents: { executeJavaScript: async source => {
     if (source.includes('api["validate"]')) return { valid: false, revision: 1 };
+    if (source.includes('api["save"]')) return { saved: false };
     if (source.includes('api["downloadArtifact"]')) return { status: 'missing' };
     if (source.includes('api["removeArtifact"]')) return false;
     if (source.includes('api["export"]')) return { filename: 'a.png', bytes: 1, exportResult: { persistence: { status: 'persisted' } } };
@@ -106,12 +107,13 @@ test('bridge reports authoritative validation, artifact misses, and export persi
   } } });
   const call = params => bridge.handle({ id: Math.random(), token: bridge.token, method: 'tools/call', params });
   await call({ name: 'pixelwall_validate', arguments: { commands: [{}] } });
+  await call({ name: 'pixelwall_save', arguments: {} });
   await call({ name: 'pixelwall_download_artifact', arguments: { artifactId: 'missing' } });
   await call({ name: 'pixelwall_remove_artifact', arguments: { artifactId: 'missing' } });
   await call({ name: 'pixelwall_export', arguments: { format: 'png' } });
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(reports.map(item => [item.operation, item.outcome, item.artifact_persistence]), [
-    ['validate', 'failure', undefined], ['download_artifact', 'missing', undefined],
+    ['validate', 'failure', undefined], ['save', 'failure', undefined], ['download_artifact', 'missing', undefined],
     ['remove_artifact', 'missing', undefined], ['export', 'success', 'persisted'],
   ]);
 });
@@ -162,5 +164,22 @@ test('an apply started before consent is never counted after re-enabling', async
   await telemetry.setEnabled(false);
   await telemetry.setEnabled(true);
   await new Promise(resolve => setTimeout(resolve, 250));
+  assert.equal(reports.filter(item => item.operation === 'apply').length, 0);
+});
+
+test('a completed old requestKey cannot backfill when retried after opt-in', async () => {
+  const reports = [];
+  const telemetry = createDesktopAutomationTelemetry({ packaged: true, version: '0.5.0', fetchImpl: async (_url, options) => { reports.push(JSON.parse(options.body)); } });
+  await telemetry.start();
+  let calls = 0;
+  const bridge = createMcpBridge({ configPath: join('/tmp', `pixelwall-mcp-test-${Date.now()}-7.json`), telemetry, webContents: { executeJavaScript: async source => {
+    if (source.includes('api["apply"]')) { calls += 1; return { operationId: 'same-1', status: 'completed', changed: true }; }
+    return null;
+  } } });
+  await bridge.handle({ id: 1, token: bridge.token, method: 'tools/call', params: { name: 'pixelwall_apply', arguments: { commands: [{}], wait: false, requestKey: 'retry-1' } } });
+  await telemetry.setEnabled(true);
+  await bridge.handle({ id: 2, token: bridge.token, method: 'tools/call', params: { name: 'pixelwall_apply', arguments: { commands: [{}], wait: false, requestKey: 'retry-1' } } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls, 2);
   assert.equal(reports.filter(item => item.operation === 'apply').length, 0);
 });

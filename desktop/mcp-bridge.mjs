@@ -74,37 +74,39 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
   const report = input => { try { telemetry?.report?.(input); } catch { /* telemetry never affects the local editor */ } };
   const activeObservers = new Set();
   const operationEpochs = new Map();
-  const reportTool = (name, args, result, outcome = 'success') => {
+  const reportTool = (name, args, result, outcome = 'success', context = {}) => {
     const normalizedOutcome = outcome === 'failed' ? 'failure' : outcome;
     const terminal = result?.operation || result;
     if (name === 'pixelwall_apply') {
       if (!terminal || !['completed', 'failed', 'cancelled'].includes(terminal.status)) {
-        if (normalizedOutcome !== 'success') report({ operation: 'apply', outcome: normalizedOutcome, dedupeKey: args?.requestKey ? `apply-request:${args.requestKey}` : undefined });
+        if (normalizedOutcome !== 'success' && context.eligible === true && context.epoch === telemetry?.getConsentEpoch?.()) report({ operation: 'apply', outcome: normalizedOutcome, dedupeKey: args?.requestKey ? `apply-request:${args.requestKey}` : undefined });
         return;
       }
       const operationId = terminal.operationId || result.operationId;
-      if (operationId && operationEpochs.has(operationId) && operationEpochs.get(operationId) !== telemetry?.getConsentEpoch?.()) { operationEpochs.delete(operationId); return; }
-      if (operationId) operationEpochs.delete(operationId);
+      const record = operationId ? operationEpochs.get(operationId) : null;
+      const eligible = record ? record.eligible && record.epoch === telemetry?.getConsentEpoch?.() : context.eligible && context.epoch === telemetry?.getConsentEpoch?.();
+      if (!eligible) return;
       report({ operation: 'apply', outcome: terminal.status === 'completed' ? 'success' : (terminal.status === 'failed' ? 'failure' : terminal.status), changed: terminal.changed ?? result.changed, ...(operationId ? { dedupeKey: `apply:${operationId}` } : {}) });
       return;
     }
     if (name === 'pixelwall_operation') {
       if (!['completed', 'failed', 'cancelled'].includes(result?.status)) return;
       const operationId = result.operationId || result.id;
-      if (!operationId || !operationEpochs.has(operationId) || operationEpochs.get(operationId) !== telemetry?.getConsentEpoch?.()) return;
-      operationEpochs.delete(operationId);
+      const record = operationEpochs.get(operationId);
+      if (!record?.eligible || record.epoch !== telemetry?.getConsentEpoch?.()) return;
       report({ operation: 'apply', outcome: result.status === 'completed' ? 'success' : (result.status === 'failed' ? 'failure' : result.status), changed: result.changed, ...(operationId ? { dedupeKey: `apply:${operationId}` } : {}) });
       return;
     }
     if (name === 'pixelwall_cancel') {
       if (result?.status === 'cancelled') {
         const operationId = result.operationId || result.id;
-        if (!operationId || !operationEpochs.has(operationId) || operationEpochs.get(operationId) !== telemetry?.getConsentEpoch?.()) return;
-        operationEpochs.delete(operationId);
+        const record = operationEpochs.get(operationId);
+        if (!record?.eligible || record.epoch !== telemetry?.getConsentEpoch?.()) return;
         report({ operation: 'apply', outcome: 'cancelled', dedupeKey: `apply:${operationId}` });
       }
       return;
     }
+    if (context.eligible !== true || context.epoch !== telemetry?.getConsentEpoch?.()) return;
     const operations = {
       pixelwall_lua: 'lua', pixelwall_color_profile: 'color_profile', pixelwall_undo: 'undo', pixelwall_redo: 'redo',
       pixelwall_new_document: 'new_document', pixelwall_open_project: 'open_project', pixelwall_import_project: 'import_project',
@@ -115,6 +117,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
     const operation = operations[name]; if (!operation) return;
     let operationOutcome = normalizedOutcome;
     if (operation === 'validate' && result?.valid === false) operationOutcome = 'failure';
+    if (operation === 'save' && result?.saved === false) operationOutcome = 'failure';
     if (operation === 'download_artifact') operationOutcome = result?.status === 'missing' ? 'missing' : result?.status === 'requested' ? 'success' : normalizedOutcome === 'success' ? 'failure' : normalizedOutcome;
     if (operation === 'read_artifact' && result == null && normalizedOutcome === 'success') operationOutcome = 'missing';
     if (operation === 'remove_artifact' && result === false && normalizedOutcome === 'success') operationOutcome = 'missing';
@@ -172,19 +175,22 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
           const started = await call('apply', args);
           if (started?.operationId) {
             hooks.onOperation?.(started.operationId);
-            operationEpochs.set(started.operationId, telemetry?.getConsentEpoch?.());
+            const record = { epoch: hooks.telemetryContext?.epoch, eligible: hooks.telemetryContext?.eligible === true };
+            if (!operationEpochs.has(started.operationId)) operationEpochs.set(started.operationId, record);
+            if (operationEpochs.size > 1024) operationEpochs.delete(operationEpochs.keys().next().value);
             if (hooks.cancelled?.()) void call('cancel', started.operationId).catch(() => {});
             // Continue observing a fire-and-forget apply so its terminal
             // outcome is recorded even when the caller never polls.
-            const observer = { stopped: false };
+            const observer = { stopped: false, epoch: record.epoch, eligible: record.eligible };
             activeObservers.add(observer);
             void (async () => {
+              if (!observer.eligible) { activeObservers.delete(observer); return; }
               let current = started;
-              for (let attempt = 0; attempt < 3000 && !observer.stopped && !['completed', 'failed', 'cancelled'].includes(current?.status); attempt += 1) {
+              for (let attempt = 0; attempt < 3000 && !observer.stopped && observer.epoch === telemetry?.getConsentEpoch?.() && !['completed', 'failed', 'cancelled'].includes(current?.status); attempt += 1) {
                 await new Promise(resolveDelay => setTimeout(resolveDelay, 100));
                 try { current = await call('operation', started.operationId); } catch { activeObservers.delete(observer); return; }
               }
-              if (!observer.stopped && ['completed', 'failed', 'cancelled'].includes(current?.status)) reportTool('pixelwall_operation', {}, current);
+              if (!observer.stopped && observer.epoch === telemetry?.getConsentEpoch?.() && ['completed', 'failed', 'cancelled'].includes(current?.status)) reportTool('pixelwall_operation', {}, current);
               activeObservers.delete(observer);
             })();
           }
@@ -195,7 +201,9 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
         const started = await call('apply', { ...(args || {}), wait: false });
         const operationId = started?.operationId;
         if (!operationId) return started;
-        operationEpochs.set(operationId, telemetry?.getConsentEpoch?.());
+        const record = { epoch: hooks.telemetryContext?.epoch, eligible: hooks.telemetryContext?.eligible === true };
+        if (!operationEpochs.has(operationId)) operationEpochs.set(operationId, record);
+        if (operationEpochs.size > 1024) operationEpochs.delete(operationEpochs.keys().next().value);
         hooks.onOperation?.(operationId);
         if (hooks.cancelled?.()) { await call('cancel', operationId).catch(() => {}); throw Error('Local PixelWall connection closed.'); }
         let current = started;
@@ -259,16 +267,17 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
       const name = message.params?.name;
       const schema = dynamicSchemas.get(name);
       if (!schema) return errorResponse(message.id, -32602, 'Unknown PixelWall tool.');
+      const telemetryContext = { eligible: telemetry?.isEnabled?.() === true, epoch: telemetry?.getConsentEpoch?.() };
       try {
         validateInput(schema, message.params?.arguments || {});
         const arguments_ = message.params?.arguments || {};
-        const result = await invoke(name, arguments_, hooks);
-        reportTool(name, arguments_, result);
+        const result = await invoke(name, arguments_, { ...hooks, telemetryContext });
+        reportTool(name, arguments_, result, 'success', telemetryContext);
         return response(message.id, { content: [{ type: 'text', text: JSON.stringify(result ?? null) }], ...(result && typeof result === 'object' && !Array.isArray(result) ? { structuredContent: result } : {}), isError: false });
       } catch (error) {
         const blocked = error?.name === 'ProExportRequired' || (name === 'pixelwall_export' && /^Pro access is required/i.test(String(error?.message || '')));
-        if (error?.pixelwallOperation) reportTool(name, message.params?.arguments || {}, error.pixelwallOperation);
-        else reportTool(name, message.params?.arguments || {}, null, blocked ? 'blocked' : 'failure');
+        if (error?.pixelwallOperation) reportTool(name, message.params?.arguments || {}, error.pixelwallOperation, 'success', telemetryContext);
+        else reportTool(name, message.params?.arguments || {}, null, blocked ? 'blocked' : 'failure', telemetryContext);
         return response(message.id, { content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }], isError: true });
       }
     }

@@ -38,6 +38,7 @@ export function createDesktopAutomationTelemetry({
   let disposed = false;
   let inFlight = 0;
   let consentEpoch = 0;
+  let preferenceGeneration = 0;
   const pending = new Map();
   const reported = new Set();
 
@@ -90,6 +91,7 @@ export function createDesktopAutomationTelemetry({
     async start() { return initialize(); },
     async setEnabled(enabled) {
       await initialize();
+      const generation = ++preferenceGeneration;
       const next = { ...settings, enabled: Boolean(enabled) };
       consentEpoch += 1;
       if (!next.enabled) {
@@ -101,9 +103,10 @@ export function createDesktopAutomationTelemetry({
         pending.clear();
       }
       if (!await persist(next)) {
-        settings.enabled = false;
+        if (generation === preferenceGeneration) settings.enabled = false;
         throw new Error('The anonymous MCP usage preference could not be saved.');
       }
+      if (generation !== preferenceGeneration) return { ...settings };
       settings = cleanSettings(next);
       return { ...settings };
     },
