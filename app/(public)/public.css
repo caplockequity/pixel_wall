@@ -8,9 +8,8 @@
 .public-site .eyebrow { font-family: var(--font-geist-mono), monospace; font-size: .78rem; font-weight: 600; letter-spacing: .09em; line-height: 1.5; text-transform: uppercase; margin-bottom: 1.25rem; }
 .site-header, .home-hero, .home-section, .site-footer, .document-page { max-width: 1200px; margin: auto; padding-inline: clamp(20px, 4vw, 48px); }
 .site-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; min-height: 90px; border-bottom: 1px solid #17162830; }
-.site-brand { font-size: 1.3rem; letter-spacing: -.06em; font-weight: 900; text-decoration: none; white-space: nowrap; }
-.site-brand > span:first-child { color: #6848b2; }
-.brand-dot { display: inline-block; margin-left: .5em; color: #171628; }
+.site-brand { display: inline-flex; align-items: center; gap: 8px; font-size: 1.1875rem; letter-spacing: -.04em; font-weight: 900; text-decoration: none; white-space: nowrap; }
+.site-brand img { display: block; flex-shrink: 0; width: 32px; height: 32px; }
 .site-header nav { display: flex; gap: clamp(16px, 3vw, 32px); align-items: center; }
 .site-header nav > a { font-size: .9rem; font-weight: 600; text-decoration: none; }
 .site-button { display: inline-flex; align-items: center; justify-content: center; gap: 22px; min-height: 52px; padding: 13px 22px; border: 2px solid #171628; background: #ffe66d; text-decoration: none; font-weight: 700; line-height: 1.3; box-shadow: 3px 3px 0 #171628; transition: transform .15s, box-shadow .15s; }
