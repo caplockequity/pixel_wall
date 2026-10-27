@@ -100,3 +100,27 @@ not a claim that 0.6.0 has been published.
 Before publication: run the full web build/tests, desktop build and native MCP
 smoke, production export/reopen checks, assembled closed-connection tests, and
 signed/notarized package verification.
+
+## Desktop 0.6.1 storage regression
+
+Save and Save As establish a file-backed document only after the native write
+confirms the captured document and its per-document revision. Closing saves
+native bindings before checking library capacity; checkpoint receipts still use
+the separate global editor revision. Startup restores bound files without
+overwriting older library snapshots. Unavailable native recovery blocks writes
+from stale library copies. Closing a tab continues to retain library artwork.
+
+Regression coverage includes failed and cancelled saves, different global and
+per-document revisions, retained tabs, full-library Save As, file-backed project
+switching, and startup recovery. After `npm run build:standalone`, run the actual
+Electron renderer round trip with:
+
+```sh
+desktop/node_modules/.bin/electron scripts/verify-native-storage-roundtrip.mjs --output /path/to/disposable/build-output
+```
+
+The harness creates an isolated library and native binding registry, injects a
+protected storage-budget fixture, saves changed pixels through Save As, verifies
+both renderer and native close acknowledgements, reopens the renderer, and checks
+the restored file pixels while the older library snapshot remains unchanged.
+Its test windows close in `finally`; the output directory retains the report.

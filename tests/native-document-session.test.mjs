@@ -52,3 +52,93 @@ test('file events arriving during Save wait and are imported exactly once afterw
 test('missing recovery documents reopen only the bridge-owned original path',async()=>{
   const f=fixture();f.documents.delete('b');f.bridge.reopen=async request=>{assert.deepEqual(request,{documentId:'b'});return {status:'opened',files:[{token:'t',existingDocumentId:'b',recovery:true,name:'Recovered'}]};};await f.session.recoverMissing();assert.ok(f.calls.some(c=>c[0]==='activate'));assert.equal(f.session.busy,false);
 });
+
+test('startup reconciliation restores a native file over a stale same-ID library copy', async () => {
+  const calls = [], fileDocument = { id: 'same-id', name: 'newer file' };
+  const bridge = {
+    async list() { return [{ documentId: 'same-id', name: 'scene.pixelwall', lastSavedRevision: 8 }]; },
+    async reopen(request) { calls.push(['reopen', request]); return { status: 'opened', deliveryId: 'delivery', files: [{ token: 'open', existingDocumentId: 'same-id', name: 'scene.pixelwall', bytes: new Uint8Array([1]) }] }; },
+    async bindOpen(request) { calls.push(['bind', request]); return { status: 'bound', documentId: request.documentId }; },
+    async cancelOpen(request) { calls.push(['cancel', request]); },
+    async ackOpen(request) { calls.push(['ack', request]); },
+    async info() { return { format: 'pixelwall' }; },
+    async chooseSave() { return { status: 'ready', token: 'save', format: 'pixelwall' }; },
+    async writeSave(request) { return { status: 'saved', documentId: request.documentId, lastSavedRevision: request.revision }; },
+    async cancelSave() {},
+  };
+  const host = {
+    read: async () => ({ document: { id: 'same-id', name: 'old library copy' }, revision: 1 }),
+    decode: async () => ({ document: fileDocument, warnings: [] }),
+    restoreNative: async ({ document, revision, source, binding }) => { calls.push(['restore', document, revision, source.name, binding.documentId]); },
+    encode: async () => new Uint8Array([1]),
+  };
+  const session = createNativeDocumentSession(bridge, host);
+  const result = await session.recoverMissing();
+  assert.deepEqual(result, { status: 'recovered', recovered: ['same-id'], errors: [] });
+  assert.deepEqual(calls.map(call => call[0]), ['reopen', 'bind', 'restore', 'ack']);
+  assert.equal(calls.find(call => call[0] === 'restore')[1].id, 'same-id');
+  assert.equal(calls.find(call => call[0] === 'bind')[1].revision, 8);
+});
+
+test('failed startup reconciliation blocks writes instead of overwriting the native file with the library copy', async () => {
+  let writes = 0;
+  const bridge = {
+    async list() { return [{ documentId: 'same-id', name: 'scene.pixelwall', lastSavedRevision: 4 }]; },
+    async reopen() { return { status: 'error', errors: [{ reason: 'The file was moved or deleted.' }] }; },
+    async info() { return { format: 'pixelwall' }; },
+    async chooseSave() { return { status: 'ready', token: 'save', format: 'pixelwall' }; },
+    async writeSave() { writes++; return { status: 'saved', documentId: 'same-id', lastSavedRevision: 1 }; },
+    async cancelSave() {},
+  };
+  const session = createNativeDocumentSession(bridge, {
+    read: async () => ({ document: { id: 'same-id' }, revision: 1 }),
+    restoreNative: async () => {},
+    encode: async () => new Uint8Array([1]),
+  });
+  const result = await session.recoverMissing();
+  assert.equal(result.status, 'error');
+  await assert.rejects(session.saveCurrent(), /could not be restored/);
+  await assert.rejects(session.saveAll(), /could not be restored/);
+  assert.equal(writes, 0);
+});
+
+test('a native registry outage blocks writes until a later reconciliation succeeds', async () => {
+  let available = false, writes = 0;
+  const bridge = {
+    async list() { if (!available) throw Error('Registry unavailable'); return []; },
+    async info() { return { format: 'pixelwall' }; },
+    async chooseSave() { return { status: 'ready', token: 'save', format: 'pixelwall' }; },
+    async writeSave() { writes++; return { status: 'saved', documentId: 'doc', lastSavedRevision: 1 }; },
+    async cancelSave() {},
+  };
+  const session = createNativeDocumentSession(bridge, { read: async () => ({ document: { id: 'doc' }, revision: 1 }), encode: async () => new Uint8Array([1]), restoreNative: async () => {} });
+  assert.equal((await session.recoverMissing()).status, 'error');
+  await assert.rejects(session.saveCurrent(), /could not be restored/);
+  available = true;
+  assert.equal((await session.recoverMissing()).status, 'current');
+  await session.saveCurrent();
+  assert.equal(writes, 1);
+});
+
+test('failed native recovery acknowledges its delivery even when no file token is usable', async () => {
+  let acknowledged = 0;
+  const bridge = {
+    async list() { return [{ documentId: 'doc', name: 'scene.pixelwall' }]; },
+    async reopen() { return { status: 'error', deliveryId: 'delivery', files: [], errors: [{ reason: 'Decode failed' }] }; },
+    async ackOpen() { acknowledged++; },
+  };
+  const session = createNativeDocumentSession(bridge, { read: async () => ({ document: { id: 'doc' }, revision: 1 }), restoreNative: async () => {} });
+  const result = await session.recoverMissing();
+  assert.equal(result.status, 'error');
+  assert.equal(acknowledged, 1);
+});
+
+test('accepting a native open saves a currently file-backed document in place before switching', async () => {
+  const f = fixture();
+  let encoded = 0;
+  f.host.read = async () => ({ document: { id: 'a', name: 'A' }, revision: 3, mode: 'file' });
+  f.host.flushRecovery = async () => { throw Error('library storage is unavailable'); };
+  f.host.encode = async () => { encoded++; return new Uint8Array([1]); };
+  await f.session.acceptOpen({ status: 'cancelled', files: [] });
+  assert.equal(encoded, 1);
+});

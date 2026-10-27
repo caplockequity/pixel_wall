@@ -12,7 +12,7 @@ const text=readFileSync(new URL('../app/workbench.jsx',import.meta.url),'utf8');
 const parsed=ts.createSourceFile('workbench.jsx',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.JSX);
 function production(name,scope,host=false){let found;function visit(node){if(!host&&ts.isFunctionDeclaration(node)&&node.name?.text===name)found=node;if(host&&ts.isBinaryExpression(node)&&node.left.getText(parsed)==='hostRef.current'&&ts.isObjectLiteralExpression(node.right)){found=node.right.properties.find(p=>p.name?.getText(parsed)===name)?.initializer??found;}ts.forEachChild(node,visit);}visit(parsed);assert(found,`Missing production ${name}`);return new Function('scope',`with(scope){return (${found.getText(parsed)});}`)(scope);}
 const ref=current=>({current});
-function closeScope(){const document=createDocument({width:2,height:2});const scope={temporaryDocumentsRef:ref(new Map()),savedDocumentsRef:ref(new Map()),docRef:ref(document),revisionRef:ref(5),documentModeRef:ref('temporary'),checkpointDeliveryRef:ref(null),nativeSessionRef:ref(null),historyValuesEqual,save:async()=>({saved:false})};scope.close=production('saveForClose',scope,true);return scope;}
+function closeScope(){const document=createDocument({width:2,height:2});const scope={temporaryDocumentsRef:ref(new Map()),savedDocumentsRef:ref(new Map()),documentRevisionsRef:ref(new Map([[document.id,5]])),docRef:ref(document),revisionRef:ref(17),documentModeRef:ref('temporary'),checkpointDeliveryRef:ref(null),nativeSessionRef:ref(null),historyValuesEqual,save:async()=>({saved:false}),setSaveStatus(){},setNotice(){}};scope.close=production('saveForClose',scope,true);return scope;}
 const checkpoint=(document,revision)=>({status:'verified',documentId:document.id,revision,sha256:'a'.repeat(64),bytes:20});
 function checkpointGuard({current, revision = 0, mode = 'library', checkpoint: receipt = null, retained = [], saved = []} = {}) {
   const savedDocuments = new Map(saved.map(document => [document.id, document]));
@@ -100,8 +100,8 @@ test('production closeDocumentTab describes retained checkpoint state instead of
   assert.doesNotMatch(notices.at(-1), /saved on this device/i);
 });
 test('production close handler accepts only exact checkpoints and protects dirty retained library content',async()=>{
- const s=closeScope();assert.equal((await s.close()).saved,false);s.checkpointDeliveryRef.current=checkpoint(s.docRef.current,4);assert.equal((await s.close()).saved,false);
- s.checkpointDeliveryRef.current=checkpoint(s.docRef.current,5);assert.equal((await s.close()).saved,true);
+ const s=closeScope();assert.equal((await s.close()).saved,false);s.checkpointDeliveryRef.current=checkpoint(s.docRef.current,16);assert.equal((await s.close()).saved,false);
+ s.checkpointDeliveryRef.current=checkpoint(s.docRef.current,17);assert.equal((await s.close()).saved,true);
  const original=createDocument({width:2,height:2}),dirty=applyCommand(original,{type:'draw.rect',x:0,y:0,width:1,height:1,filled:true,color:'#ff0000ff'});
  s.savedDocumentsRef.current.set(original.id,original);s.temporaryDocumentsRef.current.set(original.id,{document:dirty,revision:2,storedRevision:2,mode:'library'});
  assert.equal((await s.close()).saved,false,'equal revision counters do not prove content saved');
@@ -111,10 +111,17 @@ test('production close handler accepts only exact checkpoints and protects dirty
 test('production close handler verifies every retained bound file and its revision',async()=>{
  const s=closeScope();s.documentModeRef.current='file';s.nativeSessionRef.current={saveAll:async()=>[{id:s.docRef.current.id,revision:5}]};
  assert.equal((await s.close()).saved,true,'real native saveAll uses id and revision');
+ s.nativeSessionRef.current.saveAll=async()=>[];assert.equal((await s.close()).saved,false,'a missing current binding is not replaced by a successful library fallback');
  s.nativeSessionRef.current.saveAll=async()=>[{id:s.docRef.current.id,revision:4}];assert.equal((await s.close()).saved,false);
  s.nativeSessionRef.current.saveAll=async()=>[{id:s.docRef.current.id,revision:5}];const retained=createDocument({width:2,height:2});
- s.temporaryDocumentsRef.current.set(retained.id,{document:retained,revision:3,mode:'file'});assert.equal((await s.close()).saved,false,'unbound retained file cannot be assumed saved');
+ s.documentRevisionsRef.current.set(retained.id,3);s.temporaryDocumentsRef.current.set(retained.id,{document:retained,revision:11,mode:'file'});assert.equal((await s.close()).saved,false,'unbound retained file cannot be assumed saved');
  s.nativeSessionRef.current.saveAll=async()=>[{id:s.docRef.current.id,revision:5},{id:retained.id,revision:3}];assert.equal((await s.close()).saved,true);
+});
+test('production close saves a retained bound library document before treating it as file-backed',async()=>{
+ const s=closeScope();s.documentModeRef.current='file';const original=createDocument({id:'retained-bound',width:2,height:2});const dirty=applyCommand(original,{type:'draw.rect',x:0,y:0,width:1,height:1,filled:true,color:'#ff0000ff'});
+ s.savedDocumentsRef.current.set(original.id,original);s.documentRevisionsRef.current.set(original.id,5);const entry={document:dirty,revision:11,mode:'library'};s.temporaryDocumentsRef.current.set(dirty.id,entry);
+ s.nativeSessionRef.current={saveAll:async()=>[{id:s.docRef.current.id,revision:5},{id:dirty.id,revision:5}]};
+ assert.equal((await s.close()).saved,true);
 });
 test('production export plan describes exact frames and current entitlement without asking for access',()=>{
  let doc=createDocument({width:4,height:3});doc=applyCommand(doc,{type:'frame.duplicate',frameId:doc.frames[0].id,linked:true});doc=applyCommand(doc,{type:'frame.duplicate',frameId:doc.frames[0].id,linked:true});
