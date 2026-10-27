@@ -14,6 +14,36 @@ function production(name,scope,host=false){let found;function visit(node){if(!ho
 const ref=current=>({current});
 function closeScope(){const document=createDocument({width:2,height:2});const scope={temporaryDocumentsRef:ref(new Map()),savedDocumentsRef:ref(new Map()),docRef:ref(document),revisionRef:ref(5),documentModeRef:ref('temporary'),checkpointDeliveryRef:ref(null),nativeSessionRef:ref(null),historyValuesEqual,save:async()=>({saved:false})};scope.close=production('saveForClose',scope,true);return scope;}
 const checkpoint=(document,revision)=>({status:'verified',documentId:document.id,revision,sha256:'a'.repeat(64),bytes:20});
+function checkpointGuard({current, revision = 0, mode = 'library', checkpoint: receipt = null, retained = [], saved = []} = {}) {
+  const savedDocuments = new Map(saved.map(document => [document.id, document]));
+  return production('hasUncheckpointedWork', { historyValuesEqual })(current, revision, mode, receipt, new Map(retained.map(entry => [entry.document.id, entry])), savedDocuments);
+}
+
+test('production checkpoint guard includes retained temporary work when current library is saved', () => {
+  const current = createDocument({ id: 'saved-current', width: 2, height: 2 });
+  const retained = createDocument({ id: 'retained-temp', width: 2, height: 2 });
+  assert.equal(checkpointGuard({ current, saved: [current], retained: [{ document: retained, revision: 2, mode: 'temporary' }] }), true);
+});
+
+test('production checkpoint guard accepts an exact verified checkpoint for retained temporary work', () => {
+  const current = createDocument({ id: 'saved-current', width: 2, height: 2 });
+  const retained = createDocument({ id: 'retained-temp', width: 2, height: 2 });
+  assert.equal(checkpointGuard({ current, saved: [current], retained: [{ document: retained, revision: 2, mode: 'temporary', checkpoint: checkpoint(retained, 2) }] }), false);
+});
+
+test('production checkpoint guard rejects stale checkpoints and generated receipts', () => {
+  const current = createDocument({ id: 'saved-current', width: 2, height: 2 });
+  const retained = createDocument({ id: 'retained-temp', width: 2, height: 2 });
+  assert.equal(checkpointGuard({ current, saved: [current], retained: [{ document: retained, revision: 3, mode: 'temporary', checkpoint: checkpoint(retained, 2) }] }), true);
+  assert.equal(checkpointGuard({ current, saved: [current], retained: [{ document: retained, revision: 2, mode: 'temporary', checkpoint: { status: 'generated', documentId: retained.id, revision: 2 } }] }), true);
+});
+
+test('production checkpoint guard warns for dirty retained library documents', () => {
+  const current = createDocument({ id: 'saved-current', width: 2, height: 2 });
+  const retained = createDocument({ id: 'retained-library', width: 2, height: 2 });
+  const savedRetained = applyCommand(retained, { type: 'draw.rect', x: 0, y: 0, width: 1, height: 1, filled: true, color: '#ff0000ff' });
+  assert.equal(checkpointGuard({ current, saved: [current, savedRetained], retained: [{ document: retained, revision: 2, mode: 'library' }] }), true);
+});
 
 function openScope({mode = 'temporary', saveResult = { saved: true }, retained = [], stored = []} = {}) {
   const current = createDocument({ id: 'current', width: 2, height: 2 });
