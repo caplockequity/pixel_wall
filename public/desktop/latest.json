@@ -1,46 +1,44 @@
 {
   "schemaVersion": 1,
-  "version": "0.4.1",
-  "publishedAt": "2026-10-26",
-  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-4-1",
+  "version": "0.4.2",
+  "publishedAt": "2026-10-27",
+  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-4-2",
   "releaseNotes": [
-    "Start long command batches asynchronously and track commands processed, current revision, completion, and errors. Recover operation status after a caller timeout; each batch commits once or rolls back completely.",
-    "The editor stays responsive between command chunks and displays progress for long edits.",
-    "Generate exports with optional downloads and retrieve file URLs and metadata. Generation and download requests have separate status; browser download completion is explicitly unobservable.",
-    "Save losslessly compressed editable .pixelwall backups in the web editor, desktop app, and CLI. Existing JSON projects still open; update older installations before opening compact projects. CLI JSON export remains available.",
-    "Follow the new large-agent-edits guide: a 600 × 350 layered river using 40 shape commands, bounded Lua details, progress recovery, and export handoff.",
+    "Fixed reopening compressed .pixelwall backups through the editor file picker and drag-and-drop. Existing compact backups now open without conversion.",
+    "Preserved compatibility with older JSON project backups. Invalid or damaged files leave the currently open artwork unchanged.",
+    "The fix is included in the web editor, downloadable browser edition, and desktop app.",
     "In PixelWall 0.3.2 or later, choose Check for Updates, download, then Restart to update. Your artwork is saved first."
   ],
   "downloads": {
     "darwin-arm64": {
-      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.1/PixelWall-0.4.1-mac-arm64.zip",
-      "filename": "PixelWall-0.4.1-mac-arm64.zip",
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.2/PixelWall-0.4.2-mac-arm64.zip",
+      "filename": "PixelWall-0.4.2-mac-arm64.zip",
       "signed": true,
-      "size": 114732739,
-      "sha256": "6669c1f88099b77b2f5be295f2e4c6037b9707d1e32ddd0d90367f258dacdc1c",
+      "size": 114732623,
+      "sha256": "2fecda3020a3dedc0a1e21fb2ad1084c11bf052776033c9087efce7c352bc9c4",
       "notarized": true
     },
     "darwin-x64": {
-      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.1/PixelWall-0.4.1-mac-x64.zip",
-      "filename": "PixelWall-0.4.1-mac-x64.zip",
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.2/PixelWall-0.4.2-mac-x64.zip",
+      "filename": "PixelWall-0.4.2-mac-x64.zip",
       "signed": true,
-      "size": 121481600,
-      "sha256": "6e9c574203fafd21f9307d59500d71f569f79ff2551646337fc84ea4d29fe56b",
+      "size": 121481950,
+      "sha256": "8c76f4437f40c666b2f4dcf8d2417c43baf559e7358bb4665875344d226a5298",
       "notarized": true
     },
     "win32-x64": {
-      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.1/PixelWall-0.4.1-windows-x64.exe",
-      "filename": "PixelWall-0.4.1-windows-x64.exe",
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.2/PixelWall-0.4.2-windows-x64.exe",
+      "filename": "PixelWall-0.4.2-windows-x64.exe",
       "signed": false,
-      "size": 95151212,
-      "sha256": "8019772b06d6f5915981d3fe35afae5c585aede184fb205605aa846e4ce0380b"
+      "size": 95151203,
+      "sha256": "f916ba4564508fbf92a58aba3a671b3fd3c7f598a2371284e38fb0e6a0bed46b"
     },
     "linux-x64": {
-      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.1/PixelWall-0.4.1-linux-x64.AppImage",
-      "filename": "PixelWall-0.4.1-linux-x64.AppImage",
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.2/PixelWall-0.4.2-linux-x64.AppImage",
+      "filename": "PixelWall-0.4.2-linux-x64.AppImage",
       "signed": false,
-      "size": 118350689,
-      "sha256": "4c34c34d8782225fdae7cf58c63f2067e2cde54ecaa755227f32f2a73e60d81a"
+      "size": 118350654,
+      "sha256": "587e6525423b096b63b1fbc80594cd19fca7890ed5f0a97ae092c712863214c5"
     }
   }
 }

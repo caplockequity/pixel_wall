@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "version": "0.4.2",
+  "publishedAt": "2026-10-27",
+  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-4-2",
+  "releaseNotes": [
+    "Fixed reopening compressed .pixelwall backups through the editor file picker and drag-and-drop. Existing compact backups now open without conversion.",
+    "Preserved compatibility with older JSON project backups. Invalid or damaged files leave the currently open artwork unchanged.",
+    "The fix is included in the web editor, downloadable browser edition, and desktop app.",
+    "In PixelWall 0.3.2 or later, choose Check for Updates, download, then Restart to update. Your artwork is saved first."
+  ],
+  "downloads": {
+    "darwin-arm64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.2/PixelWall-0.4.2-mac-arm64.zip",
+      "filename": "PixelWall-0.4.2-mac-arm64.zip",
+      "signed": true,
+      "size": 114732623,
+      "sha256": "2fecda3020a3dedc0a1e21fb2ad1084c11bf052776033c9087efce7c352bc9c4",
+      "notarized": true
+    },
+    "darwin-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.2/PixelWall-0.4.2-mac-x64.zip",
+      "filename": "PixelWall-0.4.2-mac-x64.zip",
+      "signed": true,
+      "size": 121481950,
+      "sha256": "8c76f4437f40c666b2f4dcf8d2417c43baf559e7358bb4665875344d226a5298",
+      "notarized": true
+    },
+    "win32-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.2/PixelWall-0.4.2-windows-x64.exe",
+      "filename": "PixelWall-0.4.2-windows-x64.exe",
+      "signed": false,
+      "size": 95151203,
+      "sha256": "f916ba4564508fbf92a58aba3a671b3fd3c7f598a2371284e38fb0e6a0bed46b"
+    },
+    "linux-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.2/PixelWall-0.4.2-linux-x64.AppImage",
+      "filename": "PixelWall-0.4.2-linux-x64.AppImage",
+      "signed": false,
+      "size": 118350654,
+      "sha256": "587e6525423b096b63b1fbc80594cd19fca7890ed5f0a97ae092c712863214c5"
+    }
+  }
+}
