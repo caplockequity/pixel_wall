@@ -3,6 +3,7 @@ import updateRelease from "../../../public/desktop/releases/0.3.2.json";
 import release033 from "../../../public/desktop/releases/0.3.3.json";
 import release040 from "../../../public/desktop/releases/0.4.0.json";
 import release041 from "../../../public/desktop/releases/0.4.1.json";
+import release042 from "../../../public/desktop/releases/0.4.2.json";
 import recentRelease from "../../../public/desktop/releases/0.3.1.json";
 import previousRelease from "../../../public/desktop/releases/0.3.0.json";
 import earlierRelease from "../../../public/desktop/releases/0.2.1.json";
@@ -45,6 +46,7 @@ const launchNotes = [
   { title: "Exports", detail: "Free native project and individual PNG/BMP/TGA exports. Pro adds animated GIFs, sprite atlases with JSON, Tiled game packages, and saved export presets." },
   { title: "Local ownership", detail: "A document library with recovery versions, portable project backups, downloadable browser and CLI bundles, and offline Pro ownership licenses." },
   { title: "Free automation", detail: "JavaScript commands, a browser command API, Lua scripting, extensions, and a local CLI. External tools can control PixelWall when their environment provides access; no AI runs inside the app." },
+  { title: "Local agent connection", detail: "The desktop app can opt in to an authenticated local MCP launcher for inspection, bounded edits, previews, exports, and verified generated-file handoff. It requires a downloaded CLI, Node.js 22.13 or newer, and a selected export folder." },
 ];
 
 function downloadUrl(download: Download) {
@@ -120,6 +122,7 @@ export default function DownloadsPage() {
         <h2 id="release-history-heading">Release history.</h2>
         <nav className="downloads-release-nav" aria-label="Release versions">
           <a href={`#${releaseId}`}>{release.version} · Latest</a>
+          {release.version !== release042.version ? <a href="#release-0-4-2">0.4.2</a> : null}
           {release.version !== release041.version ? <a href="#release-0-4-1">0.4.1</a> : null}
           {release.version !== release040.version ? <a href="#release-0-4-0">0.4.0</a> : null}
           {release.version !== release033.version ? <a href="#release-0-3-3">0.3.3</a> : null}
@@ -135,6 +138,10 @@ export default function DownloadsPage() {
       <div><p className="eyebrow">LATEST RELEASE</p><h3 id="release-notes-heading">PixelWall {release.version}</h3><p className="fine-print"><time dateTime={release.publishedAt}>{releaseDate(release.publishedAt)}</time></p></div>
       <div>{release.releaseNotes.length ? <ul>{release.releaseNotes.map((note, index) => <li key={`${index}-${note}`}>{note}</li>)}</ul> : <p>This release is ready to download above.</p>}<a className="text-link" href={publicLink("/support")}>Need a hand? Get support →</a></div>
     </article>
+    {release.version !== release042.version ? <article className="downloads-release-notes" id="release-0-4-2" aria-labelledby="release-0-4-2-heading">
+      <div><p className="eyebrow">PREVIOUS RELEASE</p><h3 id="release-0-4-2-heading">PixelWall 0.4.2</h3></div>
+      <div><ul>{release042.releaseNotes.map(note => <li key={note}>{note}</li>)}</ul></div>
+    </article> : null}
     {release.version !== release041.version ? <article className="downloads-release-notes" id="release-0-4-1" aria-labelledby="release-0-4-1-heading">
       <div><p className="eyebrow">PREVIOUS RELEASE</p><h3 id="release-0-4-1-heading">PixelWall 0.4.1</h3></div>
       <div><ul>{release041.releaseNotes.map(note => <li key={note}>{note}</li>)}</ul></div>

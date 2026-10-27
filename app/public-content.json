@@ -1261,11 +1261,14 @@
         "items": [
           "version: current browser API version, presently 1.",
           "inspect(): current document summary, revision, and latestOperation. commands(): command descriptions and field reference.",
-          "apply({commands, expectedRevision?, label?, wait?}): apply 1–2000 commands, limited to 16 MiB of JSON, as one undoable change. wait:false returns an operationId before processing; poll operation(id) for staged commandsProcessed, commandsTotal, revision, completion, or error. operations() lists up to 64 in-memory records.",
+          "apply({commands, expectedRevision?, label?, wait?, requestKey?}): apply 1–2000 commands, limited to 16 MiB of JSON, as one undoable change. wait:false returns an operationId before processing; poll operation(id) for staged commandsProcessed, commandsTotal, revision, completion, or error. A requestKey makes an identical retry reuse the retained result in this editor session; a mismatched or expired key is rejected. The session retains up to 1,024 request keys and 64 operation results.",
           "runLua({source, params?, timeoutMs?, expectedRevision?}): run a bounded Lua script with the current document, selection and colors; successful changes are one undoable transaction.",
           "colorProfile(options): inspect, assign or convert a document color profile through the editor’s color manager.",
           "newDocument(options): save the previous document and activate a new one.",
           "preview({frameId?, scale?}): return an in-memory PNG preview at up to 8× scale.",
+          "capturePreview(): retain an immutable baseline for a later visual comparison. The preview and comparison helpers can target frames, layers, crops, and contact-sheet layouts where supported by the current editor.",
+          "validate({commands, expectedRevision?, timeoutMs?}): preflight a command batch without committing it. The timeout bounds validation work; it is not a runtime estimate for applying the batch.",
+          "cancel(operationId): request cancellation of a running batch. Cancellation is checked between commands, and completed commands remain staged until the transaction commits or rolls back.",
           "save(): await a durable local save. It does not download a backup or create cloud storage.",
           "export(options): generate files and request browser downloads by default; pass download:false to generate retrievable files without clicking. The returned exportResult separates generated.files from download status, including per-file requests. exportResult() retrieves the latest handoff. Object URLs live until the next export, dismissal, or editor unmount; browser completion is unobservable.",
           "undo() and redo(): use the active document’s editing history."
@@ -1275,7 +1278,7 @@
         "heading": "Behavior and limits",
         "paragraphs": [
           "An invalid command or mismatched expectedRevision rejects the batch. Catch errors and show them to the user; do not assume that an export or save completed because a call began. The UI’s memory, document, storage, and format limits still apply.",
-          "The API is local to the page. It is not an unauthenticated network editing server and does not upload projects. A user-connected external tool may call it, but PixelWall does not embed AI. The CLI provides the corresponding local-file workflow."
+          "The API is local to the page. It is not an unauthenticated network editing server and does not upload projects. A user-connected external tool may call it, but PixelWall does not embed AI. The CLI and opt-in desktop MCP provide corresponding local workflows."
         ]
       },
       {
@@ -1356,7 +1359,7 @@
       {
         "heading": "Compact native files and readable JSON",
         "paragraphs": [
-          "PixelWall 0.4.1 writes losslessly compressed PWPZ .pixelwall files and reads both compact and legacy JSON projects. A .json output or export --format json keeps an inspectable JSON payload. Update older desktop or CLI installations before opening compact files."
+          "Current PixelWall writes losslessly compressed PWPZ .pixelwall files and reads both compact and legacy JSON projects. A .json output or export --format json keeps an inspectable JSON payload. Update older desktop or CLI installations before opening compact files."
         ]
       }
     ],
@@ -1551,7 +1554,7 @@
   {
     "slug": "guides/ai-agents",
     "title": "Use PixelWall with an AI coding agent",
-    "description": "Connect a coding agent through PixelWall's local CLI, browser command API, Lua scripting, or deliberate browser and desktop control. Includes a complete animated sprite example.",
+    "description": "Connect a coding agent through PixelWall's local CLI, browser command API, local desktop MCP, Lua scripting, or deliberate browser and desktop control. Includes editable scene components and a complete animated sprite example.",
     "eyebrow": "AI AGENTS",
     "intro": "PixelWall does not contain an AI model. An external agent can create and revise artwork when its environment can run local commands, execute code in the editor page, or control the browser or desktop interface. The agent still uses PixelWall's normal editing, saving, and export rules.",
     "sections": [
@@ -1561,6 +1564,7 @@
           "Code execution with Node.js 22.13 or newer: use the downloadable CLI for local project files, command batches, Lua scripts, rendered previews, and exports. This is the most direct option when the agent has a terminal but no interactive canvas.",
           "Browser page execution: a running current editor exposes window.pixelwall version 1 for inspection, revision-checked command batches, Lua, previews, saves, exports, Undo, and Redo.",
           "Browser or desktop computer control: an agent with approved mouse, keyboard, screen, and file access can operate the visible editor. The desktop Help menu links back to this guide.",
+          "Local desktop MCP: PixelWall 0.5.0 can expose the running desktop window through an opt-in authenticated local launcher. It requires Node.js 22.13 or newer, the downloaded CLI bundle, and a user-selected export folder; it does not provide cloud or remote access.",
           "Compatible browser tool registration: when a host supplies a modelContext registration surface, the editor registers its ordinary command tools there. Availability comes from the host environment.",
           "Read-only web or chat access: the agent can read these pages but cannot edit PixelWall unless its host also provides one of the interfaces above."
         ]
@@ -1568,8 +1572,8 @@
       {
         "heading": "What is available today",
         "paragraphs": [
-          "The supported automation surfaces are the local CLI, window.pixelwall in the current editor, bounded Lua 5.4 scripts, JSON command batches, and deliberate computer control. They use the same document and rendering engine in the web and desktop editors.",
-          "PixelWall does not currently publish a standalone MCP server, public REST editing API, JavaScript or Python SDK, or universal agent protocol. There is no automatic connection from an arbitrary ChatGPT conversation. An agent needs explicit access to the local CLI, the running editor page, or the visible application."
+          "The supported automation surfaces are the local CLI, window.pixelwall in the current editor, the opt-in local desktop MCP launcher, bounded Lua 5.4 scripts, JSON command batches, and deliberate computer control. They use the same document and rendering engine in the web and desktop editors.",
+          "PixelWall does not publish a hosted MCP service, public REST editing API, JavaScript or Python SDK, or universal agent protocol. There is no automatic connection from an arbitrary chat. An agent needs explicit access to the local CLI, the running editor page, the opted-in desktop launcher, or the visible application."
         ],
         "links": [
           {
@@ -1591,6 +1595,14 @@
           {
             "href": "/llms.txt",
             "label": "Open the LLM discovery file"
+          },
+          {
+            "href": "/guides/desktop-mcp",
+            "label": "Connect the local desktop MCP launcher"
+          },
+          {
+            "href": "/guides/scene-components",
+            "label": "Generate editable scene components"
           }
         ]
       },
@@ -1647,7 +1659,7 @@
       },
       {
         "question": "Does PixelWall have an MCP server or public REST API?",
-        "answer": "Not currently. Use the documented CLI, browser command API, Lua scripting, JSON command batches, or computer control."
+        "answer": "PixelWall supports an opt-in local desktop MCP launcher for a running desktop window. It requires the downloaded CLI and Node.js 22.13 or newer, uses authenticated local transport, and has no cloud or remote endpoint. Use the CLI, browser command API, Lua scripting, JSON command batches, or computer control when those are a better fit."
       },
       {
         "question": "Can an agent create pixels without moving the mouse?",
@@ -1957,7 +1969,7 @@
       {
         "heading": "Keep an editable backup and run the same workflow locally",
         "paragraphs": [
-          "PixelWall 0.4.1 saves losslessly compressed PWPZ .pixelwall files and still opens legacy JSON project files. Layers, frames, image links, palettes, and project metadata stay editable. File size depends on the artwork; flat pixel scenes can compress especially well. Older PixelWall versions cannot read the new container, so update before opening it.",
+          "Current PixelWall saves losslessly compressed PWPZ .pixelwall files and still opens legacy JSON project files. Layers, frames, image links, palettes, and project metadata stay editable. File size depends on the artwork; flat pixel scenes can compress especially well. Older PixelWall versions cannot read the new container, so update before opening it.",
           "Use CLI --format json when you need a readable project payload for an older tool. Keep the compact project as your editable backup and use PNGs for finished transparent sprites. A local save and a downloaded backup are separate checkpoints."
         ],
         "code": "node pixelwall.mjs new --width 600 --height 350 --name \"Woodland crossing\" --out river.pixelwall\nnode pixelwall.mjs apply river.pixelwall --commands agent-river-commands.json --out river.pixelwall\nnode pixelwall.mjs script river.pixelwall --script agent-river-detail.lua --timeout 10000 --out river-detailed.pixelwall\nnode pixelwall.mjs render river-detailed.pixelwall --frame 0 --out river.png\nnode pixelwall.mjs export river-detailed.pixelwall --format json --out river.json"
@@ -1969,5 +1981,100 @@
       "guides/scripting",
       "guides/command-line"
     ]
+  },
+  {
+    "slug": "guides/desktop-mcp",
+    "lastModified": "2026-10-27",
+    "title": "Connect a local desktop MCP agent",
+    "description": "Use PixelWall's opt-in authenticated local MCP launcher to inspect, edit, preview, export, and retrieve files from a running desktop window.",
+    "eyebrow": "DESKTOP MCP",
+    "intro": "PixelWall's desktop MCP connection is local and deliberate. It controls one open editor window through the same command API used by the desktop UI; it is not a hosted service or a remote editing endpoint.",
+    "sections": [
+      {
+        "heading": "Enable the connection",
+        "paragraphs": [
+          "Install Node.js 22.13 or newer and download the PixelWall CLI bundle. In the desktop app, open Help, enable Allow local agent connection, and choose the export folder when prompted. PixelWall displays the launcher command; configure your MCP client to run it from the extracted CLI folder.",
+          "The launcher reads a short-lived authenticated session created by the desktop app and uses local stdio/loopback transport. One controller may use the open editor window at a time. Disable the Help-menu option, close the window, or stop the client to disconnect."
+        ],
+        "code": "node pixelwall-mcp.mjs"
+      },
+      {
+        "heading": "Use the editing and review tools",
+        "paragraphs": [
+          "The launcher exposes inspection, project selection and import, command validation and application, operation polling and cancellation, previews, undo/redo, saving, exports, and export handoff results. Use wait:false for large batches, poll the returned operation, and include a requestKey when a caller may retry the same apply request.",
+          "capturePreview retains a session baseline for before/after review. Generated exports can be listed and read in bounded chunks, then saved through the approved folder. The browser still cannot report whether a later native download completed."
+        ],
+        "links": [
+          {"href": "/guides/command-api", "label": "Read the shared command API"},
+          {"href": "/guides/review-artifacts", "label": "Review previews and generated files"}
+        ]
+      },
+      {
+        "heading": "Local safety limits",
+        "items": [
+          "The connection has no cloud or remote access and cannot choose an arbitrary filesystem path. Artifact saving is confined to the folder selected in PixelWall.",
+          "Generated artifacts expire after 24 hours and are bounded to 64 files, 128 MiB total, and 64 MiB per file. Reads return at most 1 MiB per chunk and include checksum metadata.",
+          "Cancellation is checked between commands. It does not predict the runtime of an individual command, and validation timeout is a preflight bound rather than an apply runtime guarantee."
+        ]
+      }
+    ],
+    "related": ["guides/ai-agents", "guides/command-api", "guides/review-artifacts", "guides/command-line"]
+  },
+  {
+    "slug": "guides/scene-components",
+    "lastModified": "2026-10-27",
+    "title": "Generate editable scene components",
+    "description": "Compose deterministic trees, rocks, river banks, bridges, and terrain accents with named editable layers and a shared palette.",
+    "eyebrow": "SCENE COMPONENTS",
+    "intro": "Scene components are small deterministic building blocks for agent-assisted pixel scenes. They produce ordinary named layers and shape commands, so you can inspect, revise, and paint over every result.",
+    "sections": [
+      {
+        "heading": "Compose a woodland crossing",
+        "paragraphs": [
+          "Choose a kind such as tree, rock, bank, bridge, or terrain, then provide a seed, style, palette, position, and size. Repeat the same inputs for the same component. Keep a shared palette and place components on separate named layers so later edits remain local.",
+          "The polished 256 × 160 example combines a river base with clustered trees, faceted rocks, grassy banks, and a bridge that reaches both banks. It is a compact editable project rather than a flattened reference image."
+        ],
+        "links": [
+          {"href": "/examples/scene-components-commands.json", "label": "Download the reproducible component commands"},
+          {"href": "/examples/scene-components-woodland.pixelwall", "label": "Download the editable woodland project"},
+          {"href": "/examples/scene-components-woodland.png", "label": "View the rendered woodland preview"}
+        ]
+      },
+      {
+        "heading": "Keep the workflow agent-friendly",
+        "paragraphs": [
+          "Use broad component shapes for large areas and small detail commands for accents. Validate a batch before applying it, split long work into observable operations, and save after each completed stage. Scene components do not infer collision, height, depth sorting, autotiles, or a game map schema."
+        ]
+      }
+    ],
+    "related": ["guides/isometric-water", "guides/large-agent-edits", "guides/command-api", "guides/ai-agents"]
+  },
+  {
+    "slug": "guides/review-artifacts",
+    "lastModified": "2026-10-27",
+    "title": "Review previews and generated files",
+    "description": "Compare an editable document before and after an agent edit, then verify generated files through bounded local handoff metadata.",
+    "eyebrow": "REVIEW & HANDOFF",
+    "intro": "PixelWall separates artwork review from file delivery. Capture a baseline before an edit, inspect the resulting preview and revision, then verify generated bytes and checksums through the current page or local desktop MCP connection.",
+    "sections": [
+      {
+        "heading": "Review an edit",
+        "paragraphs": [
+          "Call capturePreview before applying a change when you need a stable comparison. After the operation completes, render the selected frame or comparison and check the revision, changed pixels, frame IDs, layer IDs, crop, and contact-sheet layout returned by the preview helper. A preview is evidence for review; it does not save the document."
+        ]
+      },
+      {
+        "heading": "Verify generated files",
+        "paragraphs": [
+          "An export response means that file generation finished; it does not prove that a browser download completed. In the browser, fetch the page-local URL before the next export or editor unmount and verify the reported byte count. In desktop MCP, list artifacts, read at most 1 MiB at a time, verify the SHA-256 metadata, and save through the approved export folder.",
+          "Artifact records are temporary local handoff data. They expire after 24 hours and are bounded to 64 files, 128 MiB total, and 64 MiB per file."
+        ],
+        "links": [
+          {"href": "/guides/export-formats", "label": "Read export generation and download handoff details"},
+          {"href": "/guides/desktop-mcp", "label": "Use the desktop MCP artifact tools"}
+        ]
+      }
+    ],
+    "related": ["guides/command-api", "guides/desktop-mcp", "guides/export-formats", "guides/large-agent-edits"]
   }
 ]

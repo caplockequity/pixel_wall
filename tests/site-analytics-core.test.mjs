@@ -17,7 +17,7 @@ const release = { version: '0.2.1', downloads: Object.fromEntries(Object.entries
 test('page grouping emits only fixed categories, never a route or a URL', () => {
   for (const [path, expected] of [
     ['/', 'home'], ['/editor', 'editor'], ['/editor/classic', 'classic_editor'],
-    ['/downloads/', 'downloads'], ['/guides', 'guides'], ['/guides/scripting', 'guides'], ['/guides/isometric-water', 'guides'],
+    ['/downloads/', 'downloads'], ['/guides', 'guides'], ['/guides/scripting', 'guides'], ['/guides/isometric-water', 'guides'], ['/guides/desktop-mcp', 'guides'], ['/guides/scene-components', 'guides'], ['/guides/review-artifacts', 'guides'],
     ['/sprite-sheet-maker', 'workflow'], ['/pricing', 'pricing'], ['/privacy', 'privacy'],
     ['/guides/my-private-project', 'other'], ['/private/name', 'other'],
     ['/editor?license=secret', 'other'], ['https://private.example/project', 'other'],

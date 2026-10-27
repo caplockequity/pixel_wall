@@ -23,7 +23,21 @@ test('machine-readable agent statement accurately distinguishes available interf
   assert.equal(statement.interfaces.cli.available, true);
   assert.equal(statement.interfaces.browserCommandApi.global, 'window.pixelwall');
   assert.equal(statement.interfaces.lua.sandboxed, true);
+  assert.equal(statement.interfaces.localMcp.available, true);
+  assert.equal(statement.interfaces.localMcp.remoteAccess, false);
+  assert.equal(statement.interfaces.localMcp.artifactLimits.maxReadChunkBytes, 1048576);
   for (const name of ['standaloneMcpServer', 'publicRestEditingApi', 'javascriptSdk', 'pythonSdk', 'universalAgentProtocol']) assert.equal(statement.interfaces[name].available, false);
+});
+
+test('scene component examples and review guides are published with the MCP capability statement', async () => {
+  const statement = JSON.parse(await readFile(new URL('../public/agent-integration.json', import.meta.url), 'utf8'));
+  const documents = JSON.parse(await readFile(new URL('../app/public-content.json', import.meta.url), 'utf8'));
+  for (const slug of ['guides/desktop-mcp', 'guides/scene-components', 'guides/review-artifacts']) assert.ok(documents.some((page) => page.slug === slug));
+  for (const key of ['sceneComponentsCommands', 'sceneComponentsProject', 'sceneComponentsPreview']) {
+    const url = new URL(statement.examples[key]);
+    assert.match(url.pathname, /^\/examples\/scene-components-/);
+    await readFile(new URL(`../public${url.pathname}`, import.meta.url));
+  }
 });
 
 test('isometric water guide is discoverable as an agent example', async () => {

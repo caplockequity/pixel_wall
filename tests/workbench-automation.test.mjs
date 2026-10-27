@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createDocument, applyCommand } from '../app/editor-core.mjs';
 import { createHistory } from '../app/history.mjs';
+import { throwIfCancelled } from '../app/command-preflight.mjs';
 
 const source = readFileSync(new URL('../app/workbench.jsx', import.meta.url), 'utf8');
 const start = source.indexOf('  async function applyAutomation(');
 const end = source.indexOf('  useEffect(() => {', start);
 const body = source.slice(source.indexOf(') {', start) + 3, end).replace('\n  }\n', '\n');
 
-function harness({ failAt = 0, mutateSelection = false } = {}) {
+function harness({ failAt = 0, mutateSelection = false, onYield } = {}) {
   const original = createDocument({ id: 'automation', width: 8, height: 8 });
   const docRef = { current: original }, revisionRef = { current: 0 }, operationRef = { current: null };
   const activeRef = { current: { frameId: original.frames[0].id, layerId: original.layers[0].id } };
@@ -18,6 +19,7 @@ function harness({ failAt = 0, mutateSelection = false } = {}) {
   let waits = 0;
   const deferred = async () => {
     waits++;
+    onYield?.(waits);
     if (mutateSelection) activeRef.current = { frameId: 'changed-frame', layerId: 'changed-layer' };
   };
   const apply = (input, command) => {
@@ -25,10 +27,10 @@ function harness({ failAt = 0, mutateSelection = false } = {}) {
     if (failAt && calls.length === failAt) throw Error('command failed');
     return applyCommand(input, command);
   };
-  const fn = new Function('automationRef','nativeSessionRef','luaAbortRef','restoringRef','operationRef','docRef','revisionRef','activeRef','applyCommand','deferred','historyRef','setSaveStatus','documentRevisionsRef','analyticsRef','reconcile','setDoc','setHistoryVersion','setHistoryState','setNotice', `return async function(commands,label,{onProgress} = {}){${body}}`) (
+  const fn = new Function('automationRef','nativeSessionRef','luaAbortRef','restoringRef','operationRef','docRef','revisionRef','activeRef','applyCommand','deferred','historyRef','setSaveStatus','documentRevisionsRef','analyticsRef','reconcile','setDoc','setHistoryVersion','setHistoryState','setNotice','throwIfCancelled', `return async function(commands,label,{onProgress,signal} = {}){${body}}`) (
     { current: { desktop: { assertEditable() {} } } }, { current: null }, { current: null }, { current: false }, operationRef,
     docRef, revisionRef, activeRef, apply, deferred, historyRef, () => {}, documentRevisionsRef,
-    { current: { committed() {} } }, () => {}, () => {}, () => {}, () => {}, message => progress.push(message),
+    { current: { committed() {} } }, () => {}, () => {}, () => {}, () => {}, message => progress.push(message), throwIfCancelled,
   );
   return { fn, original, docRef, revisionRef, operationRef, activeRef, historyRef, calls, progress, waits };
 }
@@ -49,6 +51,19 @@ test('automation failure after scratch work leaves the live document and lock un
     { type: 'draw.stroke', points: [{ x: 1, y: 1 }], color: '#ffffffff' },
     { type: 'draw.stroke', points: [{ x: 2, y: 2 }], color: '#ffffffff' },
   ], 'batch', { onProgress: () => {} }), /command failed/);
+  assert.deepEqual(h.docRef.current, h.original);
+  assert.equal(h.revisionRef.current, 0);
+  assert.equal(h.historyRef.current.canUndo, false);
+  assert.equal(h.operationRef.current, null);
+});
+
+
+test('cancellation after a yielded chunk discards actual raster work and preserves history', async () => {
+  const controller = new AbortController();
+  const h = harness({onYield: count => {if(count === 2) controller.abort();}});
+  const commands = Array.from({length:64}, (_, n) => ({type:'draw.stroke',points:[{x:n%8,y:Math.floor(n/8)}],color:'#ffffffff'}));
+  await assert.rejects(h.fn(commands, 'cancelled', {signal:controller.signal}), {name:'AbortError'});
+  assert.ok(h.calls.length > 0 && h.calls.length < commands.length);
   assert.deepEqual(h.docRef.current, h.original);
   assert.equal(h.revisionRef.current, 0);
   assert.equal(h.historyRef.current.canUndo, false);

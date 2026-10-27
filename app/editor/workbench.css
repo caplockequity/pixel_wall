@@ -910,3 +910,23 @@
 .wb-doc-tabs::-webkit-scrollbar-thumb, .wb-layer-list::-webkit-scrollbar-thumb, .wb-panel-content::-webkit-scrollbar-thumb { background:#aaa5bb; border:2px solid var(--wb-panel); border-radius:6px; }
 .wb-doc-tabs::-webkit-scrollbar-track, .wb-layer-list::-webkit-scrollbar-track, .wb-panel-content::-webkit-scrollbar-track { background:#eeedf3; }
 .sidebar-floating .wb-sidebar { max-width:100vw; height:70dvh; }
+
+/* Agent workflows share the same editor, previews and generated-file library. */
+.wb-agent-status {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 14px;background:#eeebff;border-bottom:1px solid #cac4ee;color:#483681;flex:none;}
+.wb-agent-status span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wb-preview-images {display:flex;gap:16px;flex-wrap:wrap;padding-top:16px;}
+.wb-preview-images figure {margin:0;min-width:100px;max-width:100%;overflow:auto;}
+.wb-preview-images img {image-rendering:pixelated;max-width:100%;object-fit:contain;background:repeating-conic-gradient(#ebe9e2 0% 25%,#fff 0% 50%) 0 0/16px 16px;border:1px solid #deded7;}
+.wb-preview-images figcaption {font-weight:bold;margin-bottom:6px;text-transform:capitalize;}
+.preview-panel {display:grid;gap:12px;margin-top:16px;}
+.preview-panel fieldset {display:flex;gap:12px;flex-wrap:wrap;border:1px solid #deded7;border-radius:8px;padding:12px;}
+.preview-panel label {display:flex;align-items:center;gap:6px;}
+.preview-panel input:not([type=checkbox]) {width:72px;}
+.artifact-library ul {list-style:none;margin:0;padding:0;}
+.artifact-library li {display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid #deded7;padding:12px 0;}
+.artifact-library li span {flex:1;min-width:180px;overflow-wrap:anywhere;}
+.artifact-library small {display:block;color:#787989;margin-top:4px;}
+.wb-scene-component-controls {display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:12px;}
+.wb-scene-component-controls label {display:grid;gap:4px;}
+.wb-scene-component-controls input,.wb-scene-component-controls select {width:100%;min-height:32px;}
+.wb-scene-component-preview {display:block;margin:20px auto;max-width:100%;image-rendering:pixelated;background:repeating-conic-gradient(#ebe9e2 0% 25%,#fff 0% 50%) 0 0/16px 16px;border:1px solid #deded7;}

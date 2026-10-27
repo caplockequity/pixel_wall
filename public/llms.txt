@@ -7,15 +7,20 @@ PixelWall is a pixel-art editor for browsers and desktop. Official site: https:/
 - Agent guide: https://www.pixelwall.dev/guides/ai-agents
 - Large edits, recovery, Lua, and export handoff: https://www.pixelwall.dev/guides/large-agent-edits
 - Browser command API: https://www.pixelwall.dev/guides/command-api
+- Local desktop MCP: https://www.pixelwall.dev/guides/desktop-mcp
+- Editable scene components: https://www.pixelwall.dev/guides/scene-components
+- Review previews and generated files: https://www.pixelwall.dev/guides/review-artifacts
 - Local CLI: https://www.pixelwall.dev/guides/command-line
 - Isometric water guide: https://www.pixelwall.dev/guides/isometric-water
 - Isometric pixel-art guide: https://www.pixelwall.dev/guides/isometric-pixel-art
 - Lua and JSON scripting: https://www.pixelwall.dev/guides/scripting
 - Machine-readable capability statement: https://www.pixelwall.dev/agent-integration.json
 
-PixelWall supports a downloadable local CLI, window.pixelwall in the running current editor, bounded Lua 5.4 scripts, JSON command batches, and deliberate browser or desktop computer control. A compatible browser host may expose the same ordinary tools through its modelContext registration surface.
+PixelWall supports a downloadable local CLI, window.pixelwall in the running current editor, bounded Lua 5.4 scripts, JSON command batches, a local opt-in MCP launcher for the desktop app, and deliberate browser or desktop computer control. A compatible browser host may expose the same ordinary tools through its modelContext registration surface.
 
-PixelWall does not currently publish a standalone MCP server, public REST editing API, JavaScript or Python SDK, or universal agent protocol. An arbitrary chat cannot control PixelWall unless its host provides terminal access, browser page execution, or approved computer control.
+The desktop MCP launcher requires Node.js 22.13 or newer, a downloaded CLI bundle, a running PixelWall desktop window, the Help-menu **Allow local agent connection** opt-in, and a user-selected export folder. It uses authenticated local stdio/loopback transport, permits one controller for the open window, and does not provide cloud or remote access. Generated artifacts are retained locally for up to 24 hours (up to 64 files, 128 MiB total, 64 MiB per file); artifact reads are limited to 1 MiB chunks.
+
+PixelWall does not publish a public REST editing API, JavaScript or Python SDK, or universal agent protocol. An arbitrary chat cannot control PixelWall unless its host provides terminal access, browser page execution, an explicitly enabled local desktop MCP connection, or approved computer control.
 
 ## Product and downloads
 

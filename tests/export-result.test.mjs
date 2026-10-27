@@ -23,3 +23,15 @@ test("an export can be handed off without claiming a download was requested", ()
   assert.equal(result.generated.status, "generated");
   assert.equal(result.download.status, "not_requested");
 });
+
+test("persistent artifact metadata is attached to generated files without changing download truth", () => {
+  const result = createExportResult({
+    files: [{ filename: "hero.png", url: "blob:hero" }],
+    requested: false,
+    artifacts: [{ name: "hero.png", artifactId: "artifact-1", sha256: "abc", expiresAt: 123 }],
+    persistence: { status: "persisted" },
+  });
+  assert.deepEqual(result.generated.files[0], { filename: "hero.png", mime: "application/octet-stream", bytes: null, url: "blob:hero", artifactId: "artifact-1", sha256: "abc", expiresAt: 123 });
+  assert.equal(result.download.status, "not_requested");
+  assert.equal(result.persistence.status, "persisted");
+});

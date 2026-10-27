@@ -21,6 +21,7 @@
     "package:downloads": "node scripts/package-downloads.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "drizzle-orm": "0.45.2",
     "fflate": "^0.8.3",
     "gifenc": "^1.0.3",

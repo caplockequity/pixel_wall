@@ -1,15 +1,24 @@
 /** Public, versioned control surface. Every mutation uses the editor's command engine. */
 import { createDesktopSession } from './desktop-session.mjs';
 import { LIMITS } from './editor-core.mjs';
+import { captureCommands } from './command-preflight.mjs';
 export const AUTOMATION_VERSION = 1;
 
 export function createAutomation(host) {
   const desktop = createDesktopSession(host);
   const operations = new Map();
+  const requests = new Map();
+  const sessionId = globalThis.crypto.randomUUID();
   let operationSequence = 0;
   let activeOperation = null;
+  let navigating = false;
   const assertIdle = () => {
-    if (activeOperation) throw new Error("Finish the current editor operation before changing the project.");
+    if (activeOperation || navigating) throw new Error("Finish the current editor operation before changing the project.");
+  };
+  const navigate = async work => {
+    desktop.assertEditable(); assertIdle(); navigating = true;
+    try { await work(); return {revision:host.revision(),document:host.inspect()}; }
+    finally { navigating = false; }
   };
   const operationId = () => `op-${Date.now().toString(36)}-${(++operationSequence).toString(36)}`;
   const snapshot = operation => ({
@@ -23,6 +32,8 @@ export function createAutomation(host) {
     expectedRevision: operation.expectedRevision,
     revision: operation.revision,
     error: operation.error,
+    requestKey: operation.requestKey,
+    cancellationRequested: operation.controller.signal.aborted,
   });
   const runApply = async (operation, commands, label) => {
     operation.status = "running";
@@ -38,15 +49,16 @@ export function createAutomation(host) {
           operation.commandsProcessed = Math.max(0, Math.min(operation.commandsTotal, progress.commandsProcessed));
         if (Number.isSafeInteger(progress.revision)) operation.revision = progress.revision;
       };
-      await host.apply(commands, label, { onProgress });
+      await host.apply(commands, label, { onProgress, signal: operation.controller.signal });
       operation.commandsProcessed = operation.commandsTotal;
       operation.revision = host.revision();
       operation.status = "completed";
       operation.completedAt = new Date().toISOString();
-      return { revision: operation.revision, document: host.inspect(), operation: snapshot(operation) };
+      operation.result = { revision: operation.revision, document: host.inspect(), operation: snapshot(operation), operationId: operation.id };
+      return operation.result;
     } catch (error) {
       operation.revision = host.revision();
-      operation.status = "failed";
+      operation.status = error?.name === "AbortError" ? "cancelled" : "failed";
       operation.completedAt = new Date().toISOString();
       operation.error = error instanceof Error ? error.message : String(error);
       throw error;
@@ -54,61 +66,84 @@ export function createAutomation(host) {
       if (activeOperation === operation) activeOperation = null;
     }
   };
-  const apply = async ({ commands, expectedRevision, label = "Script", wait = true }) => {
+  const apply = async ({ commands, expectedRevision, label = "Script", wait = true, requestKey } = {}) => {
     desktop.assertEditable();
-    if (activeOperation) throw new Error("Finish the current editor operation before applying another batch.");
-    if (
-      !Array.isArray(commands) ||
-      commands.length < 1 ||
-      commands.length > 2000
-    )
-      throw new Error("Provide between 1 and 2000 commands.");
-    if (JSON.stringify(commands).length > 16 * 1024 * 1024)
-      throw new Error("Command batch exceeds 16 MB.");
+    if (requestKey !== undefined && (typeof requestKey !== "string" || !requestKey.length || requestKey.length > 200))
+      throw Error("A requestKey must contain 1–200 characters.");
+    const captured = captureCommands(commands);
+    const safeLabel = String(label).slice(0, 100);
+    let fingerprint;
+    if (requestKey !== undefined) {
+      const payload = new TextEncoder().encode(JSON.stringify({commands: captured.commands, expectedRevision, label: safeLabel}));
+      fingerprint = Array.from(new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", payload)), value => value.toString(16).padStart(2, "0")).join("");
+      const previous = requests.get(requestKey);
+      if (previous) {
+        if (previous.fingerprint !== fingerprint) throw Error("This requestKey was already used for a different edit. Use a new key.");
+        const operation = operations.get(previous.id);
+        if (!operation) throw Error("This requestKey was already processed, but its result has expired. Inspect the project; do not replay it.");
+        return wait ? operation.work : {...snapshot(operation), operationId: operation.id};
+      }
+      if (requests.size >= 1024) throw Error("This editor session has retained 1024 retry keys. Save and reopen the editor before starting more keyed edits.");
+    }
+    if (activeOperation || navigating) throw new Error("Finish the current editor operation before applying another batch.");
     if (expectedRevision !== undefined && expectedRevision !== host.revision())
-      throw new Error(
-        "The document changed. Inspect it again before applying this batch.",
-      );
-    let batch;
-    try { batch = structuredClone(commands); }
-    catch { throw new Error("Commands must be cloneable JSON values."); }
-    const operation = { id: operationId(), documentId: host.inspect().id, status: "queued", commandsProcessed: 0, commandsTotal: batch.length, expectedRevision, revision: host.revision() };
+      throw new Error("The document changed. Inspect it again before applying this batch.");
+    const operation = { id: operationId(), documentId: host.inspect().id, status: "queued", commandsProcessed: 0,
+      commandsTotal: captured.commands.length, expectedRevision, revision: host.revision(), requestKey, controller: new AbortController() };
     operations.set(operation.id, operation);
+    if (requestKey !== undefined) requests.set(requestKey, {id: operation.id, fingerprint});
     activeOperation = operation;
     if (operations.size > 64) {
       for (const [id, entry] of operations) {
-        if (entry.status === "completed" || entry.status === "failed") operations.delete(id);
+        if (["completed", "failed", "cancelled"].includes(entry.status)) operations.delete(id);
         if (operations.size <= 64) break;
       }
     }
-    const work = runApply(operation, batch, String(label).slice(0, 100));
-    if (!wait) {
-      void work.catch(() => {});
-      return { ...snapshot(operation), operationId: operation.id };
-    }
-    const result = await work;
-    return { ...result, operationId: operation.id };
+    operation.work = runApply(operation, captured.commands, safeLabel);
+    // Polling callers can disconnect; their failures remain in the operation log.
+    void operation.work.catch(() => {});
+    if (!wait) return {...snapshot(operation), operationId: operation.id};
+    return operation.work;
   };
   return Object.freeze({
     version: AUTOMATION_VERSION,
+    sessionId,
     desktop,
     inspect: () => {
       const latest = [...operations.values()].at(-1);
-      return { revision: host.revision(), document: host.inspect(), latestOperation: latest ? snapshot(latest) : null };
+      return { sessionId, revision: host.revision(), document: host.inspect(), latestOperation: latest ? snapshot(latest) : null };
     },
     commands: () => host.commands(),
+    tools: () => automationTools({}).map(tool => { const schema = {...tool}; delete schema.execute; return schema; }),
     apply,
+    validate: async (options = {}) => {
+      assertIdle();
+      if (options.expectedRevision !== undefined && options.expectedRevision !== host.revision()) throw Error("The document changed. Inspect it again before validating this batch.");
+      const revision = host.revision();
+      const result = await host.validate(options);
+      return {...result, revision, stale: host.revision() !== revision};
+    },
+    cancel: id => {
+      const operation = operations.get(id);
+      if (!operation) throw Error("Unknown editor operation.");
+      if (["queued", "running"].includes(operation.status)) operation.controller.abort();
+      return snapshot(operation);
+    },
+    projects: () => host.projects(),
+    openProject: (options = {}) => navigate(() => host.openProject(options)),
+    importProject: (options = {}) => navigate(() => host.importProject(options)),
+    artifacts: () => host.artifacts(),
+    artifact: id => host.artifact(id),
+    readArtifact: options => host.readArtifact(options),
+    removeArtifact: id => host.removeArtifact(id),
+    downloadArtifact: id => host.downloadArtifact(id),
+    capturePreview: () => { assertIdle(); return host.capturePreview(); },
     operation: id => {
       if (typeof id !== "string" || !operations.has(id)) throw new Error("Unknown editor operation.");
       return snapshot(operations.get(id));
     },
     operations: () => [...operations.values()].map(snapshot),
-    newDocument: async (options = {}) => {
-      desktop.assertEditable();
-      assertIdle();
-      await host.newDocument(options);
-      return { revision: host.revision(), document: host.inspect() };
-    },
+    newDocument: (options = {}) => navigate(() => host.newDocument(options)),
     preview: async (options = {}) => host.preview(options),
     save: async () => {
       const saved = await host.save();
@@ -155,10 +190,18 @@ export function createAutomation(host) {
   });
 }
 
-export function registerAutomation(context, api) {
-  if (!context?.registerTool) return () => {};
-  const lifecycle = new AbortController();
-  const definitions = [
+export function automationTools(api) {
+  return [
+    {name:"pixelwall_projects",description:"List projects saved in this editor's local library.",annotations:{readOnlyHint:true},inputSchema:{type:"object",properties:{},additionalProperties:false},execute:()=>api.projects()},
+    {name:"pixelwall_open_project",description:"Save the active project and open a project from the local library by ID.",inputSchema:{type:"object",properties:{documentId:{type:"string",minLength:1,maxLength:200}},required:["documentId"],additionalProperties:false},execute:options=>api.openProject(options)},
+    {name:"pixelwall_import_project",description:"Import compressed or legacy JSON PixelWall project bytes as a new editable library project.",inputSchema:{type:"object",properties:{bytes:{type:"array",minItems:1,maxItems:16777216,items:{type:"integer",minimum:0,maximum:255}},name:{type:"string",minLength:1,maxLength:240}},required:["bytes"],additionalProperties:false},execute:options=>api.importProject(options)},
+    {name:"pixelwall_validate",description:"Run commands against a scratch document without changing artwork. Reports validity, affected layers and image pixels; this is not a runtime estimate. A time limit is checked between commands.",annotations:{readOnlyHint:true},inputSchema:{type:"object",properties:{commands:{type:"array",minItems:1,maxItems:2000,items:{type:"object"}},expectedRevision:{type:"integer",minimum:0},timeoutMs:{type:"integer",minimum:50,maximum:10000}},required:["commands"],additionalProperties:false},execute:options=>api.validate(options)},
+    {name:"pixelwall_cancel",description:"Request cancellation of a running command batch. It rolls back scratch edits at the next command boundary. Poll until status is cancelled or completed.",inputSchema:{type:"object",properties:{operationId:{type:"string",minLength:1,maxLength:200}},required:["operationId"],additionalProperties:false},execute:({operationId})=>api.cancel(operationId)},
+    {name:"pixelwall_capture_preview",description:"Capture the current immutable document as the baseline for before/after previews. One baseline is retained for this editor session.",annotations:{readOnlyHint:true},inputSchema:{type:"object",properties:{},additionalProperties:false},execute:()=>api.capturePreview()},
+    {name:"pixelwall_artifacts",description:"List generated files retained on this device. Metadata includes IDs, checksums, sizes and expiry. No file bytes are included.",annotations:{readOnlyHint:true},inputSchema:{type:"object",properties:{},additionalProperties:false},execute:()=>api.artifacts()},
+    {name:"pixelwall_read_artifact",description:"Retrieve a bounded chunk of a retained generated file, including its SHA-256 metadata. Returns null for an expired or missing artifact.",annotations:{readOnlyHint:true},inputSchema:{type:"object",properties:{artifactId:{type:"string",minLength:1,maxLength:200},offset:{type:"integer",minimum:0},length:{type:"integer",minimum:1,maximum:1048576}},required:["artifactId"],additionalProperties:false},execute:options=>api.readArtifact(options)},
+    {name:"pixelwall_remove_artifact",description:"Remove one temporary generated file from this device's artifact library. The editable source project is unaffected.",inputSchema:{type:"object",properties:{artifactId:{type:"string",minLength:1,maxLength:200}},required:["artifactId"],additionalProperties:false},execute:({artifactId})=>api.removeArtifact(artifactId)},
+    {name:"pixelwall_download_artifact",description:"Request a browser download of a retained generated file. Browser download completion cannot be observed.",inputSchema:{type:"object",properties:{artifactId:{type:"string",minLength:1,maxLength:200}},required:["artifactId"],additionalProperties:false},execute:({artifactId})=>api.downloadArtifact(artifactId)},
     {
       name:"pixelwall_lua",
       description:"Run Lua 5.4 against the active project using supported Sprite/Image/Color/layer/frame/palette APIs. Applies one undoable result; errors and cancellation preserve artwork. Files and export commands are unavailable inside Lua; use the existing export tool.",
@@ -215,6 +258,7 @@ export function registerAutomation(context, api) {
           expectedRevision: { type: "integer" },
           label: { type: "string", maxLength: 100 },
           wait: { type: "boolean", description: "Return an operation handle immediately for bounded polling." },
+          requestKey: {type:"string",minLength:1,maxLength:200,description:"Unique edit ID. Identical retries reuse the original operation within this editor session."},
         },
         required: ["commands"],
         additionalProperties: false,
@@ -252,13 +296,21 @@ export function registerAutomation(context, api) {
     {
       name: "pixelwall_preview",
       description:
-        "Render a PNG preview of a frame from the current editor document.",
+        "Render a PNG frame, animation contact sheet, or before/after comparison. Supports layer filtering, crop and nearest-neighbor scale. Capture a baseline before using comparison.",
       annotations: { readOnlyHint: true },
       inputSchema: {
         type: "object",
         properties: {
           frameId: { type: "string" },
           scale: { type: "integer", minimum: 1, maximum: 8 },
+          kind:{type:"string",enum:["frame","contact-sheet","comparison"]},
+          layerIds:{type:"array",minItems:1,maxItems:256,items:{type:"string"}},
+          frameIds:{type:"array",minItems:1,maxItems:64,items:{type:"string"}},
+          crop:{type:"object",properties:{x:{type:"integer"},y:{type:"integer"},width:{type:"integer",minimum:1},height:{type:"integer",minimum:1}},required:["x","y","width","height"],additionalProperties:false},
+          columns:{type:"integer",minimum:1,maximum:64},
+          gap:{type:"integer",minimum:0,maximum:64},
+          beforeFrameId:{type:"string"},
+          beforeLayerIds:{type:"array",maxItems:256,items:{type:"string"}},
         },
         additionalProperties: false,
       },
@@ -317,7 +369,7 @@ export function registerAutomation(context, api) {
     },
     {
       name: "pixelwall_export_result",
-      description: "Read the latest browser export handoff. Generated files remain retrievable until the next export, dismissing the handoff, or editor unmount; browser download completion is not observable.",
+      description: "Read the latest browser export handoff. Its temporary URLs expire on the next export, dismiss, or editor unmount. Persisted artifact IDs remain retrievable within the artifact retention limits. Browser download completion is not observable.",
       annotations: { readOnlyHint: true },
       inputSchema: { type: "object", properties: {}, additionalProperties: false },
       execute: () => api.exportResult(),
@@ -343,7 +395,12 @@ export function registerAutomation(context, api) {
       execute: () => api.redo(),
     },
   ];
-  for (const definition of definitions) {
+}
+
+export function registerAutomation(context, api) {
+  if (!context?.registerTool) return () => {};
+  const lifecycle = new AbortController();
+  for (const definition of automationTools(api)) {
     try {
       void Promise.resolve(
         context.registerTool(definition, { signal: lifecycle.signal }),

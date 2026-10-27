@@ -51,8 +51,19 @@
     "browserModelContextRegistration": {
       "availableWhenProvidedByHost": true
     },
+    "localMcp": {
+      "available": true,
+      "documentation": "https://www.pixelwall.dev/guides/desktop-mcp",
+      "requires": ["PixelWall desktop window", "Node.js >=22.13.0", "downloaded CLI bundle", "Help-menu local agent opt-in", "user-selected export folder"],
+      "transport": "authenticated local stdio/loopback",
+      "scope": "one controller for the open desktop editor window",
+      "remoteAccess": false,
+      "artifactLimits": {"retentionHours": 24, "maxFiles": 64, "maxTotalBytes": 134217728, "maxFileBytes": 67108864, "maxReadChunkBytes": 1048576},
+      "tools": ["inspect", "commands", "apply", "operation", "newDocument", "preview", "capturePreview", "save", "export", "exportResult", "undo", "redo", "projects", "openProject", "importProject", "validate", "cancel", "artifacts", "readArtifact", "removeArtifact", "downloadArtifact", "saveArtifact"]
+    },
     "standaloneMcpServer": {
-      "available": false
+      "available": false,
+      "note": "The supported MCP connection is the opt-in local desktop launcher; there is no hosted or remote MCP service."
     },
     "publicRestEditingApi": {
       "available": false
@@ -74,7 +85,10 @@
     "animatedNinjaPandaProject": "https://www.pixelwall.dev/examples/agent-ninja-panda.pixelwall",
     "renderedNinjaPandaPng": "https://www.pixelwall.dev/examples/agent-ninja-panda.png",
     "riverCommands": "https://www.pixelwall.dev/examples/agent-river-commands.json",
-    "riverLuaDetail": "https://www.pixelwall.dev/examples/agent-river-detail.lua"
+    "riverLuaDetail": "https://www.pixelwall.dev/examples/agent-river-detail.lua",
+    "sceneComponentsCommands": "https://www.pixelwall.dev/examples/scene-components-commands.json",
+    "sceneComponentsProject": "https://www.pixelwall.dev/examples/scene-components-woodland.pixelwall",
+    "sceneComponentsPreview": "https://www.pixelwall.dev/examples/scene-components-woodland.png"
   },
   "largeEditGuide": "https://www.pixelwall.dev/guides/large-agent-edits"
 }
