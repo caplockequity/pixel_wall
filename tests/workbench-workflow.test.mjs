@@ -14,6 +14,61 @@ function production(name,scope,host=false){let found;function visit(node){if(!ho
 const ref=current=>({current});
 function closeScope(){const document=createDocument({width:2,height:2});const scope={temporaryDocumentsRef:ref(new Map()),savedDocumentsRef:ref(new Map()),docRef:ref(document),revisionRef:ref(5),documentModeRef:ref('temporary'),checkpointDeliveryRef:ref(null),nativeSessionRef:ref(null),historyValuesEqual,save:async()=>({saved:false})};scope.close=production('saveForClose',scope,true);return scope;}
 const checkpoint=(document,revision)=>({status:'verified',documentId:document.id,revision,sha256:'a'.repeat(64),bytes:20});
+
+function openScope({mode = 'temporary', saveResult = { saved: true }, retained = [], stored = []} = {}) {
+  const current = createDocument({ id: 'current', width: 2, height: 2 });
+  const temporaryDocuments = new Map(retained.map(entry => [entry.document.id, entry]));
+  const loaded = new Map(stored.map(entry => [entry.document.id, entry]));
+  const scope = {
+    nativeSessionRef: ref(null), luaAbortRef: ref(null), automationRef: ref({ desktop: { assertEditable() {} } }),
+    docRef: ref(current), revisionRef: ref(2), storedRevisionRef: ref(0), documentModeRef: ref(mode), checkpointDeliveryRef: ref(null), temporaryDocumentsRef: ref(temporaryDocuments),
+    savedDocumentsRef: ref(new Map()),
+    storeRef: ref({ loadDocument: async id => loaded.get(id) ?? null }),
+    setBusy() {}, save: async () => saveResult, activate: async (document, revision) => { scope.activated = { document, revision }; scope.docRef.current = document; },
+    setClosedDocuments: updater => { scope.closed = updater([]); }, analyticsRef: ref({ project() {} }), report: error => { scope.error = error; },
+  };
+  scope.hostRef = ref({ restoreTemporary: async ({ documentId }) => { const entry = temporaryDocuments.get(documentId); scope.activated = { document: entry.document, revision: entry.revision }; scope.docRef.current = entry.document; } });
+  scope.open = production('openDocument', scope);
+  return scope;
+}
+
+test('production openDocument retains a temporary current document before switching', async () => {
+  const target = createDocument({ id: 'target', width: 2, height: 2 });
+  const s = openScope({ mode: 'temporary', saveResult: { saved: false }, stored: [{ document: target, revision: 4 }] });
+  await s.open('target');
+  if (!s.activated) assert.fail(s.error?.message || 'open did not activate');
+  assert.equal(s.activated.document.id, 'target');
+  assert.equal(s.temporaryDocumentsRef.current.get('current').document.id, 'current');
+  assert.equal(s.temporaryDocumentsRef.current.get('current').mode, 'temporary');
+});
+
+test('production openDocument restores a retained session before consulting the library', async () => {
+  const retained = createDocument({ id: 'retained', width: 2, height: 2 });
+  const stale = createDocument({ id: 'retained', width: 2, height: 2, name: 'stale library copy' });
+  const s = openScope({ mode: 'library', retained: [{ document: retained, revision: 8, storedRevision: 3, mode: 'library' }], stored: [{ document: stale, revision: 3 }] });
+  await s.open('retained');
+  if (!s.activated) assert.fail(s.error?.message || 'open did not activate');
+  assert.equal(s.activated.document.name, retained.name);
+  assert.equal(s.activated.revision, 8);
+});
+
+test('production openDocument keeps the current library document after a failed save', async () => {
+  const target = createDocument({ id: 'target', width: 2, height: 2 });
+  const s = openScope({ mode: 'library', saveResult: { saved: false }, stored: [{ document: target, revision: 4 }] });
+  await s.open('target');
+  assert.equal(s.activated, undefined);
+  assert.equal(s.docRef.current.id, 'current');
+});
+
+test('production closeDocumentTab describes retained checkpoint state instead of claiming device save', async () => {
+  const document = createDocument({ id: 'temporary', width: 2, height: 2 });
+  const notices = [];
+  const scope = { busy: false, luaAbortRef: ref(null), nativeSessionRef: ref(null), docRef: ref(document), documentModeRef: ref('temporary'), temporaryDocumentsRef: ref(new Map([[document.id, { document, revision: 2, mode: 'temporary' }]])), checkpointDeliveryRef: ref(null), documents: [{ id: document.id }, { id: 'other' }], closedDocuments: [], openDocument: async () => true, setClosedDocuments: updater => { scope.closedDocuments = updater(scope.closedDocuments); }, setNotice: message => notices.push(message) };
+  const close = production('closeDocumentTab', scope);
+  await close(document.id);
+  assert.match(notices.at(-1), /retained|checkpoint|temporary/i);
+  assert.doesNotMatch(notices.at(-1), /saved on this device/i);
+});
 test('production close handler accepts only exact checkpoints and protects dirty retained library content',async()=>{
  const s=closeScope();assert.equal((await s.close()).saved,false);s.checkpointDeliveryRef.current=checkpoint(s.docRef.current,4);assert.equal((await s.close()).saved,false);
  s.checkpointDeliveryRef.current=checkpoint(s.docRef.current,5);assert.equal((await s.close()).saved,true);
