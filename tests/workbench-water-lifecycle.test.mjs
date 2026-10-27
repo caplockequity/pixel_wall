@@ -30,7 +30,7 @@ test('failed save preserves original document and clears busy state', async () =
 });
 test('null save preserves original document and does not activate', async () => {
   const h = harness({ save: async () => null });
-  await assert.rejects(h.fn({ scene: 'pond' }), /Save the current project/);
+  await assert.rejects(h.fn({ scene: 'pond' }), /Save a checkpoint or bound file before generating a water scene/);
   assert.equal(h.docRef.current.id, 'original'); assert.equal(h.busy, false); assert.deepEqual(h.calls, []);
 });
 test('invalid generator options fail before save or activation', async () => {

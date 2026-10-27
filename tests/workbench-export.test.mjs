@@ -28,7 +28,7 @@ function host(doc, requestAccess = async () => true) {
  const files = [], requests = [], docRef = {current:doc};
  const deps = {...formats, strToU8, encodeProjectContainer, decodeProjectContainer, renderScaledExportFrame, validateExportScale, scaleExportSlices, exportFrameTraversal, documentProfile, isSRGB,
   colorManager:manager, loadBrowserColorManager:async () => manager, renderingIntent:1,
-  docRef, activeRef:{current:{frameId:doc.frames[0].id,layerId:doc.layers[0].id}}, clipId:'',
+  docRef, revisionRef:{current:0}, activeRef:{current:{frameId:doc.frames[0].id,layerId:doc.layers[0].id}}, clipId:'',
   targetLayers:() => [doc.layers[0].id], PAID_FORMATS:new Set(['gif','sheet','zip']), access:{requestAccess},
   stem:() => 'fixture', deferred:async () => {}, downloads:{publishFiles:(items,options) => { files.push(...items); requests.push(options); return { generated:{status:'generated'}, download:{status:options?.request === false ? 'not_requested' : 'requested'} }; }}, setNotice:() => {}};
  const run = Function(...Object.keys(deps), `${code}\nreturn generateArtwork;`)(...Object.values(deps));
@@ -70,13 +70,11 @@ test('Workbench automation can generate a retrievable artifact without requestin
  assert.equal(result.exportResult.download.status, 'not_requested');
  assert.equal(result.exportResult.generated.status, 'generated');
 });
-test('Workbench captures animation before an asynchronous Pro decision', async () => {
+test('Workbench rejects an export when the project changes during an asynchronous Pro decision', async () => {
  const doc = normalizeDocument(formats.readAseprite(load('linked-indexed.aseprite')).document);
  let h; h = host(doc, async () => { h.docRef.current = createDocument({width:2,height:2}); return true; });
- await h.run({format:'gif',scale:0.5});
- const gif = formats.importGif(new Uint8Array(await h.files[0].blob.arrayBuffer())).document;
- assert.equal(gif.frames.length, doc.frames.length);
- assert.equal(gif.width, Math.max(1,Math.trunc(doc.width * 0.5)));
+ await assert.rejects(h.run({format:'gif',scale:0.5}), /project changed while export access was being checked/);
+ assert.equal(h.files.length, 0);
 });
 
 const tagFolder = new URL('./fixtures/tag-traversal/', import.meta.url);
