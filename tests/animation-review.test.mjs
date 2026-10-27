@@ -56,6 +56,17 @@ test('water patches compose only masked pixels and retain base dimensions', () =
   assert.deepEqual(composed.images[composed.frames[0].cels.water.imageId].pixels.slice(6 * 32 + 8, 6 * 32 + 16), monolithic.images[monolithic.frames[0].cels.water.imageId].pixels.slice(0, 8));
 });
 
+test('large shared water field keeps adjacent patch samples equal across all frames', () => {
+  const opts = { scene: 'river', seed: 12, waterSeed: 33, frames: 12, fieldWidth: 512, fieldHeight: 384 };
+  const left = generateWaterPatch({ ...opts, width: 128, height: 128, originX: 256, originY: 64 });
+  const right = generateWaterPatch({ ...opts, width: 128, height: 128, originX: 384, originY: 64 });
+  const mono = generateWaterPatch({ ...opts, width: 256, height: 128, originX: 256, originY: 64 });
+  for (let frame = 0; frame < 12; frame++) {
+    const lp = left.images[left.frames[frame].cels.water.imageId].pixels, rp = right.images[right.frames[frame].cels.water.imageId].pixels, mp = mono.images[mono.frames[frame].cels.water.imageId].pixels;
+    for (let y = 0; y < 128; y++) { assert.deepEqual(lp.slice(y * 128, y * 128 + 128), mp.slice(y * 256, y * 256 + 128)); assert.deepEqual(rp.slice(y * 128, y * 128 + 128), mp.slice(y * 256 + 128, y * 256 + 256)); }
+  }
+});
+
 test('wrap comparison reports transition changes without requiring identical endpoints', () => {
   let doc = createDocument({ width: 4, height: 4 }); doc = applyCommand(doc, { type: 'frame.add' });
   const result = compareAnimationWrap(doc, { compareCount: 1, renderFrame });

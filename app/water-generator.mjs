@@ -30,7 +30,8 @@ export function generateWaterScene(options = {}) {
   if (!SCENES.includes(scene)) throw new RangeError('Unknown water scene.');
   if (!['top-down', 'isometric'].includes(view)) throw new RangeError('Unknown water view.');
   if (!Object.hasOwn(PALETTES, season)) throw new RangeError('Unknown season.');
-  const width = integer(options.width, 64, 'Width', 8, 256), height = integer(options.height, width, 'Height', 8, 256);
+  const maxDimension = options.allowLarge === true ? 2048 : 256;
+  const width = integer(options.width, 64, 'Width', 8, maxDimension), height = integer(options.height, width, 'Height', 8, maxDimension);
   const frames = integer(options.frames, 12, 'Frames', 1, 32), durationMs = integer(options.durationMs, 125, 'Duration', 1, 65535);
   const details = integer(options.details, 2, 'Details', 0, 4), seed = integer(options.seed, 1, 'Seed', 0, 0xffffffff);
   const waterSeed = integer(options.waterSeed, seed, 'Water seed', 0, 0xffffffff);
@@ -162,9 +163,9 @@ export const WATER_SCENES = Object.freeze([...SCENES]);
 export function generateWaterPatch(options = {}) {
   const x = integer(options.originX, 0, 'originX', -65535, 65535), y = integer(options.originY, 0, 'originY', -65535, 65535);
   const width = integer(options.width, 64, 'Width', 8, 256), height = integer(options.height, width, 'Height', 8, 256);
-  const fieldWidth = integer(options.fieldWidth, Math.max(width, x + width), 'fieldWidth', width, 256), fieldHeight = integer(options.fieldHeight, Math.max(height, y + height), 'fieldHeight', height, 256);
+  const fieldWidth = integer(options.fieldWidth, Math.max(width, x + width), 'fieldWidth', width, 2048), fieldHeight = integer(options.fieldHeight, Math.max(height, y + height), 'fieldHeight', height, 2048);
   if (x < 0 || y < 0 || x + width > fieldWidth || y + height > fieldHeight) throw new RangeError('Water patch origin and size must fit within the shared field.');
-  const full = generateWaterScene({ ...options, width: fieldWidth, height: fieldHeight });
+  const full = generateWaterScene({ ...options, allowLarge: true, width: fieldWidth, height: fieldHeight });
   const crop = (image) => ({ ...image, width, height, pixels: Array.from({ length: height }, (_, row) => image.pixels.slice((y + row) * fieldWidth + x, (y + row) * fieldWidth + x + width)).flat() });
   const patch = { ...full, width, height, images: Object.fromEntries(Object.entries(full.images).map(([id, image]) => [id, crop(image)])), frames: full.frames.map(frame => ({ ...frame, cels: Object.fromEntries(Object.entries(frame.cels).map(([id, cel]) => [id, { ...cel, x: 0, y: 0 }])) })) };
   patch.metadata = { ...(patch.metadata ?? {}), generator: 'water-patch', globalOrigin: { x, y }, flowDirection: options.flowDirection ?? null, boundary: options.boundary ?? 'explicit' };
