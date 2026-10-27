@@ -11,6 +11,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { chmod, mkdir, rm, writeFile, readFile, lstat, realpath, open, unlink, link } from 'node:fs/promises';
 import { dirname, basename, resolve, relative } from 'node:path';
 import { MCP_PROTOCOL_VERSION, MCP_SCHEMAS, toolDefinitions } from './mcp-catalog.mjs';
+import { decodeProjectContainer } from './project-container.mjs';
 export { MCP_TOOLS } from './mcp-catalog.mjs';
 
 const MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
@@ -36,7 +37,7 @@ function tokenMatches(actual, expected) {
 }
 
 function response(id, result) { return { jsonrpc: '2.0', id, result }; }
-function errorResponse(id, code, message) { return { jsonrpc: '2.0', id: id ?? null, error: { code, message } }; }
+function errorResponse(id, code, message, data) { return { jsonrpc: '2.0', id: id ?? null, error: { code, message, ...(data ? { data } : {}) } }; }
 function validateInput(schema, value, path = 'arguments') {
   if (!value || typeof value !== 'object' || Array.isArray(value)) fail(`${path} must be an object.`);
   for (const key of schema.required || []) if (!(key in value)) fail(`${path}.${key} is required.`);
@@ -56,7 +57,7 @@ function validateInput(schema, value, path = 'arguments') {
   }
 }
 
-export function createMcpBridge({ webContents, configPath, exportRoot, host = '127.0.0.1', port = 0, net = { createServer }, fs = { mkdir, writeFile, readFile, chmod, rm, lstat, realpath, open, unlink, link }, now = Date.now, onStatus, telemetry } = {}) {
+export function createMcpBridge({ webContents, configPath, exportRoot, appVersion = 'unknown', host = '127.0.0.1', port = 0, net = { createServer }, fs = { mkdir, writeFile, readFile, chmod, rm, lstat, realpath, open, unlink, link }, now = Date.now, onStatus, telemetry } = {}) {
   if (!webContents?.executeJavaScript) fail('An editor window is required for the local agent bridge.');
   if (!configPath) fail('A local agent configuration path is required.');
   if (host !== '127.0.0.1') fail('The local agent bridge only permits loopback connections.');
@@ -161,6 +162,37 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
       return { saved: true, path: target, bytes: disk.length, sha256: diskHash };
     } catch (error) { await handle.close().catch(() => {}); await fs.unlink(temporary).catch(() => {}); throw error; }
   };
+  const checkpoint = async (options = {}) => {
+    const prepared = await invoke('checkpoint', options);
+    const result = { ...prepared, disk: { status: 'not_requested' }, reopenVerification: { status: 'not_requested' } };
+    if (!prepared?.artifactId) {
+      result.disk = { status: 'failed', error: 'The checkpoint did not produce a durable artifact.' };
+      return result;
+    }
+    try {
+      const disk = await saveArtifact({ artifactId: prepared.artifactId, filename: options.filename || prepared.filename });
+      result.disk = { status: 'persisted', ...disk };
+      if (options.verifyReopen !== false) {
+        try {
+          const bytes = await fs.readFile(disk.path);
+          const decoded = decodeProjectContainer(new Uint8Array(bytes));
+          if (decoded?.id !== prepared.documentId) throw Error('The reopened checkpoint belongs to a different document.');
+          result.reopenVerification = { status: 'verified', documentId: decoded.id, format: decoded.format, bytes: bytes.length, sha256: disk.sha256 };
+        } catch (error) { result.reopenVerification = { status: 'failed', error: error instanceof Error ? error.message : String(error) }; }
+      }
+      try {
+        const delivered = await invoke('checkpointDelivered', {
+          documentId: prepared.documentId, revision: prepared.revision, artifactId: prepared.artifactId,
+          sha256: disk.sha256, bytes: disk.bytes, filename: basename(disk.path),
+          delivery: result.disk, verification: result.reopenVerification,
+        });
+        result.checkpointDelivered = delivered || { recorded: true };
+      } catch (error) {
+        result.checkpointDelivered = { recorded: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    } catch (error) { result.disk = { status: 'failed', error: error instanceof Error ? error.message : String(error) }; }
+    return result;
+  };
   const invoke = async (name, args, hooks = {}) => {
     const call = async (method, payload) => {
       const source = `(async()=>{const api=window.pixelwall;if(!api||typeof api[${JSON.stringify(method)}]!=="function")throw new Error("PixelWall editor is not ready.");return await api[${JSON.stringify(method)}](${payload === undefined ? '' : JSON.stringify(payload)});})()`;
@@ -186,7 +218,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
             void (async () => {
               if (!observer.eligible) { activeObservers.delete(observer); return; }
               let current = started;
-              for (let attempt = 0; attempt < 3000 && !observer.stopped && observer.epoch === telemetry?.getConsentEpoch?.() && !['completed', 'failed', 'cancelled'].includes(current?.status); attempt += 1) {
+              for (let attempt = 0; attempt < 3000 && !observer.stopped && observer.epoch === telemetry?.getConsentEpoch?.() && !['completed', 'failed', 'cancelled', 'unknown'].includes(current?.status); attempt += 1) {
                 await new Promise(resolveDelay => setTimeout(resolveDelay, 100));
                 try { current = await call('operation', started.operationId); } catch { activeObservers.delete(observer); return; }
               }
@@ -207,7 +239,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
         hooks.onOperation?.(operationId);
         if (hooks.cancelled?.()) { await call('cancel', operationId).catch(() => {}); throw Error('Local PixelWall connection closed.'); }
         let current = started;
-        while (!['completed', 'failed', 'cancelled'].includes(current?.status)) {
+        while (!['completed', 'failed', 'cancelled', 'unknown'].includes(current?.status)) {
           if (hooks.cancelled?.()) throw Error('Local PixelWall connection closed.');
           await new Promise(resolveDelay => setTimeout(resolveDelay, 10));
           current = await call('operation', operationId);
@@ -234,6 +266,20 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
       case 'pixelwall_undo': return call('undo');
       case 'pixelwall_redo': return call('redo');
       case 'pixelwall_projects': return call('projects');
+      case 'pixelwall_storage': return call('storageStatus', args || {});
+      case 'pixelwall_persistence': return call('persistence');
+      case 'pixelwall_checkpoint': return checkpoint(args || {});
+      case 'pixelwall_capabilities': { const capabilities = await call('capabilities'); return {...capabilities, appVersion}; }
+      case 'pixelwall_command_schema': return call('commandSchema', args || {});
+      case 'pixelwall_open_temporary': return call('openTemporary', args || {});
+      case 'pixelwall_temporary_projects': return call('temporaryProjects');
+      case 'pixelwall_open_temporary_project': return call('openTemporaryProject', args || {});
+      case 'pixelwall_selection': return call('selection', args || {});
+      case 'pixelwall_export_plan': return call('exportPlan', args || {});
+      case 'pixelwall_receipt': return call('receipt', args?.requestKey);
+      case 'pixelwall_wait_operation': return call('waitForOperation', args || {});
+      case 'pixelwall_animation_review': return call('animationReview', args || {});
+      case 'checkpoint': return call('checkpoint', args || {});
       case 'pixelwall_open_project': return call('openProject', args || {});
       case 'pixelwall_import_project': return call('importProject', args || {});
       case 'pixelwall_validate': return call('validate', args || {});
@@ -249,7 +295,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
   async function handle(message, hooks = {}) {
     if (!message || typeof message !== 'object' || typeof message.method !== 'string') return errorResponse(message?.id, -32600, 'Invalid request.');
     if (!tokenMatches(message.token, token)) return errorResponse(message.id, -32001, 'Local PixelWall connection is not authorized.');
-    if (message.method === 'ping') return response(message.id, { protocolVersion: MCP_PROTOCOL_VERSION, serverInfo: { name: 'pixelwall-desktop', version: '1' } });
+    if (message.method === 'ping') return response(message.id, { protocolVersion: MCP_PROTOCOL_VERSION, serverInfo: { name: 'pixelwall-desktop', version: appVersion } });
     if (message.method === 'tools/list') {
       try {
         const dynamic = await invoke('pixelwall_tools');
@@ -278,7 +324,8 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
         const blocked = error?.name === 'ProExportRequired' || (name === 'pixelwall_export' && /^Pro access is required/i.test(String(error?.message || '')));
         if (error?.pixelwallOperation) reportTool(name, message.params?.arguments || {}, error.pixelwallOperation, 'success', telemetryContext);
         else reportTool(name, message.params?.arguments || {}, null, blocked ? 'blocked' : 'failure', telemetryContext);
-        return response(message.id, { content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }], isError: true });
+        const details = error && typeof error === 'object' ? Object.fromEntries(['code','path','index','retryable','changed','operationId'].filter(key => error[key] !== undefined).map(key => [key, error[key]])) : {};
+        return response(message.id, { content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }], ...(Object.keys(details).length ? { structuredContent: { error: details } } : {}), isError: true });
       }
     }
     return errorResponse(message.id, -32601, 'Unknown local PixelWall method.');
@@ -299,7 +346,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
     });
     socket.setEncoding('utf8');
     let buffer = '';
-    const readOnly = new Set(['pixelwall_inspect', 'pixelwall_commands', 'pixelwall_operation', 'pixelwall_preview', 'pixelwall_capture_preview', 'pixelwall_export_result', 'pixelwall_projects', 'pixelwall_artifacts', 'pixelwall_read_artifact', 'pixelwall_tools', 'pixelwall_validate', 'pixelwall_cancel']);
+    const readOnly = new Set(['pixelwall_inspect', 'pixelwall_commands', 'pixelwall_operation', 'pixelwall_preview', 'pixelwall_capture_preview', 'pixelwall_export_result', 'pixelwall_projects', 'pixelwall_storage', 'pixelwall_persistence', 'pixelwall_capabilities', 'pixelwall_command_schema', 'pixelwall_receipt', 'pixelwall_wait_operation', 'pixelwall_animation_review', 'pixelwall_temporary_projects', 'pixelwall_selection', 'pixelwall_export_plan', 'pixelwall_artifacts', 'pixelwall_read_artifact', 'pixelwall_tools', 'pixelwall_validate', 'pixelwall_cancel']);
     socket.on('data', chunk => {
       buffer += chunk;
       if (Buffer.byteLength(buffer) > MAX_MESSAGE_BYTES) { socket.destroy(); return; }

@@ -61,7 +61,7 @@
       "scope": "one controller for the open desktop editor window",
       "remoteAccess": false,
       "artifactLimits": {"retentionHours": 24, "maxFiles": 64, "maxTotalBytes": 134217728, "maxFileBytes": 67108864, "maxReadChunkBytes": 1048576},
-      "tools": ["inspect", "commands", "commandSchema", "capabilities", "apply", "operation", "newDocument", "preview", "capturePreview", "save", "export", "exportPlan", "exportResult", "undo", "redo", "projects", "openProject", "openTemporary", "temporaryProjects", "openTemporaryProject", "persistence", "checkpoint", "validate", "cancel", "artifacts", "readArtifact", "removeArtifact", "downloadArtifact", "saveArtifact", "selection"]
+      "tools": ["pixelwall_inspect", "pixelwall_commands", "pixelwall_command_schema", "pixelwall_capabilities", "pixelwall_apply", "pixelwall_operation", "pixelwall_new_document", "pixelwall_preview", "pixelwall_capture_preview", "pixelwall_save", "pixelwall_export", "pixelwall_export_plan", "pixelwall_export_result", "pixelwall_undo", "pixelwall_redo", "pixelwall_projects", "pixelwall_open_project", "pixelwall_open_temporary", "pixelwall_temporary_projects", "pixelwall_open_temporary_project", "pixelwall_persistence", "pixelwall_checkpoint", "pixelwall_validate", "pixelwall_cancel", "pixelwall_artifacts", "pixelwall_read_artifact", "pixelwall_remove_artifact", "pixelwall_download_artifact", "pixelwall_save_artifact", "pixelwall_selection", "pixelwall_animation_review", "pixelwall_receipt", "pixelwall_wait_operation"]
     },
     "standaloneMcpServer": {
       "available": false,
