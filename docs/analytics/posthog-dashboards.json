@@ -1178,6 +1178,212 @@
       ]
     },
     {
+      "key": "agent-discovery-automation",
+      "name": "PixelWall — Agents & AI referrals",
+      "description": "Agent-related discovery and hosted-editor automation coverage. Aggregate edits and automated export outcomes are anonymous event totals and use UTC-rounded daily timestamps; they are not visitors, sessions or agent identities. The consented edit chart is a subset and must not be added to the aggregate charts. Browser UI automation, local CLI/desktop use, and agents that decline analytics remain outside identifiable coverage.",
+      "tags": [
+        "pixelwall",
+        "analytics-v2",
+        "agent-automation"
+      ],
+      "insights": [
+        {
+          "key": "agent-aggregate-edits",
+          "name": "Anonymous automated edits by operation",
+          "description": "Aggregate successful changed hosted-editor automation edits only. Includes apply, Lua, color-profile, undo and redo operations; no agent IDs, scripts, artwork, document names or command arguments are retained. Counts are events, not visitors or sessions.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "action",
+                  "operator": "exact",
+                  "value": [
+                    "automation_edit"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "source",
+                  "operator": "exact",
+                  "value": [
+                    "automation"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "site_traffic_counted",
+                  "custom_name": "Automated edits",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "operation",
+                "breakdown_type": "event",
+                "breakdown_limit": 8
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2",
+            "agent-automation"
+          ]
+        },
+        {
+          "key": "agent-aggregate-exports",
+          "name": "Anonymous automated export outcomes",
+          "description": "Aggregate export outcomes explicitly attributed to hosted automation. Break down by success, failure and blocked; older exports without a source remain unattributed and are not reassigned.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "action",
+                  "operator": "exact",
+                  "value": [
+                    "export"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "source",
+                  "operator": "exact",
+                  "value": [
+                    "automation"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "site_traffic_counted",
+                  "custom_name": "Automated export outcomes",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "outcome",
+                "breakdown_type": "event",
+                "breakdown_limit": 6
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2",
+            "agent-automation"
+          ]
+        },
+        {
+          "key": "agent-consented-edits",
+          "name": "Consented successful agent edits (subset)",
+          "description": "Optional consented browser events for successful changed hosted-editor automation edits. This is a more detailed subset of aggregate automated edits, not an additional total; it is not a visitor or agent count and includes no agent identity.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "automation_edit_completed",
+                  "custom_name": "Consented automated edits",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph"
+              },
+              "breakdownFilter": {
+                "breakdown": "operation",
+                "breakdown_type": "event",
+                "breakdown_limit": 8
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2",
+            "agent-automation"
+          ]
+        }
+      ]
+    },
+    {
       "key": "pro-reliability",
       "name": "PixelWall \u2014 Pro & reliability",
       "description": "Only consenting browsers on the public site, after the schema 2 launch. No historical backfill, private preview traffic, desktop usage, or visitors who decline analytics. Pseudonymous browser counts are not people. Live checkout outcomes only where a billing mode applies. Verified ownership claims are browser-observed entitlement events, not authoritative payments or revenue; discounts, gifts, retries, refunds, taxes, and unconsented purchases are not revenue accounting.",

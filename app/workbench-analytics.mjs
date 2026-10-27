@@ -61,15 +61,15 @@ function commandFamilies(commands) {
   visit(commands);
   return families;
 }
-export function createWorkbenchAnalytics({ capture, consented, getDocument, now = () => performance.now(), aggregateEnabled = false, captureAggregateExport = () => {}, captureAggregateCreation = () => {} }) {
+export function createWorkbenchAnalytics({ capture, consented, getDocument, now = () => performance.now(), aggregateEnabled = false, captureAggregateExport = () => {}, captureAggregateCreation = () => {}, captureAggregateAutomationEdit = () => {} }) {
   let loaded = false, activated = false, aggregateActivated = false, saveFailed = false, readySource = null;
   const tools = new Set();
   const allowed = () => { try { return consented() === true; } catch { return false; } };
   const aggregateAllowed = () => {
     try { return typeof aggregateEnabled === 'function' ? aggregateEnabled() === true : aggregateEnabled === true; } catch { return false; }
   };
-  const aggregateExport = (format, outcome) => {
-    try { captureAggregateExport(format, outcome); } catch { /* reporting cannot affect exports */ }
+  const aggregateExport = (format, outcome, source) => {
+    try { captureAggregateExport(format, outcome, source); } catch { /* reporting cannot affect exports */ }
   };
   const aggregateCreation = () => {
     try { captureAggregateCreation(); } catch { /* reporting cannot affect editing */ }
@@ -128,12 +128,13 @@ export function createWorkbenchAnalytics({ capture, consented, getDocument, now 
       });
     },
     exportStarted(format, source = 'ui') {
-      const attempt = { format: analyticsFormat(format), source: source === 'automation' ? 'automation' : 'ui', startedAt: now(), shape: workbenchShape(getDocument()), captured: false, aggregateEligible: aggregateAllowed(), aggregateFinished: false };
+      const attempt = { format: analyticsFormat(format), source: source === 'automation' ? 'automation' : 'ui', startedAt: now(), shape: workbenchShape(getDocument()), captured: false, aggregateEligible: aggregateAllowed(), aggregateFinished: false, finished: false };
       attempt.captured = emit('export_started', { export_type: attempt.format, source: attempt.source }, attempt.shape);
       return attempt;
     },
     exportFinished(attempt, error) {
-      if (!attempt) return;
+      if (!attempt || attempt.finished) return;
+      attempt.finished = true;
       const blocked = error?.name === 'ProExportRequired';
       if (attempt.captured) {
         emit(blocked ? 'export_blocked' : error ? 'export_failed' : 'export_completed', {
@@ -144,7 +145,7 @@ export function createWorkbenchAnalytics({ capture, consented, getDocument, now 
       if (!attempt.aggregateFinished) {
         attempt.aggregateFinished = true;
         if (attempt.aggregateEligible && aggregateAllowed()) {
-          aggregateExport(attempt.format, blocked ? 'blocked' : error ? 'failure' : 'success');
+          aggregateExport(attempt.format, blocked ? 'blocked' : error ? 'failure' : 'success', attempt.source);
         }
       }
     },
@@ -153,8 +154,26 @@ export function createWorkbenchAnalytics({ capture, consented, getDocument, now 
       emit('recovery_action', { action, outcome: outcome === 'completed' ? 'success' : 'failure', ...(error ? { reason: analyticsStorageReason(error) } : {}) });
     },
     automation(operation, commandCount = 0) {
-      if (!['apply', 'new_document', 'save', 'export', 'undo', 'redo'].includes(operation)) return;
+      if (!['apply', 'lua', 'new_document', 'save', 'export', 'undo', 'redo'].includes(operation)) return;
       emit('automation_used', { operation, command_count: count(commandCount) });
+    },
+    automationEdit(operation, changed, commandCount = 0) {
+      if (!['apply', 'lua', 'color_profile', 'undo', 'redo'].includes(operation) || changed !== true) return;
+      const properties = { operation };
+      const boundedCount = count(commandCount);
+      if (boundedCount > 0) properties.command_count = boundedCount;
+      try { if (aggregateAllowed()) captureAggregateAutomationEdit(operation); } catch { /* reporting cannot affect edits */ }
+      emit('automation_edit_completed', properties);
+    },
+    scripted(changed) {
+      if (changed !== true) return;
+      if (!aggregateActivated && aggregateAllowed()) {
+        aggregateCreation();
+        aggregateActivated = true;
+      }
+      if (!allowed()) return;
+      if (!activated) activated = emit('editor_activated', { activation_type: 'scripting' });
+      if (!tools.has('scripting') && emit('editor_tool_used', { tool_family: 'scripting' })) tools.add('scripting');
     },
   };
   // A reporting failure cannot become an editing, storage, or export failure.
