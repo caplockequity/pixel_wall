@@ -1180,7 +1180,7 @@
     {
       "key": "agent-discovery-automation",
       "name": "PixelWall — Agents & AI referrals",
-      "description": "Agent-related discovery and hosted-editor automation coverage. Aggregate edits and automated export outcomes are anonymous event totals and use UTC-rounded daily timestamps; they are not visitors, sessions or agent identities. The consented edit chart is a subset and must not be added to the aggregate charts. Browser UI automation, local CLI/desktop use, and agents that decline analytics remain outside identifiable coverage.",
+      "description": "Hosted automation and separately opted-in desktop MCP reports. Counts are operations, not unique users or verified agents. Edits, export generation, retrieval storage and verified disk saves are distinct. Consented hosted edits are a subset of aggregate edits. CLI, standalone and desktop 0.5.0 remain untracked; no backfill.",
       "tags": [
         "pixelwall",
         "analytics-v2",
@@ -1372,6 +1372,531 @@
                 "breakdown": "operation",
                 "breakdown_type": "event",
                 "breakdown_limit": 8
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2",
+            "agent-automation"
+          ]
+        },
+        {
+          "key": "agent-hosted-workflows",
+          "name": "Hosted automation workflow operations",
+          "description": "Anonymous operation totals including previews, validation, project and artifact actions. Operations may be read-only or fail; use the separate changed-edit chart for actual artwork changes. No unique-agent count.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "action",
+                  "operator": "exact",
+                  "value": [
+                    "automation_operation"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "source",
+                  "operator": "exact",
+                  "value": [
+                    "automation"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "site_traffic_counted",
+                  "custom_name": "Hosted operations",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph",
+                "showLegend": true
+              },
+              "breakdownFilter": {
+                "breakdown": "operation",
+                "breakdown_type": "event",
+                "breakdown_limit": 20
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2",
+            "agent-automation"
+          ]
+        },
+        {
+          "key": "agent-hosted-outcomes",
+          "name": "Hosted automation operation outcomes",
+          "description": "Terminal success, failure, cancelled, blocked and missing outcomes. A successful read-only call is not an edit. Request-key retries share the original terminal result.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "action",
+                  "operator": "exact",
+                  "value": [
+                    "automation_operation"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "source",
+                  "operator": "exact",
+                  "value": [
+                    "automation"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "site_traffic_counted",
+                  "custom_name": "Hosted outcomes",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph",
+                "showLegend": true
+              },
+              "breakdownFilter": {
+                "breakdown": "outcome",
+                "breakdown_type": "event",
+                "breakdown_limit": 20
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2",
+            "agent-automation"
+          ]
+        },
+        {
+          "key": "agent-desktop-workflows",
+          "name": "Desktop MCP operations (opt-in)",
+          "description": "Anonymous reports only from updated packaged desktop apps with Share anonymous MCP usage enabled. Desktop 0.5.0, CLI and standalone use are excluded. Missing counts do not prove no usage.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "surface",
+                  "operator": "exact",
+                  "value": [
+                    "desktop_mcp"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "desktop_automation_counted",
+                  "custom_name": "Desktop MCP operations",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph",
+                "showLegend": true
+              },
+              "breakdownFilter": {
+                "breakdown": "operation",
+                "breakdown_type": "event",
+                "breakdown_limit": 20
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2",
+            "agent-automation"
+          ]
+        },
+        {
+          "key": "agent-desktop-outcomes",
+          "name": "Desktop MCP operation outcomes (opt-in)",
+          "description": "Terminal MCP outcomes from explicitly opted-in updated desktop apps. No agent identities or historical backfill. Validation failures, cancellation and missing artifacts are separate outcomes.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "surface",
+                  "operator": "exact",
+                  "value": [
+                    "desktop_mcp"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "desktop_automation_counted",
+                  "custom_name": "Desktop MCP outcomes",
+                  "math": "total"
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph",
+                "showLegend": true
+              },
+              "breakdownFilter": {
+                "breakdown": "outcome",
+                "breakdown_type": "event",
+                "breakdown_limit": 20
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2",
+            "agent-automation"
+          ]
+        },
+        {
+          "key": "agent-desktop-delivery",
+          "name": "Desktop MCP edits, exports and verified saves",
+          "description": "Separate action counts: changed artwork, generated exports, and save_artifact after hash and disk verification. These totals are not a linked funnel or conversion rate. Exports and saves can be repeated.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "surface",
+                  "operator": "exact",
+                  "value": [
+                    "desktop_mcp"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "desktop_automation_counted",
+                  "custom_name": "Changed edits",
+                  "math": "total",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "operation",
+                      "operator": "exact",
+                      "value": [
+                        "apply",
+                        "lua",
+                        "color_profile",
+                        "undo",
+                        "redo"
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "changed",
+                      "operator": "exact",
+                      "value": [
+                        true
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "outcome",
+                      "operator": "exact",
+                      "value": [
+                        "success"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "desktop_automation_counted",
+                  "custom_name": "Generated exports",
+                  "math": "total",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "operation",
+                      "operator": "exact",
+                      "value": [
+                        "export"
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "outcome",
+                      "operator": "exact",
+                      "value": [
+                        "success"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "desktop_automation_counted",
+                  "custom_name": "Verified disk saves",
+                  "math": "total",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "operation",
+                      "operator": "exact",
+                      "value": [
+                        "save_artifact"
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "outcome",
+                      "operator": "exact",
+                      "value": [
+                        "success"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph",
+                "showLegend": true
+              }
+            }
+          },
+          "tags": [
+            "pixelwall",
+            "analytics-v2",
+            "agent-automation"
+          ]
+        },
+        {
+          "key": "agent-artifact-persistence",
+          "name": "Export retrieval storage outcomes",
+          "description": "Whether generated exports entered artifact retrieval storage. persisted does not mean a browser download completed or an MCP file was saved to disk. Hosted and opted-in desktop reports stay separate.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": {
+                "date_from": "-30d"
+              },
+              "interval": "day",
+              "properties": [
+                {
+                  "type": "event",
+                  "key": "analytics_schema_version",
+                  "operator": "exact",
+                  "value": [
+                    "2"
+                  ]
+                },
+                {
+                  "type": "event",
+                  "key": "environment",
+                  "operator": "exact",
+                  "value": [
+                    "production"
+                  ]
+                }
+              ],
+              "series": [
+                {
+                  "kind": "EventsNode",
+                  "event": "site_traffic_counted",
+                  "custom_name": "Hosted export storage",
+                  "math": "total",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "action",
+                      "operator": "exact",
+                      "value": [
+                        "automation_operation"
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "source",
+                      "operator": "exact",
+                      "value": [
+                        "automation"
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "operation",
+                      "operator": "exact",
+                      "value": [
+                        "export"
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "outcome",
+                      "operator": "exact",
+                      "value": [
+                        "success"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "desktop_automation_counted",
+                  "custom_name": "Desktop export storage",
+                  "math": "total",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "surface",
+                      "operator": "exact",
+                      "value": [
+                        "desktop_mcp"
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "operation",
+                      "operator": "exact",
+                      "value": [
+                        "export"
+                      ]
+                    },
+                    {
+                      "type": "event",
+                      "key": "outcome",
+                      "operator": "exact",
+                      "value": [
+                        "success"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "trendsFilter": {
+                "display": "ActionsLineGraph",
+                "showLegend": true
+              },
+              "breakdownFilter": {
+                "breakdown": "artifact_persistence",
+                "breakdown_type": "event",
+                "breakdown_limit": 20
               }
             }
           },

@@ -151,6 +151,33 @@ test("accepts legacy and sourced export outcomes, plus automation edit completio
   ]) assert.equal((await handleTrafficCountRequest(request(payload), { env, fetchImpl: fake.fetchImpl })).status, 400);
 });
 
+test("accepts strict hosted automation operation outcomes and forwards only reviewed fields", async () => {
+  const fake = fakeFetch();
+  for (const payload of [
+    { event: "automation_operation_completed", page_group: "editor", operation: "preview", outcome: "success", preview_kind: "comparison" },
+    { event: "automation_operation_completed", page_group: "editor", operation: "export", outcome: "success", artifact_persistence: "persisted" },
+    { event: "automation_operation_completed", page_group: "editor", operation: "export", outcome: "failure", artifact_persistence: "failed" },
+    { event: "automation_operation_completed", page_group: "editor", operation: "read_artifact", outcome: "missing", artifact_persistence: "not_requested" },
+  ]) assert.equal((await handleTrafficCountRequest(request(payload), { env, fetchImpl: fake.fetchImpl })).status, 204);
+  assert.equal(fake.calls.length, 4);
+  assert.deepEqual(fake.calls[0].body.properties, {
+    distinct_id: fake.calls[0].body.properties.distinct_id, token: env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
+    analytics_schema_version: 2, environment: "production", page_group: "editor",
+    action: "automation_operation", measurement_mode: "aggregate", source: "automation",
+    operation: "preview", outcome: "success", preview_kind: "comparison",
+    $process_person_profile: false, $geoip_disable: true, $ip: null,
+  });
+  assert.equal(fake.calls[1].body.properties.artifact_persistence, "persisted");
+  assert.equal(fake.calls[2].body.properties.artifact_persistence, "failed");
+  assert.equal(fake.calls[3].body.properties.artifact_persistence, "not_requested");
+  for (const payload of [
+    { event: "automation_operation_completed", page_group: "editor", operation: "inspect", outcome: "success" },
+    { event: "automation_operation_completed", page_group: "editor", operation: "export", outcome: "success", changed: true },
+    { event: "automation_operation_completed", page_group: "editor", operation: "export", outcome: "success", preview_kind: "frame", artifact_persistence: "bad" },
+    { event: "automation_operation_completed", page_group: "home", operation: "export", outcome: "success" },
+  ]) assert.equal((await handleTrafficCountRequest(request(payload), { env, fetchImpl: fake.fetchImpl })).status, 400);
+});
+
 test("accepts anonymous creation and live checkout counts only", async () => {
   const fake = fakeFetch();
   for (const payload of [

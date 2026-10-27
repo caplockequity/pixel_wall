@@ -55,6 +55,12 @@ export type AnalyticsEventMap = {
     operation: "apply" | "lua" | "color_profile" | "undo" | "redo";
     command_count?: number;
   };
+  automation_operation_completed: CommonProductProperties & {
+    operation: "apply" | "lua" | "color_profile" | "undo" | "redo" | "new_document" | "open_project" | "import_project" | "save" | "export" | "validate" | "capture_preview" | "preview" | "read_artifact" | "download_artifact" | "remove_artifact";
+    outcome: "success" | "failure" | "cancelled" | "blocked" | "missing";
+    preview_kind?: "frame" | "contact-sheet" | "comparison";
+    artifact_persistence?: "persisted" | "failed" | "not_requested";
+  };
   pro_dialog_viewed: { source: string };
   checkout_started: { billing_mode: string };
   checkout_redirected: { billing_mode: string };
@@ -181,6 +187,7 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   recovery_action: [...COMMON_PRODUCT_PROPERTY_KEYS, "action", "outcome", "reason"],
   automation_used: [...COMMON_PRODUCT_PROPERTY_KEYS, "operation", "command_count"],
   automation_edit_completed: [...COMMON_PRODUCT_PROPERTY_KEYS, "operation", "command_count"],
+  automation_operation_completed: [...COMMON_PRODUCT_PROPERTY_KEYS, "operation", "outcome", "preview_kind", "artifact_persistence"],
   pro_dialog_viewed: ["source"],
   checkout_started: ["billing_mode"],
   checkout_redirected: ["billing_mode"],
@@ -432,8 +439,8 @@ const STRING_VALUES: Record<string, readonly string[]> = Object.fromEntries(Obje
   package_type: "zip exe appimage AppImage",
   color_mode: "rgba indexed grayscale rgb",
   project_source: "new library legacy_migration storage_unavailable fresh_demo restored_v3 upgraded_v2 upgraded_v1",
-  activation_type: "drawing erase fill gradient text shapes layers animation cels paste selection canvas palette effects slices tilemap structure import automation scripting stroke edit",
-  tool_family: "erase gradient cels paste canvas slices drawing shapes fill selection transform layers frames animation palette tilemap tiles effects text import reference structure scripting automation other",
+  activation_type: "drawing erase fill gradient text shapes layers animation cels paste selection canvas palette effects slices tilemap structure scene import automation scripting stroke edit",
+  tool_family: "erase gradient cels paste canvas slices drawing shapes fill selection transform layers frames animation palette tilemap tiles effects text import reference structure scripting automation scene other",
   import_kind: "document extension native aseprite image animation sprite_sheet palette reference sequence project gif sheet raster",
   format: "other project image tga zip sheet pixelwall aseprite ase png jpeg jpg webp gif bmp avif svg json gpl pal hex aseprite_palette unknown",
   source: "initial_prompt privacy_settings automatic keyboard toolbar footer menu export checkout_return restore ui automation banner settings",
@@ -448,8 +455,8 @@ const STRING_VALUES: Record<string, readonly string[]> = Object.fromEntries(Obje
   mime_type: "image/png image/jpeg image/gif image/webp image/avif image/bmp unknown",
   file_size_bucket: "under_256kb 256kb_to_1mb 1mb_to_5mb 5mb_to_20mb 20mb_plus",
   sheet_direction: "horizontal vertical grid",
-  operation: "apply lua color_profile new_document new create open save backup undo redo batch export import restore load",
-  outcome: "success failure cancelled unknown online_only",
+  operation: "apply lua color_profile new_document new create open save backup undo redo batch export import restore load open_project import_project validate capture_preview preview read_artifact download_artifact remove_artifact",
+  outcome: "success failure cancelled blocked missing unknown online_only",
   reason: "missing_image project_operation_failed none ownership_license_unavailable verification_failed payment_pending rate_limited unavailable network save_failed unknown storage_failed browser_storage_unavailable too_large unsupported_type decode_error read_error frame_limit processing_error serialization_error invalid_or_unsupported render_or_download_error render_or_encode_error render_or_package_error empty_tilemap pro_required pro_unavailable export_failed import_failed cancelled unavailable budget_exceeded conflict corrupt_record not_found invalid_document invalid_revision quota_exceeded storage_unavailable encoding_failed invalid_format",
   export_type: "project zip tga other frame_png animated_gif sprite_sheet_png sprite_package tilemap_package png jpeg webp avif gif sheet atlas game_zip pixelwall aseprite svg bmp json image",
   clip_scope: "single all",
@@ -462,6 +469,10 @@ function isApprovedString(event: AnalyticsEventName, key: string, value: string)
   if (key === "version") return /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(value);
   if (key === "from_value" || key === "to_value") return ["forward", "reverse", "pingpong", "ping-pong"].includes(value) || /^\d{1,4}x\d{1,4}$/.test(value);
   if (event === "automation_edit_completed" && key === "operation") return ["apply", "lua", "color_profile", "undo", "redo"].includes(value);
+  if (event === "automation_operation_completed" && key === "operation") return ["apply", "lua", "color_profile", "undo", "redo", "new_document", "open_project", "import_project", "save", "export", "validate", "capture_preview", "preview", "read_artifact", "download_artifact", "remove_artifact"].includes(value);
+  if (event === "automation_operation_completed" && key === "outcome") return ["success", "failure", "cancelled", "blocked", "missing"].includes(value);
+  if (event === "automation_operation_completed" && key === "preview_kind") return ["frame", "contact-sheet", "comparison"].includes(value);
+  if (event === "automation_operation_completed" && key === "artifact_persistence") return ["persisted", "failed", "not_requested"].includes(value);
   return STRING_VALUES[key]?.includes(value) ?? false;
 }
 export function analyticsPageGroup(pathname: string) {
@@ -657,6 +668,27 @@ export function captureAnonymousAutomationEdit(
     event: "automation_edit_completed",
     page_group: "editor",
     operation,
+  });
+}
+
+export function captureAnonymousAutomationOperation(input: {
+  operation: AnalyticsProperties<"automation_operation_completed">["operation"];
+  outcome: AnalyticsProperties<"automation_operation_completed">["outcome"];
+  preview_kind?: AnalyticsProperties<"automation_operation_completed">["preview_kind"];
+  artifact_persistence?: AnalyticsProperties<"automation_operation_completed">["artifact_persistence"];
+}) {
+  if (!isAnonymousTrafficEnabled()) return;
+  if (analyticsPageGroup(window.location.pathname ?? "/") !== "editor") return;
+  if (!input || typeof input !== "object") return;
+  const operation = input.operation;
+  const outcome = input.outcome;
+  const operations = ["apply", "lua", "color_profile", "undo", "redo", "new_document", "open_project", "import_project", "save", "export", "validate", "capture_preview", "preview", "read_artifact", "download_artifact", "remove_artifact"];
+  const outcomes = ["success", "failure", "cancelled", "blocked", "missing"];
+  if (!operations.includes(operation) || !outcomes.includes(outcome)) return;
+  sendAnonymousCount({
+    event: "automation_operation_completed", page_group: "editor", operation, outcome,
+    ...(input.preview_kind && ["frame", "contact-sheet", "comparison"].includes(input.preview_kind) ? { preview_kind: input.preview_kind } : {}),
+    ...(input.artifact_persistence && ["persisted", "failed", "not_requested"].includes(input.artifact_persistence) ? { artifact_persistence: input.artifact_persistence } : {}),
   });
 }
 

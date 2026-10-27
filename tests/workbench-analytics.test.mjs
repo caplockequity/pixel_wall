@@ -100,6 +100,23 @@ test('water generation counts as animation without recording generation paramete
   assert.doesNotMatch(JSON.stringify(events), /Private pond|123456|palette|seed/);
 });
 
+test('scene components are attributed to the scene family and operation outcomes stay bounded', () => {
+  const aggregate = [];
+  const { analytics, events } = setup({ aggregateEnabled: true, captureAggregateAutomationOperation: value => aggregate.push(value) });
+  analytics.committed({ type: 'scene.component', kind: 'tree', seed: 123 }, true);
+  analytics.automationOperation({ operation: 'preview', outcome: 'success', preview_kind: 'comparison' });
+  analytics.automationOperation({ operation: 'read_artifact', outcome: 'missing' });
+  analytics.automationOperation({ operation: 'apply', outcome: 'success', changed: true, artifact_persistence: 'failed', preview_kind: 'secret' });
+  analytics.automationOperation({ operation: 'inspect', outcome: 'success' });
+  assert.equal(events.find(({ event }) => event === 'editor_tool_used').properties.tool_family, 'scene');
+  assert.deepEqual(aggregate, [
+    { operation: 'preview', outcome: 'success', preview_kind: 'comparison' },
+    { operation: 'read_artifact', outcome: 'missing' },
+    { operation: 'apply', outcome: 'success', artifact_persistence: 'failed' },
+  ]);
+  assert.ok(!JSON.stringify(events).includes('secret'));
+});
+
 test('unknown commands and user metadata cannot enter capture properties', () => {
   const { analytics, events } = setup();
   analytics.committed({ type: 'Private project.name', label: 'private', code: 'private' }, true);

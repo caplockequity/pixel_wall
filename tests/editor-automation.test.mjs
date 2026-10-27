@@ -5,7 +5,7 @@ import {createDocument,applyCommand,renderFrame,describeDocument,COMMANDS} from 
 import {createHistory} from '../app/history.mjs';
 import {validateExtension,parsePalette} from '../app/editor-extensions.mjs';
 
-function fixture(){let doc=createDocument({width:8,height:8}),revision=0;const history=createHistory(doc);const api=createAutomation({revision:()=>revision,inspect:()=>describeDocument(doc),commands:()=>COMMANDS,apply:async(commands,label)=>{let next=doc;for(const command of commands)next=applyCommand(next,command);history.commit(next,label);doc=next;revision++;},undo:()=>{history.undo();doc=history.present;revision++;},redo:()=>{history.redo();doc=history.present;revision++;},save:()=>({revision}),newDocument:options=>{doc=createDocument(options);revision++;},preview:()=>renderFrame(doc,doc.frames[0].id),export:()=>{throw Error('Pro access is required for this export.');}});return {api,history,doc:()=>doc};}
+function fixture(){let doc=createDocument({width:8,height:8}),revision=0;const history=createHistory(doc),reports=[];const api=createAutomation({revision:()=>revision,inspect:()=>describeDocument(doc),commands:()=>COMMANDS,automationOperation:report=>reports.push(report),apply:async(commands,label)=>{let next=doc;for(const command of commands)next=applyCommand(next,command);history.commit(next,label);doc=next;revision++;return {changed:history.lastChange?.changed===true};},undo:()=>{const before=doc;history.undo();doc=history.present;revision++;return {changed:JSON.stringify(before)!==JSON.stringify(doc)};},redo:()=>{const before=doc;history.redo();doc=history.present;revision++;return {changed:JSON.stringify(before)!==JSON.stringify(doc)};},save:()=>({revision}),newDocument:options=>{doc=createDocument(options);revision++;},preview:()=>renderFrame(doc,doc.frames[0].id),export:()=>{throw Error('Pro access is required for this export.');}});return {api,history,doc:()=>doc,reports};}
 test('agent batches mutate the shared document once, reject stale writes, undo and redo exact pixels',async()=>{const {api,history,doc}=fixture(),blank=await api.preview();const state=api.inspect();assert.ok(state.document.layerList[0].id);assert.ok(state.document.frameList[0].id);await api.apply({expectedRevision:state.revision,commands:[{type:'draw.rect',x:1,y:1,width:3,height:3,color:'#ff0000ff',filled:true},{type:'draw.line',from:{x:0,y:0},to:{x:7,y:7},color:'#00ff00ff'}]});assert.equal(api.inspect().revision,1);assert.equal(history.canUndo,true);const painted=await api.preview();assert.notDeepEqual(painted,blank);await assert.rejects(api.apply({expectedRevision:0,commands:[{type:'document.update',patch:{name:'Stale'}}]}),/document changed/);assert.notEqual(doc().name,'Stale');await api.undo();assert.deepEqual(await api.preview(),blank);await api.redo();assert.deepEqual(await api.preview(),painted);});
 test('bad commands roll back the complete batch and malformed input cannot bypass the host export gate',async()=>{const {api,history}=fixture(),before=api.inspect();await assert.rejects(api.apply({commands:[{type:'document.update',patch:{name:'Must roll back'}},{type:'unknown.command'}]}));const after=api.inspect();assert.deepEqual(after.document,before.document);assert.equal(after.revision,before.revision);assert.equal(after.latestOperation.status,'failed');assert.equal(history.canUndo,false);await assert.rejects(api.apply({commands:[]}));await assert.rejects(api.export({format:'gif',pro:true}),/Pro access/);});
 test('WebMCP tools expose bounded operation polling while preserving normal apply completion',async()=>{const {api}=fixture(),registered=new Map();const dispose=registerAutomation({registerTool:(tool,{signal})=>{registered.set(tool.name,tool);signal.addEventListener('abort',()=>registered.delete(tool.name));}},api);assert.ok(registered.size >= 23);assert.ok(registered.has("pixelwall_validate"));assert.ok(registered.has("pixelwall_read_artifact"));assert.equal(registered.get('pixelwall_inspect').annotations.readOnlyHint,true);const result=await registered.get('pixelwall_apply').execute({commands:[{type:'draw.stroke',points:[{x:3,y:3}],color:'#ffffffff'}]});assert.equal(result.revision,1);assert.equal(result.operation.status,'completed');const pending=await api.apply({wait:false,commands:[{type:'draw.stroke',points:[{x:4,y:4}],color:'#ffffffff'}]});assert.equal(pending.status,'running');assert.equal(api.inspect().latestOperation.id,pending.operationId);let status=registered.get('pixelwall_operation').execute({operationId:pending.operationId});assert.equal(status.commandsTotal,1);while (status.status === 'running') { await new Promise(resolve=>setTimeout(resolve,0)); status=registered.get('pixelwall_operation').execute({operationId:pending.operationId}); }assert.equal(status.status,'completed');assert.equal(status.revision,2);assert.ok(registered.get('pixelwall_export').inputSchema.properties.layerIds);dispose();assert.equal(registered.size,0);});
@@ -37,4 +37,60 @@ test('operation retention is bounded and the latest result remains discoverable'
   assert.equal(api.operations().length, 64);
   assert.throws(() => api.operation(first), /Unknown/);
   assert.equal(api.inspect().latestOperation.id, api.operations().at(-1).id);
+});
+
+test('operation observer reports terminal outcomes once and preserves changed metadata', async () => {
+  const { api, reports } = fixture();
+  const first = await api.apply({ requestKey: 'retry-1', commands: [{ type: 'draw.stroke', points: [{ x: 1, y: 1 }], color: '#ffffffff' }] });
+  await api.apply({ requestKey: 'retry-1', commands: [{ type: 'draw.stroke', points: [{ x: 1, y: 1 }], color: '#ffffffff' }] });
+  assert.equal(first.changed, true);
+  assert.deepEqual(reports, [{ operation: 'apply', outcome: 'success', changed: true }]);
+});
+
+test('operation observer covers validation, missing artifacts, failures, cancellation and async completion once', async () => {
+  const reports = [];
+  let revision = 0;
+  let mode = 'cancel';
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const api = createAutomation({
+    revision: () => revision,
+    inspect: () => ({ id: 'doc' }),
+    commands: () => [],
+    automationOperation: report => reports.push(report),
+    apply: async (_commands, _label, { signal }) => {
+      if (mode === 'fail') throw Error('failed');
+      await gate;
+      if (signal.aborted) throw Object.assign(Error('cancelled'), { name: 'AbortError' });
+      revision++;
+      return { changed: true };
+    },
+    validate: async () => ({ valid: false }),
+    readArtifact: async () => null,
+    preview: async () => ({ kind: 'frame' }),
+  });
+  assert.equal((await api.validate({ commands: [{}] })).valid, false);
+  assert.equal(await api.readArtifact({ artifactId: 'missing' }), null);
+  const pending = await api.apply({ commands: [{ type: 'draw.stroke', points: [{ x: 0, y: 0 }], color: '#ffffffff' }], wait: false });
+  api.cancel(pending.operationId);
+  release();
+  while (api.operation(pending.operationId).status === 'running' || api.operation(pending.operationId).status === 'queued') await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(api.operation(pending.operationId).status, 'cancelled');
+  mode = 'fail';
+  await assert.rejects(api.apply({ commands: [{ type: 'draw.stroke', points: [{ x: 0, y: 0 }], color: '#ffffffff' }] }), /failed/);
+  assert.deepEqual(reports, [
+    { operation: 'validate', outcome: 'failure' },
+    { operation: 'read_artifact', outcome: 'missing' },
+    { operation: 'apply', outcome: 'cancelled', changed: false },
+    { operation: 'apply', outcome: 'failure', changed: false },
+  ]);
+  reports.length = 0;
+  await api.preview();
+  assert.deepEqual(reports, [{ operation: 'preview', outcome: 'success', preview_kind: 'frame' }]);
+  await assert.rejects(api.apply({ requestKey: 'bad-preflight', commands: [{}] }));
+  await assert.rejects(api.apply({ requestKey: 'bad-preflight', commands: [{}] }));
+  assert.deepEqual(reports, [
+    { operation: 'preview', outcome: 'success', preview_kind: 'frame' },
+    { operation: 'apply', outcome: 'failure', changed: false },
+  ]);
 });

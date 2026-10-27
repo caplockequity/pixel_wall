@@ -8,10 +8,21 @@ export function createAutomation(host) {
   const desktop = createDesktopSession(host);
   const operations = new Map();
   const requests = new Map();
+  const reportedPreflightFailures = new Set();
   const sessionId = globalThis.crypto.randomUUID();
   let operationSequence = 0;
   let activeOperation = null;
   let navigating = false;
+  const reportOperation = (operation, outcome, details = {}) => {
+    try {
+      host.automationOperation?.({ operation, outcome, ...details });
+    } catch { /* telemetry must never affect the editor */ }
+  };
+  const reportApplyPreflightFailure = requestKey => {
+    if (requestKey !== undefined && reportedPreflightFailures.has(requestKey)) return;
+    if (requestKey !== undefined) reportedPreflightFailures.add(requestKey);
+    reportOperation("apply", "failure", { changed: false });
+  };
   const assertIdle = () => {
     if (activeOperation || navigating) throw new Error("Finish the current editor operation before changing the project.");
   };
@@ -31,6 +42,7 @@ export function createAutomation(host) {
     completedAt: operation.completedAt,
     expectedRevision: operation.expectedRevision,
     revision: operation.revision,
+    changed: operation.changed === true,
     error: operation.error,
     requestKey: operation.requestKey,
     cancellationRequested: operation.controller.signal.aborted,
@@ -49,18 +61,21 @@ export function createAutomation(host) {
           operation.commandsProcessed = Math.max(0, Math.min(operation.commandsTotal, progress.commandsProcessed));
         if (Number.isSafeInteger(progress.revision)) operation.revision = progress.revision;
       };
-      await host.apply(commands, label, { onProgress, signal: operation.controller.signal });
+      const applied = await host.apply(commands, label, { onProgress, signal: operation.controller.signal });
       operation.commandsProcessed = operation.commandsTotal;
       operation.revision = host.revision();
+      operation.changed = applied?.changed === true;
       operation.status = "completed";
       operation.completedAt = new Date().toISOString();
-      operation.result = { revision: operation.revision, document: host.inspect(), operation: snapshot(operation), operationId: operation.id };
+      operation.result = { revision: operation.revision, changed: operation.changed, document: host.inspect(), operation: snapshot(operation), operationId: operation.id };
+      reportOperation("apply", "success", { changed: operation.changed });
       return operation.result;
     } catch (error) {
       operation.revision = host.revision();
       operation.status = error?.name === "AbortError" ? "cancelled" : "failed";
       operation.completedAt = new Date().toISOString();
       operation.error = error instanceof Error ? error.message : String(error);
+      reportOperation("apply", operation.status === "cancelled" ? "cancelled" : "failure", { changed: false });
       throw error;
     } finally {
       if (activeOperation === operation) activeOperation = null;
@@ -70,7 +85,9 @@ export function createAutomation(host) {
     desktop.assertEditable();
     if (requestKey !== undefined && (typeof requestKey !== "string" || !requestKey.length || requestKey.length > 200))
       throw Error("A requestKey must contain 1–200 characters.");
-    const captured = captureCommands(commands);
+    let captured;
+    try { captured = captureCommands(commands); }
+    catch (error) { reportApplyPreflightFailure(requestKey); throw error; }
     const safeLabel = String(label).slice(0, 100);
     let fingerprint;
     if (requestKey !== undefined) {
@@ -85,9 +102,11 @@ export function createAutomation(host) {
       }
       if (requests.size >= 1024) throw Error("This editor session has retained 1024 retry keys. Save and reopen the editor before starting more keyed edits.");
     }
-    if (activeOperation || navigating) throw new Error("Finish the current editor operation before applying another batch.");
-    if (expectedRevision !== undefined && expectedRevision !== host.revision())
+    if (activeOperation || navigating) { reportApplyPreflightFailure(requestKey); throw new Error("Finish the current editor operation before applying another batch."); }
+    if (expectedRevision !== undefined && expectedRevision !== host.revision()) {
+      reportApplyPreflightFailure(requestKey);
       throw new Error("The document changed. Inspect it again before applying this batch.");
+    }
     const operation = { id: operationId(), documentId: host.inspect().id, status: "queued", commandsProcessed: 0,
       commandsTotal: captured.commands.length, expectedRevision, revision: host.revision(), requestKey, controller: new AbortController() };
     operations.set(operation.id, operation);
@@ -117,11 +136,17 @@ export function createAutomation(host) {
     tools: () => automationTools({}).map(tool => { const schema = {...tool}; delete schema.execute; return schema; }),
     apply,
     validate: async (options = {}) => {
-      assertIdle();
-      if (options.expectedRevision !== undefined && options.expectedRevision !== host.revision()) throw Error("The document changed. Inspect it again before validating this batch.");
-      const revision = host.revision();
-      const result = await host.validate(options);
-      return {...result, revision, stale: host.revision() !== revision};
+      try {
+        assertIdle();
+        if (options.expectedRevision !== undefined && options.expectedRevision !== host.revision()) throw Error("The document changed. Inspect it again before validating this batch.");
+        const revision = host.revision();
+        const result = await host.validate(options);
+        reportOperation("validate", result?.valid === false ? "failure" : "success");
+        return {...result, revision, stale: host.revision() !== revision};
+      } catch (error) {
+        reportOperation("validate", "failure");
+        throw error;
+      }
     },
     cancel: id => {
       const operation = operations.get(id);
@@ -130,24 +155,51 @@ export function createAutomation(host) {
       return snapshot(operation);
     },
     projects: () => host.projects(),
-    openProject: (options = {}) => navigate(() => host.openProject(options)),
-    importProject: (options = {}) => navigate(() => host.importProject(options)),
+    openProject: async (options = {}) => {
+      try { const result = await navigate(() => host.openProject(options)); reportOperation("open_project", "success"); return result; }
+      catch (error) { reportOperation("open_project", "failure"); throw error; }
+    },
+    importProject: async (options = {}) => {
+      try { const result = await navigate(() => host.importProject(options)); reportOperation("import_project", "success"); return result; }
+      catch (error) { reportOperation("import_project", "failure"); throw error; }
+    },
     artifacts: () => host.artifacts(),
     artifact: id => host.artifact(id),
-    readArtifact: options => host.readArtifact(options),
-    removeArtifact: id => host.removeArtifact(id),
-    downloadArtifact: id => host.downloadArtifact(id),
-    capturePreview: () => { assertIdle(); return host.capturePreview(); },
+    readArtifact: async options => {
+      try { const result = await host.readArtifact(options); reportOperation("read_artifact", result ? "success" : "missing"); return result; }
+      catch (error) { reportOperation("read_artifact", "failure"); throw error; }
+    },
+    removeArtifact: async id => {
+      try { const result = await host.removeArtifact(id); reportOperation("remove_artifact", result ? "success" : "missing"); return result; }
+      catch (error) { reportOperation("remove_artifact", "failure"); throw error; }
+    },
+    downloadArtifact: async id => {
+      try { const result = await host.downloadArtifact(id); reportOperation("download_artifact", result?.status === "missing" ? "missing" : result?.status === "requested" ? "success" : "failure"); return result; }
+      catch (error) { reportOperation("download_artifact", "failure"); throw error; }
+    },
+    capturePreview: () => {
+      try { assertIdle(); const result = host.capturePreview(); reportOperation("capture_preview", "success"); return result; }
+      catch (error) { reportOperation("capture_preview", "failure"); throw error; }
+    },
     operation: id => {
       if (typeof id !== "string" || !operations.has(id)) throw new Error("Unknown editor operation.");
       return snapshot(operations.get(id));
     },
     operations: () => [...operations.values()].map(snapshot),
-    newDocument: (options = {}) => navigate(() => host.newDocument(options)),
-    preview: async (options = {}) => host.preview(options),
+    newDocument: async (options = {}) => {
+      try { const result = await navigate(() => host.newDocument(options)); reportOperation("new_document", "success"); return result; }
+      catch (error) { reportOperation("new_document", "failure"); throw error; }
+    },
+    preview: async (options = {}) => {
+      const previewKind = options.kind === "comparison" || options.compare ? "comparison" : options.kind || (options.contactSheet ? "contact-sheet" : "frame");
+      try { const result = await host.preview(options); reportOperation("preview", "success", { preview_kind: result?.kind || previewKind }); return result; }
+      catch (error) { reportOperation("preview", "failure", { preview_kind: previewKind }); throw error; }
+    },
     save: async () => {
-      const saved = await host.save();
-      return saved
+      try {
+        const saved = await host.save();
+        reportOperation("save", saved ? "success" : "failure");
+        return saved
         ? {
             id: saved.document?.id,
             revision: saved.revision,
@@ -158,34 +210,53 @@ export function createAutomation(host) {
         : {
             saved: false,
             reason: "Device storage is unavailable. Export a project file.",
-          };
+        };
+      } catch (error) { reportOperation("save", "failure"); throw error; }
     },
-    export: async (options = {}) => host.export(options),
+    export: async (options = {}) => {
+      try {
+        const result = await host.export(options);
+        const persistence = result?.exportResult?.persistence?.status;
+        const artifact_persistence = persistence === "persisted" ? "persisted" : persistence === "failed" ? "failed" : "not_requested";
+        reportOperation("export", "success", artifact_persistence ? { artifact_persistence } : {});
+        return result;
+      } catch (error) { reportOperation("export", error?.name === "ProExportRequired" ? "blocked" : "failure"); throw error; }
+    },
     exportResult: () => host.exportResult?.() ?? null,
     colorProfile: async (options = {}) => {
-      if ((options.operation || "inspect") !== "inspect") { desktop.assertEditable(); assertIdle(); }
-      if (options.expectedRevision !== undefined && options.expectedRevision !== host.revision())
-        throw Error("The document changed. Inspect it again before changing its profile.");
-      return host.colorProfile(options);
+      try {
+        if ((options.operation || "inspect") !== "inspect") { desktop.assertEditable(); assertIdle(); }
+        if (options.expectedRevision !== undefined && options.expectedRevision !== host.revision())
+          throw Error("The document changed. Inspect it again before changing its profile.");
+        const result = await host.colorProfile(options);
+        if ((options.operation || "inspect") !== "inspect") reportOperation("color_profile", "success", { changed: result?.changed === true });
+        return result;
+      } catch (error) {
+        if ((options.operation || "inspect") !== "inspect") reportOperation("color_profile", "failure", { changed: false });
+        throw error;
+      }
     },
     runLua: async (options = {}) => {
-      desktop.assertEditable();
-      assertIdle();
-      if (options.expectedRevision !== undefined && options.expectedRevision !== host.revision())
-        throw Error("The document changed. Inspect it again before running Lua.");
-      return host.runLua(options);
+      try {
+        desktop.assertEditable();
+        assertIdle();
+        if (options.expectedRevision !== undefined && options.expectedRevision !== host.revision())
+          throw Error("The document changed. Inspect it again before running Lua.");
+        const result = await host.runLua(options);
+        reportOperation("lua", "success", { changed: result?.changed === true });
+        return result;
+      } catch (error) {
+        reportOperation("lua", error?.name === "AbortError" ? "cancelled" : "failure", { changed: false });
+        throw error;
+      }
     },
     undo: async () => {
-      desktop.assertEditable();
-      assertIdle();
-      await host.undo();
-      return { revision: host.revision(), document: host.inspect() };
+      try { desktop.assertEditable(); assertIdle(); const result = await host.undo(); reportOperation("undo", "success", { changed: result?.changed === true }); return { revision: host.revision(), changed: result?.changed === true, document: host.inspect() }; }
+      catch (error) { reportOperation("undo", "failure", { changed: false }); throw error; }
     },
     redo: async () => {
-      desktop.assertEditable();
-      assertIdle();
-      await host.redo();
-      return { revision: host.revision(), document: host.inspect() };
+      try { desktop.assertEditable(); assertIdle(); const result = await host.redo(); reportOperation("redo", "success", { changed: result?.changed === true }); return { revision: host.revision(), changed: result?.changed === true, document: host.inspect() }; }
+      catch (error) { reportOperation("redo", "failure", { changed: false }); throw error; }
     },
   });
 }

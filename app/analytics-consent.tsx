@@ -152,7 +152,7 @@ export function AnalyticsConsent() {
             </div>
             <button type="button" className="privacy-close" aria-label="Close privacy preferences" onClick={closeDialog}>×</button>
           </div>
-          <p id="analytics-consent-description">Drawing, autosave and exports work with every choice. Essential only counts anonymous page visits, first meaningful edits, edits made through automation, recognized public navigation, downloads, manual or automated export outcomes and checkout starts. Choose optional usage analytics or enhanced diagnostics to help improve PixelWall and plan future paid features.</p>
+          <p id="analytics-consent-description">Drawing, autosave and exports work with every choice. Essential only counts anonymous page visits, first meaningful edits, automation actions and outcomes, recognized public navigation, downloads, manual or automated export outcomes and checkout starts. Automation counts include edits, previews, validation and file retrieval, without scripts or artwork. Choose optional usage analytics or enhanced diagnostics to help improve PixelWall and plan future paid features.</p>
           {browserBlocked && <p className="privacy-message" role="status">Your browser’s Do Not Track or Global Privacy Control signal keeps all analytics disabled, including anonymous counts.</p>}
           <fieldset className="privacy-choices">
             <legend className="visually-hidden">Choose a privacy level</legend>
