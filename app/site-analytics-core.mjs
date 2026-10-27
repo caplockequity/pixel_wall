@@ -30,6 +30,7 @@ const GUIDE_PATHS = new Set([
   '/guides/offline-and-downloads', '/guides/file-compatibility',
   '/guides/ai-agents', '/guides/isometric-water', '/guides/isometric-pixel-art',
   '/guides/desktop-mcp', '/guides/scene-components', '/guides/review-artifacts',
+  '/guides/willowmere',
 ]);
 
 const CATEGORY_PATHS = new Map([
