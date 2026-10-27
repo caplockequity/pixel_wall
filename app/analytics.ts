@@ -51,6 +51,10 @@ export type AnalyticsEventMap = {
   import_failed: CommonProductProperties & { import_kind: string; format: string; file_count?: number; reason: string };
   recovery_action: CommonProductProperties & { action: string; outcome: string; reason?: string };
   automation_used: CommonProductProperties & { operation: string; command_count?: number };
+  automation_edit_completed: CommonProductProperties & {
+    operation: "apply" | "lua" | "color_profile" | "undo" | "redo";
+    command_count?: number;
+  };
   pro_dialog_viewed: { source: string };
   checkout_started: { billing_mode: string };
   checkout_redirected: { billing_mode: string };
@@ -176,6 +180,7 @@ export const EVENT_PROPERTY_ALLOWLIST = {
   import_failed: [...COMMON_PRODUCT_PROPERTY_KEYS, "import_kind", "format", "file_count", "reason"],
   recovery_action: [...COMMON_PRODUCT_PROPERTY_KEYS, "action", "outcome", "reason"],
   automation_used: [...COMMON_PRODUCT_PROPERTY_KEYS, "operation", "command_count"],
+  automation_edit_completed: [...COMMON_PRODUCT_PROPERTY_KEYS, "operation", "command_count"],
   pro_dialog_viewed: ["source"],
   checkout_started: ["billing_mode"],
   checkout_redirected: ["billing_mode"],
@@ -427,8 +432,8 @@ const STRING_VALUES: Record<string, readonly string[]> = Object.fromEntries(Obje
   package_type: "zip exe appimage AppImage",
   color_mode: "rgba indexed grayscale rgb",
   project_source: "new library legacy_migration storage_unavailable fresh_demo restored_v3 upgraded_v2 upgraded_v1",
-  activation_type: "drawing erase fill gradient text shapes layers animation cels paste selection canvas palette effects slices tilemap structure import automation stroke edit",
-  tool_family: "erase gradient cels paste canvas slices drawing shapes fill selection transform layers frames animation palette tilemap tiles effects text import reference structure automation other",
+  activation_type: "drawing erase fill gradient text shapes layers animation cels paste selection canvas palette effects slices tilemap structure import automation scripting stroke edit",
+  tool_family: "erase gradient cels paste canvas slices drawing shapes fill selection transform layers frames animation palette tilemap tiles effects text import reference structure scripting automation other",
   import_kind: "document extension native aseprite image animation sprite_sheet palette reference sequence project gif sheet raster",
   format: "other project image tga zip sheet pixelwall aseprite ase png jpeg jpg webp gif bmp avif svg json gpl pal hex aseprite_palette unknown",
   source: "initial_prompt privacy_settings automatic keyboard toolbar footer menu export checkout_return restore ui automation banner settings",
@@ -443,7 +448,7 @@ const STRING_VALUES: Record<string, readonly string[]> = Object.fromEntries(Obje
   mime_type: "image/png image/jpeg image/gif image/webp image/avif image/bmp unknown",
   file_size_bucket: "under_256kb 256kb_to_1mb 1mb_to_5mb 5mb_to_20mb 20mb_plus",
   sheet_direction: "horizontal vertical grid",
-  operation: "apply new_document new create open save backup undo redo batch export import restore load",
+  operation: "apply lua color_profile new_document new create open save backup undo redo batch export import restore load",
   outcome: "success failure cancelled unknown online_only",
   reason: "missing_image project_operation_failed none ownership_license_unavailable verification_failed payment_pending rate_limited unavailable network save_failed unknown storage_failed browser_storage_unavailable too_large unsupported_type decode_error read_error frame_limit processing_error serialization_error invalid_or_unsupported render_or_download_error render_or_encode_error render_or_package_error empty_tilemap pro_required pro_unavailable export_failed import_failed cancelled unavailable budget_exceeded conflict corrupt_record not_found invalid_document invalid_revision quota_exceeded storage_unavailable encoding_failed invalid_format",
   export_type: "project zip tga other frame_png animated_gif sprite_sheet_png sprite_package tilemap_package png jpeg webp avif gif sheet atlas game_zip pixelwall aseprite svg bmp json image",
@@ -453,9 +458,10 @@ const STRING_VALUES: Record<string, readonly string[]> = Object.fromEntries(Obje
   billing_mode: "live test unknown",
 }).map(([key, values]) => [key, values.split(" ")]));
 
-function isApprovedString(key: string, value: string) {
+function isApprovedString(event: AnalyticsEventName, key: string, value: string) {
   if (key === "version") return /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(value);
   if (key === "from_value" || key === "to_value") return ["forward", "reverse", "pingpong", "ping-pong"].includes(value) || /^\d{1,4}x\d{1,4}$/.test(value);
+  if (event === "automation_edit_completed" && key === "operation") return ["apply", "lua", "color_profile", "undo", "redo"].includes(value);
   return STRING_VALUES[key]?.includes(value) ?? false;
 }
 export function analyticsPageGroup(pathname: string) {
@@ -629,13 +635,28 @@ export function captureAnonymousPageView(pathname: string) {
   captureAnonymousSiteEvent("site_page_viewed", { page_group: sitePageGroup(pathname) });
 }
 
-export function captureAnonymousExportOutcome(format: string, outcome: "success" | "failure" | "blocked") {
+export function captureAnonymousExportOutcome(format: string, outcome: "success" | "failure" | "blocked", source: "ui" | "automation" = "ui") {
   if (!isAnonymousTrafficEnabled() || !["success", "failure", "blocked"].includes(outcome)) return;
+  if (source !== undefined && !["ui", "automation"].includes(source)) return;
   sendAnonymousCount({
     event: "export_outcome",
     page_group: analyticsPageGroup(window.location.pathname ?? "/"),
     export_type: STRING_VALUES.export_type.includes(format) ? format : "other",
     outcome,
+    ...(source === undefined ? {} : { source }),
+  });
+}
+
+export function captureAnonymousAutomationEdit(
+  operation: "apply" | "lua" | "color_profile" | "undo" | "redo",
+) {
+  if (!isAnonymousTrafficEnabled()) return;
+  if (analyticsPageGroup(window.location.pathname ?? "/") !== "editor") return;
+  if (!["apply", "lua", "color_profile", "undo", "redo"].includes(operation)) return;
+  sendAnonymousCount({
+    event: "automation_edit_completed",
+    page_group: "editor",
+    operation,
   });
 }
 
@@ -897,7 +918,7 @@ export function sanitizeEventProperties<E extends AnalyticsEventName>(
   const sanitized: Record<string, AnalyticsPrimitive> = {};
   for (const key of EVENT_PROPERTY_ALLOWLIST[event] ?? []) {
     const value = source[key];
-    if (isSafeAnalyticsValue(value) && (typeof value !== "string" || isApprovedString(key, value))) sanitized[key] = value;
+    if (isSafeAnalyticsValue(value) && (typeof value !== "string" || isApprovedString(event, key, value))) sanitized[key] = value;
   }
   return sanitized;
 }

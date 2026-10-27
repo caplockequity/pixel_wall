@@ -18,6 +18,8 @@ const EXPORT_TYPES = new Set([
   "pixelwall", "zip", "json", "image", "other",
 ]);
 const EXPORT_OUTCOMES = new Set(["success", "failure", "blocked"]);
+const AUTOMATION_EDIT_OPERATIONS = new Set(["apply", "lua", "color_profile", "undo", "redo"]);
+const EXPORT_SOURCES = new Set(["ui", "automation"]);
 const DOWNLOADS = new Map([
   ["darwin-arm64", "zip"],
   ["darwin-x64", "zip"],
@@ -117,10 +119,19 @@ async function readPayload(request) {
       return { ...parsed, action: "download_click" };
     }
     if (parsed.event === "export_outcome") {
-      if (keys.join(",") !== "event,export_type,outcome,page_group"
+      if (!(keys.join(",") === "event,export_type,outcome,page_group"
+        || keys.join(",") === "event,export_type,outcome,page_group,source")
         || typeof parsed.export_type !== "string" || !EXPORT_TYPES.has(parsed.export_type)
-        || typeof parsed.outcome !== "string" || !EXPORT_OUTCOMES.has(parsed.outcome)) return null;
+        || typeof parsed.outcome !== "string" || !EXPORT_OUTCOMES.has(parsed.outcome)
+        || (Object.hasOwn(parsed, "source") && (typeof parsed.source !== "string" || !EXPORT_SOURCES.has(parsed.source)))) return null;
       return { ...parsed, action: "export" };
+    }
+    if (parsed.event === "automation_edit_completed") {
+      if (keys.join(",") !== "event,operation,page_group"
+        || parsed.page_group !== "editor"
+        || typeof parsed.operation !== "string" || !AUTOMATION_EDIT_OPERATIONS.has(parsed.operation)
+      ) return null;
+      return { ...parsed, action: "automation_edit" };
     }
     return null;
   } catch {
@@ -207,6 +218,10 @@ export async function handleTrafficCountRequest(request, {
   } else if (payload.event === "export_outcome") {
     event.properties.export_type = payload.export_type;
     event.properties.outcome = payload.outcome;
+    if (Object.hasOwn(payload, "source")) event.properties.source = payload.source;
+  } else if (payload.event === "automation_edit_completed") {
+    event.properties.source = "automation";
+    event.properties.operation = payload.operation;
   } else if (payload.event === "checkout_started") {
     event.properties.billing_mode = payload.billing_mode;
   }

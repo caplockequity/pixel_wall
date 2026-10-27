@@ -126,6 +126,31 @@ test("accepts reviewed export outcomes and excludes document metadata", async ()
   ]) assert.equal((await handleTrafficCountRequest(request(payload), { env, fetchImpl: fake.fetchImpl })).status, 400);
 });
 
+test("accepts legacy and sourced export outcomes, plus automation edit completions", async () => {
+  const fake = fakeFetch();
+  for (const payload of [
+    { event: "export_outcome", page_group: "editor", export_type: "png", outcome: "success" },
+    { event: "export_outcome", page_group: "editor", export_type: "png", outcome: "success", source: "ui" },
+    { event: "export_outcome", page_group: "editor", export_type: "png", outcome: "success", source: "automation" },
+    { event: "automation_edit_completed", page_group: "editor", operation: "lua" },
+    { event: "automation_edit_completed", page_group: "editor", operation: "color_profile" },
+  ]) assert.equal((await handleTrafficCountRequest(request(payload), { env, fetchImpl: fake.fetchImpl })).status, 204);
+  assert.equal(fake.calls[0].body.properties.source, undefined);
+  assert.equal(fake.calls[1].body.properties.source, "ui");
+  assert.equal(fake.calls[2].body.properties.source, "automation");
+  assert.equal(fake.calls[3].body.properties.action, "automation_edit");
+  assert.equal(fake.calls[3].body.properties.source, "automation");
+  assert.equal(fake.calls[3].body.properties.operation, "lua");
+  for (const payload of [
+    { event: "export_outcome", page_group: "editor", export_type: "png", outcome: "success", source: "agent" },
+    { event: "export_outcome", page_group: "editor", export_type: "png", outcome: "success", project_name: "secret" },
+    { event: "automation_edit_completed", page_group: "editor", operation: "inspect" },
+    { event: "automation_edit_completed", page_group: "home", operation: "lua" },
+    { event: "automation_edit_completed", page_group: "editor", operation: "lua", command_count: 2 },
+    { event: "automation_edit_completed", page_group: "editor", operation: "lua", script: "secret" },
+  ]) assert.equal((await handleTrafficCountRequest(request(payload), { env, fetchImpl: fake.fetchImpl })).status, 400);
+});
+
 test("accepts anonymous creation and live checkout counts only", async () => {
   const fake = fakeFetch();
   for (const payload of [

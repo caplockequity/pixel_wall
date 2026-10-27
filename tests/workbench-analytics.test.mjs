@@ -68,6 +68,30 @@ test('large scripted batches emit one activation and only finite used families',
   assert.equal(events.length, 3);
 });
 
+test('automation edit milestones require a real change and aggregate independently of consent', () => {
+  const aggregate = [];
+  const { analytics, events } = setup({ consent: false, aggregateEnabled: true, captureAggregateAutomationEdit: operation => aggregate.push(operation) });
+  analytics.automationEdit('apply', false, 4);
+  analytics.automationEdit('apply', true, 4);
+  analytics.automationEdit('lua', true, 0);
+  analytics.automation('lua', 3);
+  analytics.automationEdit('color_profile', true, Number.POSITIVE_INFINITY);
+  analytics.automationEdit('inspect', true, 1);
+  assert.deepEqual(aggregate, ['apply', 'lua', 'color_profile']);
+  assert.deepEqual(events, []);
+
+  const granted = setup({ aggregateEnabled: true, captureAggregateAutomationEdit: operation => aggregate.push(operation) });
+  granted.analytics.automation('lua', 3);
+  granted.analytics.automationEdit('undo', true);
+  assert.deepEqual(granted.events.map(({ event }) => event), ['automation_used', 'automation_edit_completed']);
+  assert.equal(granted.events[1].properties.operation, 'undo');
+  assert.equal('command_count' in granted.events[1].properties, false);
+  granted.analytics.scripted(true);
+  assert.deepEqual(granted.events.map(({ event }) => event), ['automation_used', 'automation_edit_completed', 'editor_activated', 'editor_tool_used']);
+  assert.equal(granted.events[2].properties.activation_type, 'scripting');
+  assert.equal(granted.events[3].properties.tool_family, 'scripting');
+});
+
 test('water generation counts as animation without recording generation parameters', () => {
   const { analytics, events } = setup();
   analytics.committed({ type: 'scene.water', name: 'Private pond', seed: 123456, palette: { water: '#123456' } }, true);
@@ -140,7 +164,7 @@ test('an export that starts without permission cannot be backfilled after consen
 
 test('anonymous export outcomes work without optional consent and never include document data', () => {
   const aggregate = [];
-  const { analytics, consent } = setup({ consent: false, aggregateEnabled: true, captureAggregateExport: (format, outcome) => aggregate.push({ format, outcome }) });
+  const { analytics, consent } = setup({ consent: false, aggregateEnabled: true, captureAggregateExport: (format, outcome, source) => aggregate.push({ format, outcome, source }) });
   const png = analytics.exportStarted('png');
   analytics.exportFinished(png);
   const blocked = analytics.exportStarted('gif');
@@ -148,12 +172,22 @@ test('anonymous export outcomes work without optional consent and never include 
   const failed = analytics.exportStarted('sheet');
   analytics.exportFinished(failed, { message: 'private-file-name' });
   assert.deepEqual(aggregate, [
-    { format: 'png', outcome: 'success' },
-    { format: 'gif', outcome: 'blocked' },
-    { format: 'sheet', outcome: 'failure' },
+    { format: 'png', outcome: 'success', source: 'ui' },
+    { format: 'gif', outcome: 'blocked', source: 'ui' },
+    { format: 'sheet', outcome: 'failure', source: 'ui' },
   ]);
   assert.equal(JSON.stringify(aggregate).includes('Secret'), false);
   consent(true);
+});
+
+test('aggregate export records automation source and finishes only once', () => {
+  const aggregate = [];
+  const { analytics, events } = setup({ aggregateEnabled: true, captureAggregateExport: (...args) => aggregate.push(args) });
+  const attempt = analytics.exportStarted('png', 'automation');
+  analytics.exportFinished(attempt);
+  analytics.exportFinished(attempt, Error('duplicate'));
+  assert.deepEqual(aggregate, [['png', 'success', 'automation']]);
+  assert.deepEqual(events.map(({ event }) => event), ['export_started', 'export_completed']);
 });
 
 test('anonymous export eligibility is fixed at start, completion is once-only, and callback failures are contained', () => {
