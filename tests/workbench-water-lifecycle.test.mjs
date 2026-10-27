@@ -6,7 +6,7 @@ import { createDocument, applyCommand } from '../app/editor-core.mjs';
 const source = readFileSync(new URL('../app/workbench.jsx', import.meta.url), 'utf8');
 const start = source.indexOf('  const newWaterScene = useCallback');
 const bodyStart = source.indexOf('async (options = {}) => {', start) + 'async (options = {}) => {'.length;
-const bodyEnd = source.indexOf('  }, [activate, save, setBusy]);', bodyStart);
+const bodyEnd = source.indexOf('  }, [activate, saveBeforeSwitch, setBusy]);', bodyStart);
 const body = source.slice(bodyStart, bodyEnd);
 
 function harness({ save, activate } = {}) {
@@ -15,9 +15,10 @@ function harness({ save, activate } = {}) {
   let busy = false;
   const setBusy = value => { busy = value; busyRef.current = value; };
   const calls = [];
-  const fn = new Function('automationRef', 'busyRef', 'luaAbortRef', 'nativeSessionRef', 'operationRef', 'restoringRef', 'docRef', 'setBusy', 'createDocument', 'applyCommand', 'save', 'activate', 'analyticsRef', 'setModal', 'setNotice', `return async (options = {}) => {${body}}`)(
+  const saveFn = save || (async () => { calls.push('save'); return { revision: 1 }; });
+  const fn = new Function('automationRef', 'busyRef', 'luaAbortRef', 'nativeSessionRef', 'operationRef', 'restoringRef', 'docRef', 'setBusy', 'createDocument', 'applyCommand', 'saveBeforeSwitch', 'activate', 'analyticsRef', 'setModal', 'setNotice', `return async (options = {}) => {${body}}`)(
     { current: null }, busyRef, { current: null }, { current: null }, { current: null }, { current: false }, docRef, setBusy, createDocument, applyCommand,
-    save || (async () => { calls.push('save'); return { revision: 1 }; }), activate || (async next => { calls.push('activate'); docRef.current = next; }),
+    saveFn, activate || (async next => { calls.push('activate'); docRef.current = next; }),
     { current: { project() {}, committed() {} } }, () => calls.push('modal'), message => calls.push(message),
   );
   return { fn, original, docRef, calls, get busy() { return busy; } };

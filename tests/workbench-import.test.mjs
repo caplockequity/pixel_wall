@@ -29,7 +29,7 @@ function harness(original = createDocument({ width: 2, height: 2, name: 'Origina
     setImportWarnings: () => {}, setActiveLayer: () => {}, decodeImage: async () => {}, readAseprite: () => {}, importGif: () => {},
     normalizeDocument, decodeProjectContainer,
     parseProject, migrateLegacy, createDocument, applyCommand, pixelsFromRgba: () => [],
-    stem: name => name.replace(/\.[^.]+$/, ''), save: async () => ({ revision: 1 }),
+    stem: name => name.replace(/\.[^.]+$/, ''), save: async () => ({ revision: 1 }), saveBeforeSwitch: async () => ({ saved: true, revision: 1 }),
     activate: async next => { state.current = next; calls.push('activate'); }, crypto: { randomUUID: () => 'imported-id' },
     docRef: { current: state.current },
   };

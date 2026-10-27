@@ -2,6 +2,11 @@
  * document decoding, recovery storage, revisions and UI. */
 export function createNativeDocumentSession(bridge, host) {
   let busy = false, running = Promise.resolve(), queued = 0;
+  // A native file is authoritative once a host opts into startup
+  // reconciliation. Keep failed bindings fail-closed: an older library copy
+  // must never be written over a file that we could not restore.
+  const unrestored = new Set();
+  let recoveryUnavailable = false;
   async function exclusive(operation) {
     if (busy) throw Error('Finish the current file operation first.');
     busy = true;
@@ -13,6 +18,7 @@ export function createNativeDocumentSession(bridge, host) {
   async function write(captured, saveAs = false) {
     if (!captured?.document || !Number.isSafeInteger(captured.revision)) throw Error('This project is unavailable. Recover it before closing.');
     const { document, revision } = captured;
+    if (recoveryUnavailable || unrestored.has(document.id)) throw Error('The bound native file could not be restored. Reopen it before saving this project.');
     const info = await bridge.info({documentId:document.id});
     const chosen = await bridge.chooseSave({documentId:document.id, name:document.name, format:info?.format || 'pixelwall', saveAs});
     if (chosen?.status !== 'ready') throw failure(chosen, 'The save destination is unavailable. Use Save As.');
@@ -33,7 +39,9 @@ export function createNativeDocumentSession(bridge, host) {
     const files = [...(result?.files || [])];
     const deliveries = new Set(result?.deliveryId ? [result.deliveryId] : []);
     try {
-      await host.flushRecovery();
+      const current = await host.read?.();
+      if (current?.mode === 'file') await write(current);
+      else await host.flushRecovery();
       const problems = (result?.errors || []).map(item => `${item.name}: ${item.reason}`);
       for (const file of files) {
         let bound = false;
@@ -56,6 +64,7 @@ export function createNativeDocumentSession(bridge, host) {
           const result = await bridge.bindOpen({token:file.token, documentId:captured.document.id, revision:captured.revision});
           if (result?.status !== 'bound' || result.documentId !== captured.document.id) throw Error('The file could not be linked to this project. Its recovery copy remains in the library.');
           bound = true;
+          if (file.existingDocumentId && file.existingDocumentId !== captured.document.id) unrestored.delete(file.existingDocumentId);
           await host.activate(captured);
           host.imported?.(file, decoded.warnings || []);
         } catch (error) { problems.push(error.message); }
@@ -124,15 +133,46 @@ export function createNativeDocumentSession(bridge, host) {
       const recovered = [], errors = [];
       let bindings;
       try { bindings = await bridge.list(); }
-      catch (error) { return {status:'error', recovered, errors:[{documentId:null,name:'Saved file locations',reason:error.message,action:'Your device recovery copies remain available. Keep the editor open and save project backups; retry when local storage is available or contact support.'}]}; }
+      catch (error) {
+        recoveryUnavailable = true;
+        return {status:'error', recovered, errors:[{documentId:null,name:'Saved file locations',reason:error.message,action:'Your device recovery copies remain available. Keep the editor open and save project backups; retry when local storage is available or contact support.'}]};
+      }
+      recoveryUnavailable = false;
       for (const binding of bindings) {
         try {
+          if (typeof host.restoreNative === 'function') {
+            let result;
+            let file;
+            let deliveryId;
+            let bound = false;
+            try {
+              result = await bridge.reopen({documentId:binding.documentId});
+              deliveryId = result?.deliveryId;
+              file = result?.files?.[0];
+              if (result?.status !== 'opened' || !file?.token) throw Error(result?.errors?.[0]?.reason || `${binding.name || binding.documentId} could not be recovered.`);
+              const decoded = await host.decode(file);
+              if (!decoded?.document) throw Error('The recovered native file could not be decoded.');
+              const revision = Number.isSafeInteger(binding.lastSavedRevision) ? binding.lastSavedRevision : Number.isSafeInteger(binding.revision) ? binding.revision : 0;
+              const document = {...decoded.document, id:binding.documentId};
+              const bind = await bridge.bindOpen({token:file.token, documentId:binding.documentId, revision});
+              if (bind?.status !== 'bound' || bind.documentId !== binding.documentId) throw Error('The recovered native file could not be linked to its project.');
+              bound = true;
+              await host.restoreNative({document, revision, source:file, binding});
+              unrestored.delete(binding.documentId);
+              recovered.push(binding.documentId);
+            } finally {
+              if (file?.token && !bound) await bridge.cancelOpen({token:file.token}).catch(() => {});
+              if (deliveryId) await bridge.ackOpen?.({deliveryId}).catch(() => {});
+            }
+            continue;
+          }
           if (await host.read(binding.documentId)) continue;
           const result = await bridge.reopen({documentId:binding.documentId});
           await accept(result);
           if (result?.status !== 'opened' || !result.files?.length) throw Error('The original file could not be recovered.');
           recovered.push(binding.documentId);
         } catch (error) {
+          if (typeof host.restoreNative === 'function') unrestored.add(binding.documentId);
           errors.push({documentId:binding.documentId,name:binding.name || binding.documentId,reason:error.message,action:'Reconnect or locate the original file, then choose File → Open to recover it. Other projects remain available.'});
         }
       }
