@@ -4,6 +4,8 @@ import { IDBFactory } from 'fake-indexeddb';
 import { openStore } from '../app/storage.mjs';
 import { createNativeDocumentSession } from '../app/native-document-session.mjs';
 import { createDocument, normalizeDocument } from '../app/editor-core.mjs';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
 const bytesFor = doc => new TextEncoder().encode(JSON.stringify(doc));
 function harness({ documents, initial }) {
@@ -24,6 +26,13 @@ function harness({ documents, initial }) {
 }
 
 test('full library keeps file checkpoints and temporary documents independently recoverable', async () => {
+  // Contract-level extraction guard: these are the production host closures,
+  // so this acceptance fixture cannot silently drift into a standalone model.
+  const sourceText=await readFile(fileURLToPath(new URL('../app/workbench.jsx',import.meta.url)),'utf8');
+  assert.match(sourceText,/temporaryDocumentsRef\.current\.set\(docRef\.current\.id/);
+  assert.match(sourceText,/saveForClose: async \(\) =>/);
+  assert.match(sourceText,/Retained temporary or file-backed documents need a verified checkpoint/);
+  assert.match(sourceText,/retained \? \{document:retained\.document/);
   const store=await openStore({indexedDB:new IDBFactory(),budgetBytes:1024});
   const first=createDocument({id:'first',width:8,height:8});
   await assert.rejects(store.saveDocument({...first,metadata:{padding:'x'.repeat(4000)}}),{code:'BUDGET_EXCEEDED'});
