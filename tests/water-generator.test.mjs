@@ -44,6 +44,25 @@ test('land mask is independent from water animation controls and phase wraps', (
   assert.ok(base.frames.some((f) => f.cels.water.imageId && base.images[f.cels.water.imageId].pixels.some((p, j) => p !== base.images['water-image-1'].pixels[j])));
 });
 
+test('flow direction and integer speed alter the animated water field', () => {
+  const east = generateWaterScene({ scene: 'river', seed: 8, waterSeed: 2, flowDirection: { x: 1, y: 0 }, flowSpeed: 1, frames: 6, width: 32, height: 24 });
+  const south = generateWaterScene({ scene: 'river', seed: 8, waterSeed: 2, flowDirection: { x: 0, y: 1 }, flowSpeed: 1, frames: 6, width: 32, height: 24 });
+  const fast = generateWaterScene({ scene: 'river', seed: 8, waterSeed: 2, flowDirection: { x: 1, y: 0 }, flowSpeed: 2, frames: 6, width: 32, height: 24 });
+  assert.notDeepEqual(east.images[east.frames[1].cels.water.imageId].pixels, south.images[south.frames[1].cels.water.imageId].pixels);
+  assert.notDeepEqual(east.images[east.frames[1].cels.water.imageId].pixels, fast.images[fast.frames[1].cels.water.imageId].pixels);
+  assert.equal(east.metadata.flowSpeed, 1); assert.equal(fast.metadata.flowSpeed, 2);
+});
+
+test('waterfall regions work independently of scene and remain clipped to their rectangles', () => {
+  const plain = generateWaterScene({ scene: 'pond', seed: 4, waterSeed: 8, frames: 3, width: 32, height: 24 });
+  const region = { x: 10, y: 8, width: 6, height: 6 };
+  const withFall = generateWaterScene({ scene: 'pond', seed: 4, waterSeed: 8, frames: 3, width: 32, height: 24, waterfallRegions: [region] });
+  const a = plain.images[plain.frames[0].cels.water.imageId].pixels, b = withFall.images[withFall.frames[0].cels.water.imageId].pixels;
+  let changed = 0;
+  for (let y = 0; y < 24; y++) for (let x = 0; x < 32; x++) if (a[y * 32 + x] !== b[y * 32 + x]) { changed++; assert.ok(x >= region.x && y >= region.y && x < region.x + region.width && y < region.y + region.height); }
+  assert.ok(changed > 0);
+});
+
 test('composited animation changes for every scene and view', () => {
   for (const scene of ['pond', 'river', 'stream', 'waterfall', 'shoreline']) for (const view of ['top-down', 'isometric']) {
     const doc = normalizeDocument(generateWaterScene({ scene, view, seed: 4, waterSeed: 8, frames: 4, width: 32, height: 24 }));

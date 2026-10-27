@@ -59,11 +59,14 @@ test('scene component replacement refuses unreviewed manual paint', () => {
 test('water patches compose only masked pixels and retain base dimensions', () => {
   const base = generateWaterPatch({ id: 'base', width: 32, height: 24, fieldWidth: 32, fieldHeight: 24, frames: 3, originX: 0, originY: 0 });
   const patch = generateWaterPatch({ id: 'patch', width: 8, height: 8, fieldWidth: 32, fieldHeight: 24, frames: 2, originX: 8, originY: 6 });
-  const composed = composeWaterPatch(base, patch, { x: 8, y: 6, mask: x => x < 4 });
+  const composed = composeWaterPatch(base, patch, { x: 8, y: 6, mask: x => x < 4, phaseMap: [0, 1, 0] });
   assert.equal(composed.width, 32); assert.equal(composed.height, 24);
   assert.equal(composed.metadata.waterCompositions.length, 1);
   const monolithic = generateWaterPatch({ id: 'mono', width: 8, height: 8, fieldWidth: 32, fieldHeight: 24, frames: 2, originX: 8, originY: 6 });
   assert.deepEqual(composed.images[composed.frames[0].cels.water.imageId].pixels.slice(6 * 32 + 8, 6 * 32 + 16), monolithic.images[monolithic.frames[0].cels.water.imageId].pixels.slice(0, 8));
+  assert.throws(() => composeWaterPatch(base, patch, { x: 8, y: 6 }), /frame counts/);
+  const negativePhase = composeWaterPatch(base, patch, { x: 8, y: 6, phaseOffset: -1, phaseMap: [0, 1, 0] });
+  assert.equal(negativePhase.metadata.waterCompositions.at(-1).phaseOffset, 1);
 });
 
 test('large shared water field keeps adjacent patch samples equal across all frames', () => {

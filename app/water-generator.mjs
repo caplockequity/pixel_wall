@@ -40,7 +40,10 @@ export function generateWaterScene(options = {}) {
   if (typeof rippleDensity !== 'number' || !Number.isFinite(rippleDensity) || rippleDensity < 0 || rippleDensity > 1) throw new RangeError('rippleDensity must be a number from 0 to 1');
   const flowDirection = options.flowDirection ?? { x: 1, y: 0 };
   if (!flowDirection || !Number.isFinite(flowDirection.x) || !Number.isFinite(flowDirection.y) || (flowDirection.x === 0 && flowDirection.y === 0)) throw new RangeError('flowDirection must be a nonzero {x,y} vector.');
+  const flowLength = Math.hypot(flowDirection.x, flowDirection.y), flow = { x: flowDirection.x / flowLength, y: flowDirection.y / flowLength };
+  const flowSpeed = integer(options.flowSpeed, 1, 'flowSpeed', 1, 16);
   const foamRegions = Array.isArray(options.foamRegions) ? options.foamRegions.map(region => ({ x: integer(region.x, 0, 'foam region x', -65535, 65535), y: integer(region.y, 0, 'foam region y', -65535, 65535), width: integer(region.width, 1, 'foam region width', 1, 256), height: integer(region.height, 1, 'foam region height', 1, 256) })) : [];
+  const waterfallRegions = Array.isArray(options.waterfallRegions) ? options.waterfallRegions.map(region => ({ x: integer(region.x, 0, 'waterfall region x', 0, width - 1), y: integer(region.y, 0, 'waterfall region y', 0, height - 1), width: integer(region.width, 1, 'waterfall region width', 1, width), height: integer(region.height, 1, 'waterfall region height', 1, height) })).filter(region => region.x + region.width <= width && region.y + region.height <= height) : [];
   const pal = paletteFor(season, options.palette), count = width * height;
   const blank = () => Array(count).fill(null), bank = blank(), rocks = blank(), grass = blank();
   const depth = new Float64Array(count).fill(Infinity), plane = new Uint8Array(count);
@@ -122,11 +125,11 @@ export function generateWaterScene(options = {}) {
   for (const [id, pixels] of Object.entries({ banks: bank, rocks, grass })) images[`${id}-image`] = { width, height, pixels };
   const outputFrames = [];
   for (let f = 0; f < frames; f++) {
-    const phase = ((f + phaseOffset) % frames) / frames * TAU, water = blank();
+    const phase = ((f * flowSpeed + phaseOffset) % frames + frames) % frames / frames * TAU, water = blank();
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
       const i = y * width + x, d = depth[i];
       if (!plane[i] || d > 0) continue;
-      const wave = Math.sin(x * .14 + y * .31 + phase + waterPhase);
+      const wave = Math.sin((x * (.14 * flow.x) + y * (.31 * flow.y)) + phase + waterPhase);
       water[i] = d > -.025 ? pal.waterLight : d < -.10 && noise(x >> 3, y >> 3, seed) < .35 ? pal.waterDeep : pal.water;
       // Short horizontal glints: density affects surface motion, never shoreline geometry.
       const gx = Math.floor(x / 7), gy = Math.floor(y / 5), n = noise(gx, gy, waterSeed);
@@ -139,13 +142,14 @@ export function generateWaterScene(options = {}) {
         water[i] = ((x + Math.floor(y / 4) * 2 + seed) % 17 === 0 || (y - Math.floor(x / 5) + seed) % 19 === 0) ? pal.iceDark : pal.ice;
       }
     }
-    if (scene === 'waterfall') {
-      for (let yy = -fallHeight; yy <= 1; yy++) for (let xx = -fallWidth; xx <= fallWidth; xx++) {
+    const falls = waterfallRegions.length ? waterfallRegions.map(region => ({ x: region.x + Math.floor(region.width / 2), y: region.y + Math.floor(region.height / 2), width: Math.max(1, Math.floor(region.width / 2)), height: region.height, region })) : scene === 'waterfall' ? [{ x: cascade.x, y: cascade.y, width: fallWidth, height: fallHeight, region: null }] : [];
+    for (const fall of falls) {
+      for (let yy = -fall.height; yy <= 1; yy++) for (let xx = -fall.width; xx <= fall.width; xx++) {
         const stripe = Math.sin(yy * .7 - phase * 2 + xx * .4 + waterPhase);
-        const c = Math.abs(xx) === fallWidth ? pal.waterDeep : stripe > .35 && rippleDensity > 0 ? pal.foam : xx % 3 === 0 ? pal.waterLight : pal.water;
-        put(water, cascade.x + xx, cascade.y + yy, c);
+        const c = Math.abs(xx) === fall.width ? pal.waterDeep : stripe > .35 && rippleDensity > 0 ? pal.foam : xx % 3 === 0 ? pal.waterLight : pal.water;
+        const px = fall.x + xx, py = fall.y + yy; if (!fall.region || (px >= fall.region.x && py >= fall.region.y && px < fall.region.x + fall.region.width && py < fall.region.y + fall.region.height)) put(water, px, py, c);
       }
-      if (rippleDensity > 0) line(water, cascade.x - fallWidth - 1, cascade.y + 1, cascade.x + fallWidth + 1, cascade.y + 1, Math.sin(phase) > 0 ? pal.foam : pal.waterLight);
+      if (rippleDensity > 0) { const left = fall.region ? fall.region.x : fall.x - fall.width - 1, right = fall.region ? fall.region.x + fall.region.width - 1 : fall.x + fall.width + 1; line(water, left, fall.y + 1, right, fall.y + 1, Math.sin(phase) > 0 ? pal.foam : pal.waterLight); }
     }
     const imageId = `water-image-${f + 1}`; images[imageId] = { width, height, pixels: water };
     outputFrames.push({ id: `frame-${f + 1}`, durationMs, cels: Object.fromEntries(layerIds.map(id => [id, { imageId: id === 'water' ? imageId : `${id}-image`, x: 0, y: 0, opacity: 1 }])) });
@@ -154,7 +158,7 @@ export function generateWaterScene(options = {}) {
     format:'pixelwall-document', version:4, id:options.id ?? 'water-scene', name:options.name ?? `${scene[0].toUpperCase() + scene.slice(1)} Water`, width,height,colorMode:'rgba',colorProfile:'sRGB',palette:[...new Set(Object.values(pal))],
     layers:layerIds.map(id=>({id,name:{banks:'Banks',water:'Water (animated)',rocks:'Rocks',grass:'Grass & Reeds'}[id],type:'image',parentId:null,visible:true,locked:false,opacity:1,blendMode:'normal'})),
     frames:outputFrames,images,clips:[{id:'water-loop',name:'Water Loop',frameIds:outputFrames.map(f=>f.id),direction:'forward',loop:true}],slices:[],tilesets:[],
-    metadata:{generator:'water',generatorVersion:2,scene,view,season,seed,waterSeed,rippleDensity,phaseOffset,details,flowDirection,foamRegions,seamless:true,spatiallyTileable:false,paletteRoles:pal},
+    metadata:{generator:'water',generatorVersion:3,scene,view,season,seed,waterSeed,rippleDensity,phaseOffset,details,flowDirection:flow,flowSpeed,foamRegions,waterfallRegions,seamless:true,spatiallyTileable:false,paletteRoles:pal},
   };
 }
 export const WATER_SCENES = Object.freeze([...SCENES]);
@@ -169,15 +173,17 @@ export function generateWaterPatch(options = {}) {
   const full = generateWaterScene({ ...options, allowLarge: true, width: fieldWidth, height: fieldHeight });
   const crop = (image) => ({ ...image, width, height, pixels: Array.from({ length: height }, (_, row) => image.pixels.slice((y + row) * fieldWidth + x, (y + row) * fieldWidth + x + width)).flat() });
   const patch = { ...full, width, height, images: Object.fromEntries(Object.entries(full.images).map(([id, image]) => [id, crop(image)])), frames: full.frames.map(frame => ({ ...frame, cels: Object.fromEntries(Object.entries(frame.cels).map(([id, cel]) => [id, { ...cel, x: 0, y: 0 }])) })) };
-  patch.metadata = { ...(patch.metadata ?? {}), generator: 'water-patch', globalOrigin: { x, y }, flowDirection: options.flowDirection ?? null, boundary: options.boundary ?? 'explicit' };
+  patch.metadata = { ...(patch.metadata ?? {}), generator: 'water-patch', globalOrigin: { x, y }, flowDirection: options.flowDirection ?? null, flowSpeed: options.flowSpeed ?? 1, boundary: options.boundary ?? 'explicit' };
   return patch;
 }
 
 /** Composite only the named water layer from a patch; all other base pixels survive. */
-export function composeWaterPatch(base, patch, { x = patch?.metadata?.globalOrigin?.x ?? 0, y = patch?.metadata?.globalOrigin?.y ?? 0, mask, layerId = 'water', phaseOffset = 0 } = {}) {
+export function composeWaterPatch(base, patch, { x = patch?.metadata?.globalOrigin?.x ?? 0, y = patch?.metadata?.globalOrigin?.y ?? 0, mask, layerId = 'water', phaseOffset = 0, phaseMap } = {}) {
   if (!base?.images || !Array.isArray(base.frames) || !patch?.images || !Array.isArray(patch.frames)) throw new TypeError('Base and patch PixelWall documents are required.');
   if (!Number.isSafeInteger(x) || !Number.isSafeInteger(y)) throw new RangeError('Patch origin must be integer coordinates.');
+  if (!Number.isSafeInteger(phaseOffset)) throw new RangeError('Patch phaseOffset must be an integer.');
   const result = structuredClone(base), patchFrames = patch.frames, baseFrames = result.frames;
+  if (baseFrames.length !== patchFrames.length && !Array.isArray(phaseMap)) throw new RangeError('Patch and destination frame counts must match unless an explicit phaseMap is supplied.');
   const patchLayer = patch.layers?.find(layer => layer.id === layerId) ?? patch.layers?.find(layer => /water/i.test(layer.name ?? ''));
   const targetLayer = result.layers?.find(layer => layer.id === layerId) ?? patchLayer;
   if (!patchLayer || !targetLayer) throw new Error(`Water layer ${layerId} was not found.`);
@@ -185,13 +191,15 @@ export function composeWaterPatch(base, patch, { x = patch?.metadata?.globalOrig
   const targetId = result.layers.some(layer => layer.id === layerId) ? layerId : targetLayer.id;
   const width = patch.width, height = patch.height;
   const allowed = typeof mask === 'function' ? mask : (mask ? (px, py) => mask[py * width + px] === 1 || mask[py * width + px] === true : () => true);
+  if (phaseMap && (!phaseMap.length || phaseMap.length !== baseFrames.length || phaseMap.some(value => !Number.isSafeInteger(value) || value < 0 || value >= patchFrames.length))) throw new RangeError('phaseMap must provide one valid patch frame index per destination frame.');
+  const normalizedPhase = ((phaseOffset % patchFrames.length) + patchFrames.length) % patchFrames.length;
   for (let frameIndex = 0; frameIndex < baseFrames.length; frameIndex++) {
-    const targetFrame = baseFrames[frameIndex]; const sourceFrame = patchFrames[(frameIndex + phaseOffset + patchFrames.length * 10) % patchFrames.length];
+    const targetFrame = baseFrames[frameIndex]; const sourceFrame = patchFrames[phaseMap ? phaseMap[frameIndex] : (frameIndex + normalizedPhase) % patchFrames.length];
     const sourceCel = sourceFrame.cels?.[patchLayer.id]; if (!sourceCel) continue; const sourceImage = patch.images[sourceCel.imageId]; if (!sourceImage) continue;
     const existing = targetFrame.cels?.[targetId]; const pixels = result.images[existing?.imageId]?.pixels ? [...result.images[existing.imageId].pixels] : Array(result.width * result.height).fill(null);
     for (let py = 0; py < height; py++) for (let px = 0; px < width; px++) { if (!allowed(px, py)) continue; const tx = x + px, ty = y + py; if (tx < 0 || ty < 0 || tx >= result.width || ty >= result.height) continue; const value = sourceImage.pixels[py * width + px]; if (value != null) pixels[ty * result.width + tx] = value; }
     let imageId = `${targetId}-patch-${frameIndex + 1}`; let suffix = 1; while (result.images[imageId]) imageId = `${targetId}-patch-${frameIndex + 1}-${suffix++}`; result.images[imageId] = { width: result.width, height: result.height, pixels }; targetFrame.cels = { ...(targetFrame.cels ?? {}), [targetId]: { imageId, x: 0, y: 0, opacity: 1 } };
   }
-  result.metadata = { ...(result.metadata ?? {}), waterCompositions: [...(result.metadata?.waterCompositions ?? []), { source: patch.id, layerId: targetId, origin: { x, y }, phaseOffset, boundary: patch.metadata?.boundary ?? 'explicit' }] };
+  result.metadata = { ...(result.metadata ?? {}), waterCompositions: [...(result.metadata?.waterCompositions ?? []), { source: patch.id, layerId: targetId, origin: { x, y }, phaseOffset: normalizedPhase, phaseMap: phaseMap ? [...phaseMap] : null, boundary: patch.metadata?.boundary ?? 'explicit' }] };
   return result;
 }
