@@ -1,0 +1,240 @@
+{
+  "format": "pixelwall-workload-profile",
+  "version": 1,
+  "commit": "b1c5b0dbed12331cd9bf05c88026293dca3682d2",
+  "node": "v25.1.0",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "createdAt": "2026-10-27T18:45:57.271Z",
+  "method": "Single measured pass per fixed fixture after fixture construction. GC requested between fixtures when --expose-gc is supplied. Phase timings and sampled memory; no universal throughput inference.",
+  "results": [
+    {
+      "fixture": "sprite-details",
+      "width": 32,
+      "height": 32,
+      "frames": 1,
+      "commands": 64,
+      "payloadBytes": 8233,
+      "projectBytes": 505,
+      "pngBytes": 126,
+      "phases": {
+        "captureMs": 0.12012499999997317,
+        "rasterMs": 23.403625000000034,
+        "historyCommitMs": 1.6331670000000145,
+        "serializeMs": 6.228834000000006,
+        "reopenMs": 2.360584000000017,
+        "exportMs": 3.225582999999972
+      },
+      "memory": {
+        "before": {
+          "rss": 56655872,
+          "heapTotal": 8437760,
+          "heapUsed": 5592976,
+          "external": 2270270,
+          "arrayBuffers": 212075
+        },
+        "sampledPeakRss": 60538880,
+        "sampledPeakHeap": 8112056,
+        "sampledPeakExternal": 2916637,
+        "note": "Sampled process memory, not an allocation trace or browser heap measurement."
+      },
+      "cancellation": {
+        "stagedCommands": 4,
+        "boundaryMs": 2.959374999999966,
+        "originalUnchanged": true,
+        "scratchChanged": true,
+        "committed": false
+      }
+    },
+    {
+      "fixture": "linked-animation",
+      "width": 96,
+      "height": 64,
+      "frames": 12,
+      "commands": 24,
+      "payloadBytes": 3121,
+      "projectBytes": 708,
+      "pngBytes": 206,
+      "phases": {
+        "captureMs": 0.17091699999997445,
+        "rasterMs": 214.652959,
+        "historyCommitMs": 1.957708000000025,
+        "serializeMs": 16.112416999999937,
+        "reopenMs": 8.807583000000022,
+        "exportMs": 6.685500000000047
+      },
+      "memory": {
+        "before": {
+          "rss": 61489152,
+          "heapTotal": 11583488,
+          "heapUsed": 6384496,
+          "external": 2756503,
+          "arrayBuffers": 216802
+        },
+        "sampledPeakRss": 68435968,
+        "sampledPeakHeap": 11350392,
+        "sampledPeakExternal": 2948608,
+        "note": "Sampled process memory, not an allocation trace or browser heap measurement."
+      },
+      "cancellation": {
+        "stagedCommands": 4,
+        "boundaryMs": 43.19987500000002,
+        "originalUnchanged": true,
+        "scratchChanged": true,
+        "committed": false
+      }
+    },
+    {
+      "fixture": "regional-recolor",
+      "width": 512,
+      "height": 384,
+      "frames": 1,
+      "commands": 5,
+      "payloadBytes": 5879831,
+      "projectBytes": 5321,
+      "pngBytes": 2053,
+      "phases": {
+        "captureMs": 81.91329199999996,
+        "rasterMs": 1477.149875,
+        "historyCommitMs": 12.133958000000348,
+        "serializeMs": 88.53749999999991,
+        "reopenMs": 126.78887500000019,
+        "exportMs": 137.38795900000014
+      },
+      "memory": {
+        "before": {
+          "rss": 78495744,
+          "heapTotal": 23429120,
+          "heapUsed": 12292288,
+          "external": 2547449,
+          "arrayBuffers": 505008
+        },
+        "sampledPeakRss": 152584192,
+        "sampledPeakHeap": 56450856,
+        "sampledPeakExternal": 22853011,
+        "note": "Sampled process memory, not an allocation trace or browser heap measurement."
+      },
+      "cancellation": {
+        "stagedCommands": 4,
+        "boundaryMs": 1047.5690829999999,
+        "originalUnchanged": true,
+        "scratchChanged": false,
+        "committed": false
+      }
+    },
+    {
+      "fixture": "fills-64",
+      "width": 64,
+      "height": 64,
+      "frames": 1,
+      "commands": 64,
+      "payloadBytes": 8321,
+      "projectBytes": 598,
+      "pngBytes": 222,
+      "phases": {
+        "captureMs": 0.08870800000022427,
+        "rasterMs": 507.13295800000014,
+        "historyCommitMs": 0.11691700000028504,
+        "serializeMs": 8.17645900000025,
+        "reopenMs": 1.501749999999447,
+        "exportMs": 4.290332999999919
+      },
+      "memory": {
+        "before": {
+          "rss": 160137216,
+          "heapTotal": 93814784,
+          "heapUsed": 23982016,
+          "external": 10678367,
+          "arrayBuffers": 1005881
+        },
+        "sampledPeakRss": 160169984,
+        "sampledPeakHeap": 51929344,
+        "sampledPeakExternal": 10678367,
+        "note": "Sampled process memory, not an allocation trace or browser heap measurement."
+      },
+      "cancellation": {
+        "stagedCommands": 4,
+        "boundaryMs": 29.952540999999655,
+        "originalUnchanged": true,
+        "scratchChanged": true,
+        "committed": false
+      }
+    },
+    {
+      "fixture": "fills-256",
+      "width": 256,
+      "height": 256,
+      "frames": 1,
+      "commands": 128,
+      "payloadBytes": 16897,
+      "projectBytes": 2040,
+      "pngBytes": 835,
+      "phases": {
+        "captureMs": 0.15599999999994907,
+        "rasterMs": 15610.370665999999,
+        "historyCommitMs": 1.6664999999993597,
+        "serializeMs": 42.71658299999763,
+        "reopenMs": 23.583999999998923,
+        "exportMs": 42.35620899999776
+      },
+      "memory": {
+        "before": {
+          "rss": 143917056,
+          "heapTotal": 75546624,
+          "heapUsed": 6796352,
+          "external": 4539070,
+          "arrayBuffers": 229279
+        },
+        "sampledPeakRss": 212254720,
+        "sampledPeakHeap": 61316032,
+        "sampledPeakExternal": 9854963,
+        "note": "Sampled process memory, not an allocation trace or browser heap measurement."
+      },
+      "cancellation": {
+        "stagedCommands": 4,
+        "boundaryMs": 296.1693750000013,
+        "originalUnchanged": true,
+        "scratchChanged": true,
+        "committed": false
+      }
+    },
+    {
+      "fixture": "fills-512",
+      "width": 512,
+      "height": 512,
+      "frames": 1,
+      "commands": 256,
+      "payloadBytes": 33793,
+      "projectBytes": 6640,
+      "pngBytes": 2147,
+      "phases": {
+        "captureMs": 0.30404099999941536,
+        "rasterMs": 86088.417541,
+        "historyCommitMs": 5.485874999998487,
+        "serializeMs": 133.3410409999924,
+        "reopenMs": 215.18824999999197,
+        "exportMs": 241.62616600000183
+      },
+      "memory": {
+        "before": {
+          "rss": 205520896,
+          "heapTotal": 143753216,
+          "heapUsed": 8214160,
+          "external": 4372440,
+          "arrayBuffers": 477094
+        },
+        "sampledPeakRss": 263389184,
+        "sampledPeakHeap": 96495632,
+        "sampledPeakExternal": 32001636,
+        "note": "Sampled process memory, not an allocation trace or browser heap measurement."
+      },
+      "cancellation": {
+        "stagedCommands": 4,
+        "boundaryMs": 1622.7477079999953,
+        "originalUnchanged": true,
+        "scratchChanged": true,
+        "committed": false
+      }
+    }
+  ]
+}
