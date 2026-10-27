@@ -393,20 +393,64 @@
   {
     "slug": "guides/export-formats",
     "title": "Pixel art export formats",
-    "description": "Choose PixelWall project, editable sprite, PNG, BMP, TGA, GIF, atlas, and game ZIP exports, with format and memory limits explained.",
+    "description": "Choose editable projects, raster images, and animation exports. Understand generated files, browser download requests, and how to verify an automation handoff.",
     "eyebrow": "Export reference",
     "intro": "Choose an editable project for future changes, a raster frame for a finished image, or a Pro batch format for an animation or game pipeline. Current-editor and classic package schemas differ; use the matching guide.",
     "sections": [
       {
         "heading": "Current editor export choices",
         "items": [
-          "Editable PixelWall project · Free: a v4 .pixelwall document with frames, layers, clips, palettes, linked image references, tilesets, and metadata.",
+          "Editable PixelWall project · Free: a losslessly compressed .pixelwall file preserving the v4 document, including frames, layers, clips, palettes, linked images, tilesets, and metadata. Compact files require PixelWall 0.4.1 or later.",
           "Editable sprite project · Free: a binary sprite file with supported layers, frames and metadata. Review import/export warnings and keep the .pixelwall source.",
           "Current frame PNG, BMP, or TGA · Free: the active rendered frame at the selected scale. Native projects retain information that raster images flatten.",
           "Animated GIF · Pro: the chosen clip and playback order with rounded GIF timing and limited color/transparency.",
           "Sprite atlas PNG · Pro: an atlas PNG plus a separate JSON download describing rectangles, trimming offsets, source IDs, and durations. Allow multiple downloads.",
           "Game package ZIP · Pro: atlas PNG and JSON, rendered frame PNGs, a native project, a manifest, and independent tileset/map data where present.",
           "Saved export presets · Pro: keep reusable export options on this device with the Save export preset and Load saved preset controls."
+        ]
+      },
+      {
+        "heading": "Check that your download finished",
+        "paragraphs": [
+          "“File generated” means PixelWall has created the file in the editor. The browser still needs to save it. A requested download can be blocked or require another click; the editor cannot observe whether the browser finished writing the file."
+        ],
+        "steps": [
+          {
+            "title": "Use the retained download link",
+            "text": "If no download appears, use DOWNLOAD FILE in the “Your download” panel. For an atlas, use both the PNG and JSON links and allow multiple downloads when your browser asks."
+          },
+          {
+            "title": "Check the destination",
+            "text": "Wait for your browser’s download manager to finish, then locate the file in the folder your browser uses. Agents should verify the host’s download result or saved file rather than treating an export response as proof of a completed download."
+          },
+          {
+            "title": "Open the result",
+            "text": "Open a PNG in an image viewer, reopen a .pixelwall backup in PixelWall, or load an atlas with its matching JSON. Keep the editor open until you have confirmed the files you need."
+          }
+        ]
+      },
+      {
+        "heading": "Retrieve exports through automation",
+        "paragraphs": [
+          "In the current editor, window.pixelwall.export() requests browser downloads by default. Pass download:false to generate files without requesting a download. The returned result.exportResult separates the generated artifacts from browser download requests.",
+          "generated.status is generated when file creation has finished. Each entry in generated.files includes filename, mime, bytes, and a page-local object URL. generated.completedAt records generation time, not download completion. For a project export, bytes is the compressed file size.",
+          "download.status is requested when PixelWall attempted an automatic download click, or not_requested when it did not. Check download.files for each file’s request status, especially for an atlas’s PNG and JSON. These fields record the export’s automatic requests; they do not track later clicks on the retained download links. download.completion is unobservable and download.completedAt remains null.",
+          "Fetch the object URLs inside the same editor page. They expire after the next export, dismissal of the download panel, or editor unmount, including a reload or close. They are not public links or filesystem paths and cannot be fetched by a separate terminal process. Copy the bytes through your host’s file-transfer mechanism before they expire."
+        ],
+        "code": "const result = await window.pixelwall.export({\n  format: \"png\", download: false\n});\nconst handoff = result.exportResult;\nfor (const file of handoff.generated.files) {\n  const response = await fetch(file.url);\n  if (!response.ok) throw new Error(\"Export URL is unavailable\");\n  const bytes = new Uint8Array(await response.arrayBuffer());\n  if (bytes.length !== file.bytes) throw new Error(\"Incomplete export\");\n  console.log(file.filename, file.mime, bytes.length);\n  // Save bytes using your host’s file-transfer API.\n  // Then verify the saved file at its destination.\n}",
+        "links": [
+          {
+            "href": "/guides/command-api",
+            "label": "Read the browser API and exportResult() reference"
+          },
+          {
+            "href": "/guides/large-agent-edits",
+            "label": "Follow the river workflow and timeout recovery example"
+          },
+          {
+            "href": "/guides/command-line",
+            "label": "Use the CLI to export to an explicit local path"
+          }
         ]
       },
       {
@@ -493,13 +537,18 @@
       {
         "question": "Do game maps include collision shapes?",
         "answer": "No. Add game-specific collision or object data in the destination tool. PixelWall retains slices as source metadata; it does not automatically convert them to collision objects."
+      },
+      {
+        "question": "Can I retrieve an export after my automation call times out?",
+        "answer": "In the same open editor, call window.pixelwall.exportResult() to read the latest retained handoff. It returns null before any export or after dismissal. Check its ID and filenames to identify the export; do not assume it belongs to the timed-out call. The handoff is kept only in memory and does not survive a reload."
       }
     ],
     "related": [
       "guides/file-compatibility",
       "guides/command-line",
       "guides/offline-and-downloads"
-    ]
+    ],
+    "lastModified": "2026-10-26"
   },
   {
     "slug": "guides/phaser-sprite-sheets",
@@ -1399,10 +1448,50 @@
   {
     "slug": "guides/file-compatibility",
     "title": "Understand native file and color compatibility",
-    "description": "Explore editable file structures, indexed and grayscale editing, ICC color management, Lua scripting, and format limits.",
+    "description": "Understand compact .pixelwall backups, legacy JSON support, version requirements, and readable JSON export, alongside editable sprite and color compatibility.",
     "eyebrow": "FILE COMPATIBILITY",
     "intro": "PixelWall saves layered artwork in its native v4 format and a supported binary sprite format. Keep your original source and inspect compatibility notes when moving complex artwork between tools.",
     "sections": [
+      {
+        "heading": "Compact projects and version compatibility",
+        "paragraphs": [
+          "PixelWall 0.4.1 saves native .pixelwall backups in a losslessly compressed container identified by PWPZ. Compression changes how the project is stored, while keeping layers, frames, linked images, palettes, tilesets, and metadata editable. It does not flatten the artwork or reduce image quality.",
+          "The web editor, desktop app, and CLI read both compact files and supported legacy JSON projects. Older PixelWall versions cannot read the compact container. Update the receiving desktop app or CLI to 0.4.1 or later before sharing a new .pixelwall backup.",
+          "Compression savings depend on the artwork. Large flat-color areas and repeated data often compress well; a particular size reduction is not guaranteed. A smaller file also does not raise the editor’s document or memory limits."
+        ],
+        "links": [
+          {
+            "href": "/downloads",
+            "label": "Get the current desktop app or CLI"
+          },
+          {
+            "href": "/guides/offline-and-downloads",
+            "label": "Keep local saves and independent backups"
+          }
+        ]
+      },
+      {
+        "heading": "Export readable JSON for another tool",
+        "paragraphs": [
+          "Use the current CLI’s export --format json command when a tool needs a readable project payload. This writes the document as plain JSON and leaves the compact source file unchanged. Renaming a .pixelwall file to .json does not decompress or convert it.",
+          "Run this command from the extracted CLI folder, using your own project and output paths. JSON export removes the compressed container; it does not downgrade the document schema or make newer features compatible with every older editor. Check that the receiving tool supports the document and inspect a reopened copy before relying on it."
+        ],
+        "code": "node pixelwall.mjs export river.pixelwall --format json --out river.json\nnode pixelwall.mjs inspect river.json",
+        "links": [
+          {
+            "href": "/guides/command-line",
+            "label": "Read the CLI file and export reference"
+          },
+          {
+            "href": "/guides/large-agent-edits",
+            "label": "Download a compact river project to try"
+          },
+          {
+            "href": "/guides/export-formats",
+            "label": "Verify a generated file and completed download"
+          }
+        ]
+      },
       {
         "heading": "What editable files preserve",
         "paragraphs": [
@@ -1456,7 +1545,8 @@
       "guides/export-formats",
       "guides/scripting",
       "support"
-    ]
+    ],
+    "lastModified": "2026-10-26"
   },
   {
     "slug": "guides/ai-agents",
