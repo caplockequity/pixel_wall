@@ -585,13 +585,6 @@
             "label": "Read the public validation summary and limitations"
           }
         ]
-      },
-      {
-        "heading": "Workflow accounting",
-        "paragraphs": [
-          "The original four-agent workflow recorded 43,010,776 AI-agent tokens through October 27, 2026 at 17:57:51 UTC: 42,816,590 input and 194,186 output. The input total already includes 42,144,640 cached tokens; output already includes 48,653 reasoning tokens. Do not add these component counts again.",
-          "Those counters cover creative work, tests, retries, and revisions together. They exclude the original final response, subsequent packaging, the later art direction edition, and this guide’s publication work. They are agent-token accounting, not tokens consumed by PixelWall, an isolated art-generation cost, or a dollar estimate."
-        ]
       }
     ],
     "faqs": [
