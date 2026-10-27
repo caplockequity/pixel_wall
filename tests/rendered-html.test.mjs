@@ -535,12 +535,12 @@ test("legacy checkout links preserve payment state while moving to the editor", 
 });
 
 test("the downloadable example preserves the studio starter pixels and frame timing", async () => {
-  const { parseProject } = await import("../app/project-format.mjs");
+  const { parseProjectBytes } = await import("../app/project-format.mjs");
   const { makeDemoPixels } = await import("../app/demo-art.mjs");
   const { unzipSync, strFromU8 } = await import("fflate");
   const bytes = await readFile(new URL("public/examples/desert-signal-example.zip", projectRoot));
   const files = unzipSync(bytes);
-  const { project } = parseProject(strFromU8(files["desert-signal.pixelwall"]));
+  const { project } = parseProjectBytes(files["desert-signal.pixelwall"]);
   assert.equal(project.size, 16);
   assert.equal(project.frames.length, 3);
   for (let index = 0; index < 3; index++) {

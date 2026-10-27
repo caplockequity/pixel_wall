@@ -3,7 +3,7 @@ import { crc32, deflateSync } from "node:zlib";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
 import { makeDemoPixels } from "../app/demo-art.mjs";
-import { createBlankProject, stringifyProject, parseProject } from "../app/project-format.mjs";
+import { createBlankProject, stringifyProjectBytes, parseProjectBytes } from "../app/project-format.mjs";
 import { createSpriteExportPlan } from "../app/sprite-export-core.mjs";
 import { animationExportPlan, encodeAnimationGif } from "../app/animation-export.mjs";
 
@@ -16,8 +16,8 @@ const frames = pixels.map((colors, index) => ({ id: index + 1, durationMs: 125, 
 const { project, editor } = createBlankProject({ name: "DESERT SIGNAL", size });
 project.frames = frames;
 project.clips[0].frameIds = [1, 2, 3];
-const portable = stringifyProject(project, editor);
-assert.equal(parseProject(portable).project.frames.length, 3);
+const portable = stringifyProjectBytes(project, editor);
+assert.equal(parseProjectBytes(portable).project.frames.length, 3);
 
 function rgba(colors) {
   return Uint8Array.from(colors.flatMap((hex) => hex ? [...[1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16)), 255] : [0, 0, 0, 0]));
@@ -41,7 +41,7 @@ for (const entry of plan.frames) {
   for (let row = 0; row < size; row++) sheet.set(data.slice(row * size * 4, (row + 1) * size * 4), ((entry.rect.y + row) * plan.sheet.width + entry.rect.x) * 4);
 }
 const files = {
-  "desert-signal.pixelwall": strToU8(portable),
+  "desert-signal.pixelwall": portable,
   [plan.files.sheet]: png(plan.sheet.width, plan.sheet.height, sheet),
   [plan.files.data]: strToU8(JSON.stringify(plan.metadata, null, 2)),
   "desert-signal.png": png(size, size, rgba(pixels[0])),

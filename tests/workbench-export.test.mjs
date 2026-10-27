@@ -9,6 +9,7 @@ import { renderScaledExportFrame } from '../app/export-render.mjs';
 import { validateExportScale, scaleExportSlices } from '../app/export-scale.mjs';
 import { documentProfile, isSRGB } from '../app/color-management.mjs';
 import { loadNodeColorManager } from '../app/color-runtime-node.mjs';
+import { encodeProjectContainer, decodeProjectContainer } from '../app/project-format.mjs';
 
 // Execute the actual host export functions with only external UI services replaced.
 const source = readFileSync(new URL('../app/workbench.jsx', import.meta.url), 'utf8');
@@ -24,14 +25,14 @@ function same(actual, expected) {
  assert.deepEqual(visible(actual.rgba), visible(expected.rgba));
 }
 function host(doc, requestAccess = async () => true) {
- const files = [], docRef = {current:doc};
- const deps = {...formats, strToU8, renderScaledExportFrame, validateExportScale, scaleExportSlices, exportFrameTraversal, documentProfile, isSRGB,
+ const files = [], requests = [], docRef = {current:doc};
+ const deps = {...formats, strToU8, encodeProjectContainer, decodeProjectContainer, renderScaledExportFrame, validateExportScale, scaleExportSlices, exportFrameTraversal, documentProfile, isSRGB,
   colorManager:manager, loadBrowserColorManager:async () => manager, renderingIntent:1,
   docRef, activeRef:{current:{frameId:doc.frames[0].id,layerId:doc.layers[0].id}}, clipId:'',
   targetLayers:() => [doc.layers[0].id], PAID_FORMATS:new Set(['gif','sheet','zip']), access:{requestAccess},
-  stem:() => 'fixture', deferred:async () => {}, downloads:{downloadFiles:items => files.push(...items)}, setNotice:() => {}};
+  stem:() => 'fixture', deferred:async () => {}, downloads:{downloadFiles:(items,options) => { files.push(...items); requests.push(options); return { generated:{status:'generated'}, download:{status:options?.request === false ? 'not_requested' : 'requested'} }; }}, setNotice:() => {}};
  const run = Function(...Object.keys(deps), `${code}\nreturn generateArtwork;`)(...Object.values(deps));
- return {run, files, docRef};
+ return {run, files, requests, docRef};
 }
 for (const [fixture, scale] of [['geometry',0.67],['linked-indexed',1.5],['linked-grayscale',0.5],['linear',2.2],['flag-7',1.5]]) {
  for (const format of ['png','bmp','tga','sheet','zip']) test(`Workbench ${format}: native ${fixture} at ${scale}`, async () => {
@@ -59,7 +60,15 @@ test('Workbench keeps native projects intact and checks invalid scales and Pro b
  await assert.rejects(h.run({format:'gif',scale:0.5}), {name:'ProExportRequired'});
  assert.equal(h.files.length, 0);
  await h.run({format:'project',scale:0.5,layers:'active'});
- assert.deepEqual(JSON.parse(await h.files[0].blob.text()), doc);
+ assert.deepEqual(decodeProjectContainer(new Uint8Array(await h.files[0].blob.arrayBuffer())), doc);
+});
+
+test('Workbench automation can generate a retrievable artifact without requesting a browser download', async () => {
+ const doc = normalizeDocument(formats.readAseprite(load('linked-indexed.aseprite')).document), h = host(doc);
+ const result = await h.run({format:'png',scale:1,download:false});
+ assert.deepEqual(h.requests.at(-1), {request:false});
+ assert.equal(result.exportResult.download.status, 'not_requested');
+ assert.equal(result.exportResult.generated.status, 'generated');
 });
 test('Workbench captures animation before an asynchronous Pro decision', async () => {
  const doc = normalizeDocument(formats.readAseprite(load('linked-indexed.aseprite')).document);
@@ -85,6 +94,6 @@ test('native project output bypasses finite repeat expansion', async () => {
  const doc = normalizeDocument(formats.readAseprite(readFileSync(new URL('forward-3.aseprite',tagFolder))).document);
  doc.clips[0].repeat = 65535;
  const h = host(doc); await h.run({format:'project',clipId:doc.clips[0].id});
- assert.deepEqual(JSON.parse(await h.files[0].blob.text()), doc);
+ assert.deepEqual(decodeProjectContainer(new Uint8Array(await h.files[0].blob.arrayBuffer())), doc);
  await assert.rejects(h.run({format:'gif',clipId:doc.clips[0].id}), /maximum output frame count/);
 });

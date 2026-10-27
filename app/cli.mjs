@@ -16,6 +16,7 @@ import {createDocument,normalizeDocument,applyCommand,describeDocument,COMMANDS}
 import {readAseprite,writeAseprite,readPng,writePng,importGif,importSequence,importSheet,packAtlas,encodeGif,makeGamePackage,readBmp,writeBmp,readTga,writeTga} from './formats.mjs';
 import {verifyOfflineLicense} from './offline-license.mjs';
 import {PINNED_PUBLIC_KEYS} from './license-public-keys.mjs';
+import {encodeProjectContainer, decodeProjectContainer} from './project-format.mjs';
 const HELP=`PixelWall CLI — local sprite editing and export
 
   pixelwall new --width 32 --height 32 --name Hero --out hero.pixelwall
@@ -85,9 +86,9 @@ function number(args,key,fallback){if(args[key]==null)return fallback;const n=Nu
 function required(args,key){const value=args[key];if(typeof value!=='string'||!value)fail(`--${key} is required.`);return value;}
 function warn(warnings){for(const warning of warnings||[])process.stderr.write(`Warning: ${warning}\n`);}
 async function readManagedPng(bytes){const image=readPng(bytes);if(!image.colorProfile)return image;return {...image,rgba:(await loadNodeColorManager()).transformRGBA(image.rgba,image.colorProfile),colorProfile:undefined};}
-async function readDocument(path){if(!path)fail('Input file is required.');const input=new Uint8Array(await readFile(resolve(path))),extension=extname(path).toLowerCase();if(['.ase','.aseprite'].includes(extension)){const result=readAseprite(input);warn(result.warnings);return normalizeDocument(result.document);}if(['.png','.bmp','.tga'].includes(extension)){const image=extension==='.bmp'?readBmp(input):extension==='.tga'?readTga(input):await readManagedPng(input);warn(image.warnings);return normalizeDocument(importSequence([image],{name:path.split(/[\\/]/).at(-1)}));}if(extension==='.gif'){const result=importGif(input);warn(result.warnings);return normalizeDocument(result.document);}return normalizeDocument(JSON.parse(new TextDecoder().decode(input)));}
+async function readDocument(path){if(!path)fail('Input file is required.');const input=new Uint8Array(await readFile(resolve(path))),extension=extname(path).toLowerCase();if(['.ase','.aseprite'].includes(extension)){const result=readAseprite(input);warn(result.warnings);return normalizeDocument(result.document);}if(['.png','.bmp','.tga'].includes(extension)){const image=extension==='.bmp'?readBmp(input):extension==='.tga'?readTga(input):await readManagedPng(input);warn(image.warnings);return normalizeDocument(importSequence([image],{name:path.split(/[\\/]/).at(-1)}));}if(extension==='.gif'){const result=importGif(input);warn(result.warnings);return normalizeDocument(result.document);}return normalizeDocument(decodeProjectContainer(input));}
 async function atomicWrite(path,data){const target=resolve(path);await mkdir(dirname(target),{recursive:true});const temp=`${target}.${process.pid}.${Date.now()}.tmp`;try{await writeFile(temp,data);await rename(temp,target);}catch(error){await unlink(temp).catch(()=>{});throw error;}}
-async function saveDocument(path,document){await atomicWrite(path,JSON.stringify(normalizeDocument(document),null,2)+'\n');}
+async function saveDocument(path,document){const normalized=normalizeDocument(document),extension=extname(path).toLowerCase();await atomicWrite(path,extension==='.json'?JSON.stringify(normalized,null,2)+'\n':encodeProjectContainer(normalized));}
 function outputName(value,extension){let name=String(value||'sprite').replace(/\.(ase|aseprite|pixelwall|json|png|bmp|tga|gif|zip)$/i,'').replace(/[<>:"/\\|?*]/g,'_').split('').map(char=>char.charCodeAt(0)<32?'_':char).join('').replace(/^[. ]+|[. ]+$/g,'').slice(0,180)||'sprite';if(/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(name))name='_'+name;return `${name}.${extension}`;}
 async function writeOutputs(outputs,{exclusive=false}={}){
  const seen=new Set();for(const output of outputs){const target=resolve(output.path),key=target.toLowerCase();if(seen.has(key))fail(`Output filenames collide: ${output.path}. Choose distinct names.`);seen.add(key);if(exclusive){try{await lstat(target);fail(`Output already exists: ${output.path}. Choose an empty --out-dir.`);}catch(error){if(error.code!=='ENOENT')throw error;}}}
@@ -185,7 +186,7 @@ export async function main(argv=process.argv.slice(2)){
    if(inputs.some(source=>(source.options?.['split-grid']??args['split-grid']) || (source.options?.grid??args.grid)!=null))fail('--split-grid and --grid are available for sheet, atlas and ZIP exports only.');
    if(inputs.length>1&&!outDir)fail('Multiple editable projects require --out-dir so every input is saved.');
    if(inputs.some(source=>[...selectionKeys,'layer','ignore-layer','slice','crop','frame','all-layers','trim-sprite'].some(key=>{const value=source.options?.[key]??args[key];return value!=null&&value!==false;})))fail('Native editable exports preserve the complete project. Use raster exports for layer, frame, tag, slice or crop selections.');
-   const extension=['ase','aseprite'].includes(format)?'aseprite':'pixelwall',outputs=inputs.map(source=>({path:outDir?joinPath(outDir,outputName(basename(source.filename),extension)):out,data:extension==='aseprite'?writeAseprite(source.document):jsonBytes(source.document)}));
+   const extension=['ase','aseprite'].includes(format)?'aseprite':format==='json'?'json':'pixelwall',outputs=inputs.map(source=>({path:outDir?joinPath(outDir,outputName(basename(source.filename),extension)):out,data:extension==='aseprite'?writeAseprite(source.document):format==='json'?jsonBytes(source.document):encodeProjectContainer(source.document)}));
    await writeOutputs(outputs,{exclusive:!!outDir});return;
   }
   const colorManager=inputs.some(source=>!isSRGB(documentProfile(source.document)))?await loadNodeColorManager():undefined;

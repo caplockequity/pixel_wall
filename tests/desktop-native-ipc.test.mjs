@@ -60,8 +60,16 @@ test('sandbox preload exposes only fixed methods and strips IPC events from noti
 test('desktop packages native modules, preserves sandbox settings and declares both editable associations', async () => {
   const main = await readFile(new URL('../desktop/main.mjs', import.meta.url), 'utf8');
   const pkg = JSON.parse(await readFile(new URL('../desktop/package.json', import.meta.url), 'utf8'));
-  for (const file of ['native-files.mjs', 'native-file-ipc.mjs', 'native-preload.cjs']) assert.ok(pkg.build.files.includes(file));
+  for (const file of ['native-files.mjs', 'project-container.mjs', 'native-file-ipc.mjs', 'native-preload.cjs']) assert.ok(pkg.build.files.includes(file));
   assert.match(main, /contextIsolation: true, nodeIntegration: false, sandbox: true/);
   assert.match(main, /app\.on\('open-file'/); assert.match(main, /native\.verifyClose/); assert.match(main, /nativePathsFromArgv\(argv/);
   assert.deepEqual(pkg.build.fileAssociations.map(value => [value.ext, value.role]), [['pixelwall', 'Editor'], ['aseprite', 'Editor']]);
+});
+
+test('packaged native file validation uses the desktop-local codec boundary', async () => {
+  const source = await readFile(new URL('../desktop/native-files.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /\.\.\/app\/project-format/);
+  const codec = await import('../desktop/project-container.mjs');
+  const bytes = codec.encodeProjectContainer({ format: 'pixelwall-document', version: 4, width: 1, height: 1 });
+  assert.deepEqual(codec.decodeProjectContainer(bytes), { format: 'pixelwall-document', version: 4, width: 1, height: 1 });
 });

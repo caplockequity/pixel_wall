@@ -1,6 +1,6 @@
 {
   "name": "pixelwall-desktop",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "PixelWall local desktop studio",
   "private": true,
   "type": "module",
@@ -29,6 +29,7 @@
       "update-ui.js",
       "editor-controls.mjs",
       "native-files.mjs",
+      "project-container.mjs",
       "native-file-ipc.mjs",
       "native-preload.cjs",
       "native-clipboard-ipc.mjs",
@@ -86,6 +87,7 @@
   },
   "author": "Caplock",
   "dependencies": {
-    "electron-updater": "6.8.9"
+    "electron-updater": "6.8.9",
+    "fflate": "0.8.3"
   }
 }

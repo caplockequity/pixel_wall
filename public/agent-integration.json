@@ -16,7 +16,20 @@
       "available": true,
       "global": "window.pixelwall",
       "version": 1,
-      "documentation": "https://www.pixelwall.dev/guides/command-api"
+      "documentation": "https://www.pixelwall.dev/guides/command-api",
+      "operationPolling": {
+        "start": "apply({commands, wait:false})",
+        "poll": "operation(operationId)",
+        "recover": "inspect().latestOperation",
+        "retainedOperations": 64,
+        "scope": "current editor page lifetime"
+      },
+      "exportHandoff": {
+        "generateOnly": "export({format, download:false})",
+        "latest": "exportResult()",
+        "urls": "page-local object URLs until next export, dismissal, or editor unmount",
+        "browserDownloadCompletion": "unobservable"
+      }
     },
     "lua": {
       "available": true,
@@ -30,22 +43,38 @@
     },
     "computerControl": {
       "availableWhenProvidedByHost": true,
-      "surfaces": ["browser", "desktop"]
+      "surfaces": [
+        "browser",
+        "desktop"
+      ]
     },
     "browserModelContextRegistration": {
       "availableWhenProvidedByHost": true
     },
-    "standaloneMcpServer": { "available": false },
-    "publicRestEditingApi": { "available": false },
-    "javascriptSdk": { "available": false },
-    "pythonSdk": { "available": false },
-    "universalAgentProtocol": { "available": false }
+    "standaloneMcpServer": {
+      "available": false
+    },
+    "publicRestEditingApi": {
+      "available": false
+    },
+    "javascriptSdk": {
+      "available": false
+    },
+    "pythonSdk": {
+      "available": false
+    },
+    "universalAgentProtocol": {
+      "available": false
+    }
   },
   "examples": {
     "animatedNinjaPandaCommands": "https://www.pixelwall.dev/examples/agent-ninja-panda-commands.json",
     "isometricWaterCommands": "https://www.pixelwall.dev/examples/isometric-water.json",
     "isometricShapeCommands": "https://www.pixelwall.dev/examples/isometric-shapes.json",
     "animatedNinjaPandaProject": "https://www.pixelwall.dev/examples/agent-ninja-panda.pixelwall",
-    "renderedNinjaPandaPng": "https://www.pixelwall.dev/examples/agent-ninja-panda.png"
-  }
+    "renderedNinjaPandaPng": "https://www.pixelwall.dev/examples/agent-ninja-panda.png",
+    "riverCommands": "https://www.pixelwall.dev/examples/agent-river-commands.json",
+    "riverLuaDetail": "https://www.pixelwall.dev/examples/agent-river-detail.lua"
+  },
+  "largeEditGuide": "https://www.pixelwall.dev/guides/large-agent-edits"
 }

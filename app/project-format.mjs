@@ -6,6 +6,9 @@
  * import/export, tests, and future self-hosted builds.
  */
 
+import { ProjectFormatError, decodeProjectContainer, encodeProjectContainer } from "../desktop/project-container.mjs";
+export { ProjectFormatError, PROJECT_CONTAINER_VERSION, PROJECT_CONTAINER_MAGIC, MAX_PROJECT_CONTAINER_BYTES, decodeProjectContainer, encodeProjectContainer, isProjectContainer } from "../desktop/project-container.mjs";
+
 export const PROJECT_FORMAT = "pixelwall-project";
 export const PROJECT_VERSION = 3;
 export const DEFAULT_FRAME_DURATION_MS = 125;
@@ -47,14 +50,6 @@ const RASTER_MIME_TYPES = new Set([
   "image/webp",
 ]);
 
-export class ProjectFormatError extends Error {
-  constructor(message, code = "INVALID_PROJECT") {
-    super(message);
-    this.name = "ProjectFormatError";
-    this.code = code;
-  }
-}
-
 function fail(message, code) {
   throw new ProjectFormatError(message, code);
 }
@@ -70,6 +65,10 @@ function parseInput(value) {
   } catch {
     fail("Project file is not valid JSON", "INVALID_JSON");
   }
+}
+
+function isByteLike(value) {
+  return value instanceof Uint8Array || value instanceof ArrayBuffer || ArrayBuffer.isView(value);
 }
 
 function clamp(value, minimum, maximum) {
@@ -763,11 +762,21 @@ export function upgradeProject(value, options = {}) {
 
 /** Parse project JSON and upgrade it to the current runtime model. */
 export function parseProject(source, options = {}) {
-  return upgradeProject(source, options);
+  return upgradeProject(isByteLike(source) ? decodeProjectContainer(source) : source, options);
 }
 
 /** Encode and stringify a runtime project for autosave or a `.pixelwall` file. */
 export function stringifyProject(project, editor, options = {}) {
   const encoded = encodeProjectV3(project, editor, options);
   return JSON.stringify(encoded, null, options.pretty ? 2 : 0);
+}
+
+/** Encode a runtime project as compact bytes while retaining stringifyProject for JSON interchange. */
+export function stringifyProjectBytes(project, editor, options = {}) {
+  return encodeProjectContainer(encodeProjectV3(project, editor, options), options);
+}
+
+/** Decode compact or legacy project bytes and upgrade them to the v3 runtime model. */
+export function parseProjectBytes(source, options = {}) {
+  return upgradeProject(decodeProjectContainer(source), options);
 }

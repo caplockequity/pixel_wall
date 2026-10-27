@@ -15,7 +15,11 @@ The shared `formats.mjs` works in browsers and Node. It imports `fflate` and `om
 - `encodeGif(entries,{loop=0})` returns GIF bytes. Entries must share dimensions. Exact palettes up to 255 opaque colors are preserved. More colors use a 216-color cube. Alpha uses a threshold of 128; timing rounds to 10 ms. Show these format limitations in the export UI.
 - `makeSequenceZip(entries,{clips?,slices?})` returns a ZIP of real PNG images and metadata.json.
 
-All codec functions throw descriptive errors for malformed data. The module itself is a low-level codec; the editor export action and CLI **must verify Pro before invoking GIF, sheet, atlas, or ZIP export**. Free outputs are PNG, native project JSON, and Aseprite interoperability.
+All codec functions throw descriptive errors for malformed data. The module itself is a low-level codec; the editor export action and CLI **must verify Pro before invoking GIF, sheet, atlas, or ZIP export**. Free outputs are PNG, compact native projects, and Aseprite interoperability.
+
+## Compact native projects
+
+`.pixelwall` files written by the web editor, desktop app, and CLI use the versioned `PWPZ` container. It stores the JSON document with zlib compression and checks both the compressed payload and decompressed bytes before parsing. Files are bounded at 64 MiB uncompressed and compressed, and malformed, truncated, unsupported, or corrupt containers fail with a descriptive error. Older JSON `.pixelwall` files remain readable. Use `--format json` when a human-readable JSON export is needed.
 
 ## Aseprite compatibility
 

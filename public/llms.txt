@@ -5,6 +5,7 @@ PixelWall is a pixel-art editor for browsers and desktop. Official site: https:/
 ## Agent integration
 
 - Agent guide: https://www.pixelwall.dev/guides/ai-agents
+- Large edits, recovery, Lua, and export handoff: https://www.pixelwall.dev/guides/large-agent-edits
 - Browser command API: https://www.pixelwall.dev/guides/command-api
 - Local CLI: https://www.pixelwall.dev/guides/command-line
 - Isometric water guide: https://www.pixelwall.dev/guides/isometric-water
