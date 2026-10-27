@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto';
 import {realpathSync,existsSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {createDocument,normalizeDocument,applyCommand,describeDocument,COMMANDS} from './editor-core.mjs';
+import { capabilityReport, validateCommandManifest } from './command-contract.mjs';
 import {readAseprite,writeAseprite,readPng,writePng,importGif,importSequence,importSheet,packAtlas,encodeGif,makeGamePackage,readBmp,writeBmp,readTga,writeTga} from './formats.mjs';
 import {verifyOfflineLicense} from './offline-license.mjs';
 import {PINNED_PUBLIC_KEYS} from './license-public-keys.mjs';
@@ -22,6 +23,8 @@ const HELP=`PixelWall CLI — local sprite editing and export
   pixelwall new --width 32 --height 32 --name Hero --out hero.pixelwall
   pixelwall inspect hero.pixelwall
   pixelwall commands
+  pixelwall capabilities
+  pixelwall doctor
   pixelwall apply hero.pixelwall --commands edits.json --out hero.pixelwall
   pixelwall script hero.pixelwall --script ./draw.mjs --out hero.pixelwall
   pixelwall script hero.pixelwall --script ./draw.lua --params '{"shade":"red"}' --out hero.pixelwall
@@ -155,12 +158,14 @@ function framesFor(doc,args,rendering={}){if(args['include-reference-layers']!==
 export async function main(argv=process.argv.slice(2)){
  const {args,inputs:inputScopes,orderedScaleCount}=parseCliArguments(argv),[command,input,...rest]=args._;if(!command||command==='help'||args.help){process.stdout.write(HELP);return;}
  if(command==='commands'){process.stdout.write(JSON.stringify(COMMANDS,null,2)+'\n');return;}
+ if(command==='capabilities'){process.stdout.write(JSON.stringify(capabilityReport({interfaceName:'cli'}),null,2)+'\n');return;}
+ if(command==='doctor'){const report=capabilityReport({interfaceName:'cli'});process.stdout.write(JSON.stringify({ok:true,checks:{node:true,contract:true,projectFormat:true},capabilities:report},null,2)+'\n');return;}
  if(command==='new'){const doc=createDocument({width:number(args,'width',32),height:number(args,'height',number(args,'width',32)),name:args.name||'Untitled Sprite',colorMode:args['color-mode']||'rgba',durationMs:number(args,'duration',100)});await saveDocument(required(args,'out'),doc);return;}
  if(command==='import-sequence'){const paths=[input,...rest].filter(Boolean);if(!paths.length)fail('Provide one or more PNG filenames.');const entries=[];for(const path of paths){const result=await readManagedPng(new Uint8Array(await readFile(resolve(path))));warn(result.warnings);entries.push(result);}await saveDocument(required(args,'out'),importSequence(entries,{name:args.name||'Imported sequence',durationMs:number(args,'duration',100)}));return;}
  let doc=await readDocument(input);
  if(command==='inspect'){process.stdout.write(JSON.stringify({...describeDocument(doc),layerDetails:doc.layers,frameDetails:doc.frames.map(f=>({id:f.id,durationMs:f.durationMs,cels:Object.keys(f.cels)})),clips:doc.clips,slices:doc.slices,metadata:doc.metadata},null,2)+'\n');return;}
  if(command==='import'){if(args['frame-width']||args['frame-height']){if(extname(input).toLowerCase()!=='.png')fail('Sheet import requires a PNG image.');doc=importSheet(await readManagedPng(new Uint8Array(await readFile(resolve(input)))),{frameWidth:number(args,'frame-width'),frameHeight:number(args,'frame-height'),margin:number(args,'margin',0),spacing:number(args,'spacing',0),count:number(args,'count'),durationMs:number(args,'duration',100),order:args.order||'row',name:args.name||'Imported sheet'});}await saveDocument(required(args,'out'),doc);return;}
- if(command==='apply'){const data=JSON.parse(await readFile(resolve(required(args,'commands')),'utf8')),commands=Array.isArray(data)?data:data.commands;if(!Array.isArray(commands))fail('Command file must be a JSON array or {commands:[...]}.');for(const cmd of commands)doc=applyCommand(doc,cmd);await saveDocument(required(args,'out'),doc);return;}
+ if(command==='apply'){const data=JSON.parse(await readFile(resolve(required(args,'commands')),'utf8')),commands=Array.isArray(data)?data:data.commands;try{validateCommandManifest(commands);}catch(error){fail(`${error.code||'INVALID_COMMAND'} at ${error.path||'commands'}: ${error.message}`);}for(const cmd of commands)doc=applyCommand(doc,cmd);await saveDocument(required(args,'out'),doc);return;}
  if(command==='script'){
   const scriptPath=resolve(required(args,'script'));
   if(extname(scriptPath).toLowerCase()==='.lua'){

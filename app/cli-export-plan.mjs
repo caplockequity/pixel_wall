@@ -299,6 +299,16 @@ export function planExport(inputs, globalOptions = {}, rendering = {}) {
   return { entries, jobs, sources, options, atlasOptions, metadataFormat: options.metadataFormat };
 }
 
+/** Read-only export preflight. It never writes files or checks an entitlement implicitly. */
+export function describeExportPlan(inputs, options = {}, { entitlement = 'unknown', existing = [] } = {}) {
+  const plan = planExport(inputs, options);
+  const expected = options.expectedFrameCount ?? options['expected-frame-count'];
+  if (expected !== undefined && (Number(expected) !== plan.entries.length)) fail(`Expected ${expected} frames, but the export selects ${plan.entries.length}.`);
+  const names = plan.entries.map(entry => entry.name);
+  const conflicts = names.filter(name => existing.includes(name));
+  return { format:'pixelwall-export-plan', version:1, documentIds:inputs.map(input=>input.document?.id), selectedFrames:plan.entries.length, selectedNames:names, jobs:plan.jobs.map(job=>({id:job.id,frameCount:job.entries.length,layer:job.layerPath||null,clip:job.tag?.name||null})), entitlement, conflicts, canWrite:conflicts.length===0 };
+}
+
 /** Rebuild metadata after packing so cropping, padding, source IDs and per-input tags remain unambiguous. */
 export function buildExportMetadata(result, plan, format = plan.metadataFormat) {
   if (!['json-array', 'json-hash'].includes(format)) fail('Metadata format must be json-array or json-hash.');
