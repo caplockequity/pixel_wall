@@ -2019,7 +2019,7 @@ export default function Workbench() {
         next = result.document;
         warnings = result.warnings || [];
       } else if (["pixelwall", "json"].includes(ext)) {
-        const raw = JSON.parse(await file.text());
+        const raw = decodeProjectContainer(new Uint8Array(await file.arrayBuffer()));
         if (raw.version === 4 && raw.format === "pixelwall-document")
           next = normalizeDocument(raw);
         else {
