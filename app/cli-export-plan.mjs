@@ -306,7 +306,9 @@ export function describeExportPlan(inputs, options = {}, { entitlement = 'unknow
   if (expected !== undefined && (Number(expected) !== plan.entries.length)) fail(`Expected ${expected} frames, but the export selects ${plan.entries.length}.`);
   const names = plan.entries.map(entry => entry.name);
   const conflicts = names.filter(name => existing.includes(name));
-  return { format:'pixelwall-export-plan', version:1, documentIds:inputs.map(input=>input.document?.id), selectedFrames:plan.entries.length, selectedNames:names, jobs:plan.jobs.map(job=>({id:job.id,frameCount:job.entries.length,layer:job.layerPath||null,clip:job.tag?.name||null})), entitlement, conflicts, canWrite:conflicts.length===0 };
+  const paid=['gif','sheet','atlas','zip'].includes(options.format); const requiredEntitlement=paid?'pro':'free';
+  const entitlementOk=requiredEntitlement==='free'||entitlement==='pro'||entitlement==='valid-pro';
+  return { format:'pixelwall-export-plan', version:1, documentIds:inputs.map(input=>input.document?.id), selectedFrames:plan.entries.length, selectedNames:names, dimensions:{width:plan.entries[0]?.width??0,height:plan.entries[0]?.height??0}, durationMs:plan.entries.reduce((sum,entry)=>sum+entry.durationMs,0), jobs:plan.jobs.map(job=>({id:job.id,frameCount:job.entries.length,layer:job.layerPath||null,clip:job.tag?.name||null})), requiredEntitlement, entitlement, conflicts, canWrite:conflicts.length===0&&entitlementOk };
 }
 
 /** Rebuild metadata after packing so cropping, padding, source IDs and per-input tags remain unambiguous. */
