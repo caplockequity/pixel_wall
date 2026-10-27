@@ -10,7 +10,7 @@ const requiredByType = new Map([
   ['draw.polygon',['points']], ['draw.fill',['x','y']], ['draw.gradient',['from','to','endColor']],
   ['draw.text',['x','y','text']], ['selection.transform',['selection','operation']], ['selection.clear',['selection']],
   ['palette.update',['palette']], ['palette.remap',['palette']], ['effect.apply',['effect']],
-  ['animation.particles',['seed','count']], ['clip.update',['clipId','patch']],
+  ['clip.update',['clipId','patch']],
   ['selection.replaceColors',['selection','mapping']],
   ['clip.remove',['clipId']], ['slice.update',['sliceId','patch']], ['slice.remove',['sliceId']],
 ]);
@@ -26,7 +26,7 @@ const FIELD_TYPES = {
   kernel:{type:'array'},
   bias:{type:'number'},
   commands:{type:'array',items:{type:'object'},maxItems:1024}, points:{type:'array'}, pixels:{type:'array'}, palette:{type:'array',minItems:1}, frameIds:{type:'array',minItems:1}, movingLayers:{type:'array'},pinnedLayers:{type:'array'},foamRegions:{type:'array'},selection:{oneOf:[{type:'array'},{type:'object'}]}, mapping:{type:'object'},
-  from:{type:'object'},to:{type:'object'},origin:{type:'object'},size:{},field:{type:'object'},flowDirection:{type:'object'},pinnedRegions:{type:'object'},layerAmplitudes:{type:'object'},phaseOffsets:{type:'object'},endColor:{type:'string'},patch:{type:'object'},clip:{type:'object'},layer:{type:'object'},slice:{type:'object'},profile:{type:'object'},replacements:{type:'object'}, metadata:{type:'object'},
+  from:{type:'object'},to:{type:'object'},origin:{type:'object'},size:{oneOf:[{type:'integer',minimum:4,maximum:128},{type:'object'}]},field:{type:'object'},flowDirection:{type:'object'},pinnedRegions:{type:'object'},layerAmplitudes:{type:'object'},phaseOffsets:{type:'object'},endColor:{type:'string'},patch:{type:'object'},clip:{type:'object'},layer:{type:'object'},slice:{type:'object'},profile:{type:'object'},replacements:{type:'object'}, metadata:{type:'object'},
   x:{type:'integer'},y:{type:'integer'},width:{type:'integer'},height:{type:'integer'},index:{type:'integer'},durationMs:{type:'integer'},seed:{type:'integer'},count:{type:'integer'},radius:{type:'integer'},
   opacity:{type:'number'},amount:{type:'number'},scale:{type:'number'},scaleX:{type:'number'},scaleY:{type:'number'},
   filled:{type:'boolean'},loop:{type:'boolean'},linked:{type:'boolean'},replace:{type:'boolean'},bake:{type:'boolean'},visibleOnly:{type:'boolean'},
@@ -40,6 +40,7 @@ function schemaFor(command) {
     props[key] = structuredClone(FIELD_TYPES[key]);
   }
   const schema={ type:'object', additionalProperties:false, properties:{type:{const:command.type},...props}, required:['type',...(requiredByType.get(command.type) || [])] };
+  if (['draw.stroke','draw.line','draw.rect','draw.ellipse','draw.polygon'].includes(command.type)) schema.properties.size={type:'integer',minimum:1,maximum:256};
   const nested={
     'clip.add':{clip:{type:'object',additionalProperties:false,properties:{id:{type:'string'},name:{type:'string'},frameIds:{type:'array',minItems:1},direction:{type:'string',enum:enumValues.direction},loop:{type:'boolean'}},required:[]}},
     'layer.add':{layer:{type:'object',additionalProperties:false,properties:{id:{type:'string'},name:{type:'string'},type:{type:'string',enum:['image','group','reference','tilemap']},parentId:{type:'string'},visible:{type:'boolean'},locked:{type:'boolean'},opacity:{type:'number'},blendMode:{type:'string'}}}},
@@ -59,6 +60,8 @@ function checkValue(value, rule, path) {
   if (rule.type === 'boolean' && typeof value !== 'boolean') fail(`${path} must be boolean.`, 'INVALID_ARGUMENT', path);
   if (rule.type === 'integer' && !Number.isSafeInteger(value)) fail(`${path} must be an integer.`, 'INVALID_ARGUMENT', path);
   if (rule.type === 'number' && (typeof value !== 'number' || !Number.isFinite(value))) fail(`${path} must be a number.`, 'INVALID_ARGUMENT', path);
+  if (rule.oneOf) { if (!rule.oneOf.some(candidate => { try { checkValue(value,candidate,path); return true; } catch { return false; } })) fail(`${path} has an invalid shape.`, 'INVALID_ARGUMENT', path); return; }
+  if (rule.minimum !== undefined && value < rule.minimum || rule.maximum !== undefined && value > rule.maximum) fail(`${path} is out of range.`, 'INVALID_ARGUMENT', path);
   if (rule.maxItems !== undefined && value.length > rule.maxItems) fail(`${path} has too many items.`, 'LIMIT_EXCEEDED', path);
   if (rule.enum && !rule.enum.includes(value)) fail(`${path} must be one of: ${rule.enum.join(', ')}.`, 'INVALID_ARGUMENT', path);
   if (rule.minItems !== undefined && value.length < rule.minItems) fail(`${path} must contain at least ${rule.minItems} items.`, 'INVALID_ARGUMENT', path);

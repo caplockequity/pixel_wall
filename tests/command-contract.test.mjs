@@ -22,3 +22,13 @@ test('every executable catalog command has an explicit schema field mapping', ()
     for (const field of Object.keys(command.parameters)) assert.ok(Object.hasOwn(schema.properties,field), `${command.type}.${field}`);
   }
 });
+test('valid family payloads and precise nested failures', () => {
+  assert.equal(validateCommandManifest([
+    {type:'scene.water.patch',origin:{x:0,y:0},size:{width:8,height:8},field:{width:16,height:16}},
+    {type:'animation.environment',movingLayers:['canopy'],pinnedLayers:['trunk']},
+    {type:'animation.particles',layerId:'layer-1',count:4,seed:2},
+    {type:'selection.replaceColors',selection:{type:'rect',x:0,y:0,width:2,height:2},mapping:{null:null,'#ffffffff':'#000000ff'}},
+  ]).valid,true);
+  assert.throws(() => validateCommandManifest([{type:'batch',commands:[{type:'draw.line',from:3,to:{x:1,y:1}}]}]), error => error.path.includes('from'));
+  assert.throws(() => validateCommandManifest([{type:'scene.component',size:'large'}]), error => error.path.endsWith('.size'));
+});
