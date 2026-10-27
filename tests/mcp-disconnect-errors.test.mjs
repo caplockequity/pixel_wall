@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { existsSync } from 'node:fs';
 import { createMcpBridge } from '../desktop/mcp-bridge.mjs';
 
 class FakeSocket extends EventEmitter {
@@ -13,6 +15,7 @@ class FakeSocket extends EventEmitter {
     const error = Object.assign(new Error('write EPIPE'), { code: 'EPIPE' });
     if (this.writeMode === 'throw') throw error;
     if (this.writeMode === 'callback') { callback?.(error); return false; }
+    if (this.writeMode === 'event') { queueMicrotask(() => this.emit('error', error)); return true; }
     callback?.(); return true;
   }
   destroy() { if (this.destroyed) return; this.destroyed = true; this.emit('close'); }
@@ -27,7 +30,10 @@ function fakeNet() {
 }
 
 async function harness({ executeJavaScript = async () => null } = {}) {
-  const root = await mkdtemp('/Volumes/DevStorage/Builds/pixelwall/mcp-disconnect-');
+  const base = process.platform === 'darwin' && existsSync('/Volumes/DevStorage')
+    ? '/Volumes/DevStorage/Builds/pixelwall'
+    : tmpdir();
+  const root = await mkdtemp(join(base, 'mcp-disconnect-'));
   const fake = fakeNet();
   const bridge = createMcpBridge({ configPath: join(root, 'mcp.json'), net: fake.net, webContents: { executeJavaScript } });
   await bridge.start();
@@ -37,7 +43,7 @@ async function harness({ executeJavaScript = async () => null } = {}) {
 const message = (bridge, id, method, params) => JSON.stringify({ id, token: bridge.token, method, ...(params ? { params } : {}) }) + '\n';
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-for (const writeMode of ['throw', 'callback']) test(`EPIPE during response writing is contained (${writeMode})`, async () => {
+for (const writeMode of ['throw', 'callback', 'event']) test(`EPIPE during response writing is contained (${writeMode})`, async () => {
   const h = await harness();
   try {
     const socket = new FakeSocket({ writeMode }); h.server.handler(socket);
@@ -81,5 +87,37 @@ test('disconnect cancels each owned pending operation once and permits a fresh c
     assert.equal(calls.filter(source => source.includes('api["cancel"]')).length, 1);
     const fresh = new FakeSocket(); h.server.handler(fresh); fresh.emit('data', message(h.bridge, 2, 'ping')); await wait(10);
     assert.equal(JSON.parse(fresh.writes[0]).result.protocolVersion, '2025-06-18');
+  } finally { await h.bridge.stop(); await rm(h.root, { recursive: true, force: true }); }
+});
+
+test('a failed apply response does not cancel the owned operation twice', async () => {
+  const calls = [];
+  const h = await harness({ executeJavaScript: async source => {
+    calls.push(source);
+    if (source.includes('api["apply"]')) return { operationId: 'write-failed-op', status: 'queued' };
+    if (source.includes('api["cancel"]')) return { operationId: 'write-failed-op', status: 'cancelled' };
+    return null;
+  } });
+  try {
+    const socket = new FakeSocket({ writeMode: 'callback' }); h.server.handler(socket);
+    socket.emit('data', message(h.bridge, 1, 'tools/call', { name: 'pixelwall_apply', arguments: { commands: [{ type: 'draw.line', from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, color: '#ffffffff' }], wait: false } }));
+    await wait(25);
+    assert.equal(calls.filter(source => source.includes('api["cancel"]')).length, 1);
+  } finally { await h.bridge.stop(); await rm(h.root, { recursive: true, force: true }); }
+});
+
+for (const waitForResult of [false, true]) test(`a delayed apply never starts after peer end (wait:${waitForResult})`, async () => {
+  let applyCalls = 0;
+  const h = await harness({ executeJavaScript: async source => {
+    if (source.includes('api["apply"]')) applyCalls++;
+    return { operationId: 'late-op', status: 'queued' };
+  } });
+  try {
+    const socket = new FakeSocket(); h.server.handler(socket);
+    socket.emit('data', message(h.bridge, 1, 'tools/call', { name: 'pixelwall_apply', arguments: { commands: [{ type: 'draw.line', from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, color: '#ffffffff' }], wait: waitForResult } }));
+    socket.emit('end');
+    await wait(20);
+    assert.equal(applyCalls, 0);
+    assert.equal(socket.writes.length, 0);
   } finally { await h.bridge.stop(); await rm(h.root, { recursive: true, force: true }); }
 });
