@@ -1,46 +1,46 @@
 {
   "schemaVersion": 1,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publishedAt": "2026-10-26",
-  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-4-0",
+  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-4-1",
   "releaseNotes": [
-    "Generate animated ponds, rivers, streams, waterfalls, and shorelines in the web editor and desktop app, with top-down or isometric views.",
-    "Keep shorelines fixed while tuning water animation. Use seasonal palettes, frozen pond edges, live preview, and a 3× repeat check.",
-    "Draw with isometric guides and snapping, or stamp editable tiles, raised blocks, and ramps.",
-    "New water and isometric guides include reproducible commands and downloadable editable projects for people and agents.",
-    "Water animations loop in time; automatic seamless connections between terrain tiles are not included.",
+    "Start long command batches asynchronously and track commands processed, current revision, completion, and errors. Recover operation status after a caller timeout; each batch commits once or rolls back completely.",
+    "The editor stays responsive between command chunks and displays progress for long edits.",
+    "Generate exports with optional downloads and retrieve file URLs and metadata. Generation and download requests have separate status; browser download completion is explicitly unobservable.",
+    "Save losslessly compressed editable .pixelwall backups in the web editor, desktop app, and CLI. Existing JSON projects still open; update older installations before opening compact projects. CLI JSON export remains available.",
+    "Follow the new large-agent-edits guide: a 600 × 350 layered river using 40 shape commands, bounded Lua details, progress recovery, and export handoff.",
     "In PixelWall 0.3.2 or later, choose Check for Updates, download, then Restart to update. Your artwork is saved first."
   ],
   "downloads": {
     "darwin-arm64": {
-      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.0/PixelWall-0.4.0-mac-arm64.zip",
-      "filename": "PixelWall-0.4.0-mac-arm64.zip",
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.1/PixelWall-0.4.1-mac-arm64.zip",
+      "filename": "PixelWall-0.4.1-mac-arm64.zip",
       "signed": true,
-      "size": 114572891,
-      "sha256": "249ea83ed38aae3783476cb8345877888ccae0b95c2eefc19d1f69ea1968c177",
+      "size": 114732739,
+      "sha256": "6669c1f88099b77b2f5be295f2e4c6037b9707d1e32ddd0d90367f258dacdc1c",
       "notarized": true
     },
     "darwin-x64": {
-      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.0/PixelWall-0.4.0-mac-x64.zip",
-      "filename": "PixelWall-0.4.0-mac-x64.zip",
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.1/PixelWall-0.4.1-mac-x64.zip",
+      "filename": "PixelWall-0.4.1-mac-x64.zip",
       "signed": true,
-      "size": 121322241,
-      "sha256": "f94b9d97a3a74ef97e2e53584928404bf24c50a91081625479583281fc6e3f6a",
+      "size": 121481600,
+      "sha256": "6e9c574203fafd21f9307d59500d71f569f79ff2551646337fc84ea4d29fe56b",
       "notarized": true
     },
     "win32-x64": {
-      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.0/PixelWall-0.4.0-windows-x64.exe",
-      "filename": "PixelWall-0.4.0-windows-x64.exe",
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.1/PixelWall-0.4.1-windows-x64.exe",
+      "filename": "PixelWall-0.4.1-windows-x64.exe",
       "signed": false,
-      "size": 95102657,
-      "sha256": "5b9761d3ada17cb6ee92844d07d3595dbdc8c3f0020c46b87891466deee95274"
+      "size": 95151212,
+      "sha256": "8019772b06d6f5915981d3fe35afae5c585aede184fb205605aa846e4ce0380b"
     },
     "linux-x64": {
-      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.0/PixelWall-0.4.0-linux-x64.AppImage",
-      "filename": "PixelWall-0.4.0-linux-x64.AppImage",
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.4.1/PixelWall-0.4.1-linux-x64.AppImage",
+      "filename": "PixelWall-0.4.1-linux-x64.AppImage",
       "signed": false,
-      "size": 118194742,
-      "sha256": "13fc1b4382e76b9c732a41f2dd86a3a313c65d973567c5211ee989c32627c5ee"
+      "size": 118350689,
+      "sha256": "4c34c34d8782225fdae7cf58c63f2067e2cde54ecaa755227f32f2a73e60d81a"
     }
   }
 }

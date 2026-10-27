@@ -8,4 +8,4 @@
 
 The shared editor changes apply to the website, standalone browser download, and desktop app. The CLI download includes the compact format. Existing desktop users can choose **Check for Updates**, download 0.4.1, and choose **Restart to update**.
 
-This release addresses observations from Dottie's art workflow. The reported scene was not a timing benchmark, and browser automation download difficulties and a chat screenshot attachment failure were not established PixelWall defects.
+These improvements make longer agent-assisted edits easier to observe, recover, and validate while keeping projects editable across the web editor, desktop app, and CLI.

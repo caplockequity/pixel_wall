@@ -1,6 +1,7 @@
 import releaseData from "../../../public/desktop/latest.json";
 import updateRelease from "../../../public/desktop/releases/0.3.2.json";
 import release033 from "../../../public/desktop/releases/0.3.3.json";
+import release040 from "../../../public/desktop/releases/0.4.0.json";
 import recentRelease from "../../../public/desktop/releases/0.3.1.json";
 import previousRelease from "../../../public/desktop/releases/0.3.0.json";
 import earlierRelease from "../../../public/desktop/releases/0.2.1.json";
@@ -118,6 +119,7 @@ export default function DownloadsPage() {
         <h2 id="release-history-heading">Release history.</h2>
         <nav className="downloads-release-nav" aria-label="Release versions">
           <a href={`#${releaseId}`}>{release.version} · Latest</a>
+          {release.version !== release040.version ? <a href="#release-0-4-0">0.4.0</a> : null}
           {release.version !== release033.version ? <a href="#release-0-3-3">0.3.3</a> : null}
           {release.version !== updateRelease.version ? <a href="#release-0-3-2">0.3.2</a> : null}
           {release.version !== recentRelease.version ? <a href="#release-0-3-1">0.3.1</a> : null}
@@ -131,6 +133,10 @@ export default function DownloadsPage() {
       <div><p className="eyebrow">LATEST RELEASE</p><h3 id="release-notes-heading">PixelWall {release.version}</h3><p className="fine-print"><time dateTime={release.publishedAt}>{releaseDate(release.publishedAt)}</time></p></div>
       <div>{release.releaseNotes.length ? <ul>{release.releaseNotes.map((note, index) => <li key={`${index}-${note}`}>{note}</li>)}</ul> : <p>This release is ready to download above.</p>}<a className="text-link" href={publicLink("/support")}>Need a hand? Get support →</a></div>
     </article>
+    {release.version !== release040.version ? <article className="downloads-release-notes" id="release-0-4-0" aria-labelledby="release-0-4-0-heading">
+      <div><p className="eyebrow">PREVIOUS RELEASE</p><h3 id="release-0-4-0-heading">PixelWall 0.4.0</h3></div>
+      <div><ul>{release040.releaseNotes.map(note => <li key={note}>{note}</li>)}</ul></div>
+    </article> : null}
     {release.version !== release033.version ? <article className="downloads-release-notes" id="release-0-3-3" aria-labelledby="release-0-3-3-heading">
       <div><p className="eyebrow">PREVIOUS RELEASE</p><h3 id="release-0-3-3-heading">PixelWall 0.3.3</h3></div>
       <div><ul>{release033.releaseNotes.map(note => <li key={note}>{note}</li>)}</ul></div>
