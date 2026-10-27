@@ -1,0 +1,130 @@
+{
+  "version": "art-direction-20261027-v1",
+  "cause": "The previous external viewer reused mutable image URLs, allowing cached frames from different art passes to mix. This release uses an immutable URL for every image and waits for the complete animation and parallax set to decode before showing artwork.",
+  "all_side_layers_match_full_frame": [
+    {
+      "frame": 0,
+      "decoded_equal": true
+    },
+    {
+      "frame": 1,
+      "decoded_equal": true
+    },
+    {
+      "frame": 2,
+      "decoded_equal": true
+    },
+    {
+      "frame": 3,
+      "decoded_equal": true
+    },
+    {
+      "frame": 4,
+      "decoded_equal": true
+    },
+    {
+      "frame": 5,
+      "decoded_equal": true
+    },
+    {
+      "frame": 6,
+      "decoded_equal": true
+    },
+    {
+      "frame": 7,
+      "decoded_equal": true
+    },
+    {
+      "frame": 8,
+      "decoded_equal": true
+    },
+    {
+      "frame": 9,
+      "decoded_equal": true
+    },
+    {
+      "frame": 10,
+      "decoded_equal": true
+    },
+    {
+      "frame": 11,
+      "decoded_equal": true
+    }
+  ],
+  "png_sha256": {
+    "showcase/exports/courier/frame-00.png": "7230ce9bd33517057fc11867f1ef8ce749b368cca29f936dd71fa59459dd32f0",
+    "showcase/exports/courier/frame-01.png": "7230ce9bd33517057fc11867f1ef8ce749b368cca29f936dd71fa59459dd32f0",
+    "showcase/exports/courier/frame-02.png": "720c3ab66ab1f43ca1c38413c5b7e7925192270f7f683cb84025d4e446293b4f",
+    "showcase/exports/courier/frame-03.png": "8bc1d99882de825b5e63639bf55e0599bf259c9e92ff0026eef6cd63120b07e4",
+    "showcase/exports/courier/frame-04.png": "0ad734fbc98fbf5669388e16b9085ccae1bf44d60105fe83cc8a5c1689812710",
+    "showcase/exports/courier/frame-05.png": "8b7e7573e9a7a650a4569fc887152038db8b654206d6943b91c2e2a677405441",
+    "showcase/exports/courier/frame-06.png": "61555210bdd078990d186670d70ad5d5268561f8f64873acdebc288ca6b96184",
+    "showcase/exports/courier/frame-07.png": "cb9abd097cfa704f8a3d44a2681b9cd54edbc99487177b6fd977f7de07b9e74f",
+    "showcase/exports/courier/frame-08.png": "1155635efacb84d9fe8b2c6f95ed14cb3425f008481102c75c05392ae641d066",
+    "showcase/exports/courier/frame-09.png": "782ab7edfbb79b77766a57544523f0cb1d482cfc98a3db3b0b0c9a12ecf7798c",
+    "showcase/exports/courier/frame-10.png": "56f595c727184d670e39303b702dcf5b34349f10dbbd9e5bed3ca16c8ebeacec",
+    "showcase/exports/courier/frame-11.png": "859a6d62fe891f5796a8b98b6c405e34864cf34c33386ebb935ab5cf5cd4dfc1",
+    "showcase/exports/courier/frame-12.png": "9a6b7204acbfc985ee8e38245b42b2c58ae319e3f1e24e0f0053fe95e1decaa5",
+    "showcase/exports/courier/frame-13.png": "2447481c0b993571ce3c5f1c420e8ce5804b80f0698f62eea5cd85c05d4efb94",
+    "showcase/exports/courier/frame-14.png": "7d57557da972218b4105a680fb7b25696b21b6de23e016fd399e40b93e5263a1",
+    "showcase/exports/courier/frame-15.png": "18b17b86457c3d259d5414ff494e2036746f01f1bff8b7366d7082c148cc7458",
+    "showcase/exports/courier/frame-16.png": "61f1bed8d9d4698fa104d4a2b2a4933d16b5dd51c2ac6c83837f78639c268361",
+    "showcase/exports/courier/frame-17.png": "a42ce9bc4157c53965223806e0a4517f7aae8f48f25e55ef29f75c7e992caa13",
+    "showcase/exports/courier/frame-18.png": "053b560cc7ba3cb046b812886a3bc42be9a5b1383d4074ff7d47fe1a6723e7a4",
+    "showcase/exports/courier/frame-19.png": "6d7244f287e557b9f41ac5098d047d9ca287e33e97142a559cd31a7b5bbc8eb9",
+    "showcase/exports/overworld/frame-00.png": "1c0f37dbdc9bbb84066293ad674182e8adbcef1ab9d13659e1969ae189fe9dcb",
+    "showcase/exports/overworld/frame-01.png": "b9a20a0a936ed83ae42e797cf350c7492f29297513acd44a4019ba0630586ebf",
+    "showcase/exports/overworld/frame-02.png": "7c1cb0644553091f20dfc939b44748a1bc4a33dcf7d2cacd33fcec2adb922703",
+    "showcase/exports/overworld/frame-03.png": "d069dd347642ce421ede83d7427d91b5922ff99c390e2253413ec859d21fa23d",
+    "showcase/exports/overworld/frame-04.png": "6e67709e9d7e258158de54c35a5b2b08ad31a04c664d3ab69aeb74c1ec65a22b",
+    "showcase/exports/overworld/frame-05.png": "7755a82f05aea94f4989af367d8a5239d24711de9eb88cc6b77340cea81382ea",
+    "showcase/exports/overworld/frame-06.png": "54b824c95e581e21a485b7c400f5e2e302bb13a3ed56f11f6aaafb098c7f1d91",
+    "showcase/exports/overworld/frame-07.png": "43f934eafaa3c79a9c1e083c5139f175a46cf9f59e942e412f4e822eb2ff40e9",
+    "showcase/exports/overworld/frame-08.png": "6c5aeb0ec3005be0a2cb1cc4808088b816102e4b74b0466a870a1c0dbc5b6733",
+    "showcase/exports/overworld/frame-09.png": "e5efcb73d0a11a3ac6debe5fe39c1f23d766bf9f3292a98028b3285232a677eb",
+    "showcase/exports/overworld/frame-10.png": "b8ae41a1f384dba62bf7ac4ace51c9342f18c66d1e3f94b5808732c6b2a112ac",
+    "showcase/exports/overworld/frame-11.png": "ec2becb185e197b6a80766dbfc495e4a17d2e3a4d4e9e3930dea99a59c16ffb0",
+    "showcase/exports/reedling/frame-00.png": "1cfdb95f3c201bf8f6aa67d32659216822de5b66ea517375587cf9be1fe634e2",
+    "showcase/exports/reedling/frame-01.png": "1cfdb95f3c201bf8f6aa67d32659216822de5b66ea517375587cf9be1fe634e2",
+    "showcase/exports/reedling/frame-02.png": "08d6e9da86e497dc7036ec2bffd6027e3f923499f7d067418c4c029ed32ccc0d",
+    "showcase/exports/reedling/frame-03.png": "20c1554f251e044fa5f48110d010205d5a21faaaa962009efa9c9c0958cc38b7",
+    "showcase/exports/reedling/frame-04.png": "3c669e86e3a220a6273351f3293dd49aed6f5986d6868beacd5b9cca550c321b",
+    "showcase/exports/reedling/frame-05.png": "1cfdb95f3c201bf8f6aa67d32659216822de5b66ea517375587cf9be1fe634e2",
+    "showcase/exports/reedling/frame-06.png": "f64ed494c372cfaba9df4fd5e751a6da31ea6dcc4c4b545cb1d0b77a4a6db9ec",
+    "showcase/exports/reedling/frame-07.png": "98e189ea8f706f0e22de38d40eee38f4ac9d4738796dbd2581d47fd4c1425256",
+    "showcase/exports/reedling/frame-08.png": "3b22943ae4e9e697d6afde38132e57744c95959ae15729bd03d109b729072d64",
+    "showcase/exports/reedling/frame-09.png": "8c146cee223b8590d7f40f85e4ff2734bafb6e08740a187714ad690954171ce8",
+    "showcase/exports/reedling/frame-10.png": "8ee4f25b4fdb22b5de54581cf107a1fdfc6f5c1d0ce3a6fcd5adbf9355a88b60",
+    "showcase/exports/reedling/frame-11.png": "329c60d4d06694409a611ce19a327f4d7fba6bb1be3fa74a76e0141acd8b5441",
+    "showcase/exports/reedling/frame-12.png": "287e0f47fb9f071656700adeb15ed2600c0b3ec4e03e995742c35f7a01e160df",
+    "showcase/exports/reedling/frame-13.png": "71097264b5a42b236c20552ea1d3712985a466c806633e7024925c55da97c328",
+    "showcase/exports/sideview/frame-00.png": "156a77b4895fcecce464b4c8ff905b23323dd7c14b15c4d28e7112666b7b8292",
+    "showcase/exports/sideview/frame-01.png": "5e3452f52cdc3704722ff1f4531cc47b5370e5c706f7678f372e8cf002f14026",
+    "showcase/exports/sideview/frame-02.png": "514fddad3a67cbcd3f8627d897d0c77fe9b950aba12689dbaa729c29c4439675",
+    "showcase/exports/sideview/frame-03.png": "c64f3389557a296852a3d64417ca4164ce5156d0cbefce29cb69ca1297e95a62",
+    "showcase/exports/sideview/frame-04.png": "6d028a8078c871cf5ef0ac53bb44dd96c2e6da21374339d4804e611b3f24e49e",
+    "showcase/exports/sideview/frame-05.png": "6df8b20e83ff24640d49c860dd5fb46dc6751e9ae8fa065cfe44fba7f61d57b0",
+    "showcase/exports/sideview/frame-06.png": "e85b0ba9984aa26d744b0ea9ca505704bdc7efc82c9c2ceb20ab9cebe606fcb4",
+    "showcase/exports/sideview/frame-07.png": "6012897817f1f6e7cf718f4ab0192ba8996c7265d419ad5bb2fe2fa0fbaf680d",
+    "showcase/exports/sideview/frame-08.png": "ca9ca56b5f0548e62c6ddc2551f477d85e60631ac4d6f9facd26266a97f0b29b",
+    "showcase/exports/sideview/frame-09.png": "a3032b14994a9df208295628972ce638329608e0659b0fe12e9dbc5f2d27433d",
+    "showcase/exports/sideview/frame-10.png": "64d838efb812b56a0b28d7782d90a342fc9146cfe216d8454ebabbf3dbeea9f3",
+    "showcase/exports/sideview/frame-11.png": "fc2fbd8519dcd5d04683e88111acd4c8e5a3ef507ab3bf892e5447fab5f09f45",
+    "showcase/exports/sideview/near-00.png": "14844784ba303482082442941336dee4285cc6671b1d1c187c6b3f120943e21f",
+    "showcase/exports/sideview/near-01.png": "d537bfd5849cc59d975926090deb31cddcb9d6580e5a173de95a643f91905ca9",
+    "showcase/exports/sideview/near-02.png": "7061c90703605a3f1af2a86e143200d34c27e07c23b10e999fc4ff45c201ef9e",
+    "showcase/exports/sideview/near-03.png": "d01c4815736a8fde98c563a233fb9ed0e085dd9a894185164070cb1ef8fab49c",
+    "showcase/exports/sideview/near-04.png": "a5602328025e42c3e9e74d44aab6876a4ee1f84570dbef54de7c663d913ce0fa",
+    "showcase/exports/sideview/near-05.png": "bdf61da285e705f7eec79aad8679ac19024fb65029c081070747ec2c08011e3b",
+    "showcase/exports/sideview/near-06.png": "f30d327040579cc8a5acdf2b795d2cc7617b9b8da05ba67f9dc5c3c71c448408",
+    "showcase/exports/sideview/near-07.png": "bf2a8ef58d74f5d78c5c163c7914223ba3a4d88f5b651e5141ce4f70beac7e5a",
+    "showcase/exports/sideview/near-08.png": "6de0a561b8f7bfe2dc334e55649d9d5f0dd261f01d1e75daf01e41e5a301dc4e",
+    "showcase/exports/sideview/near-09.png": "8645e360029d3e26290bc5fdbf17fbc0e523c79f006e69c8362beec3ec0cdbb2",
+    "showcase/exports/sideview/near-10.png": "8fe587240ef3bbdd8171cf2dda3d6a033dd7233f09c574311c14f544d82c5c45",
+    "showcase/exports/sideview/near-11.png": "541fb7ccaabbde3f5ded2098b2138ffbf81353969af29a73eef8da2ea5c9df7e",
+    "showcase/exports/sideview/parallax-middle.png": "eb7f2893e609c444a5d5900fb33fe6a73d2f95f9e87ad6756b51124c5694b26f",
+    "showcase/exports/sideview/parallax-sky.png": "7f4344b20a789c843275f9a91eba82e610943ba8eeaf7f55ce0cef0533a13f66"
+  },
+  "packaged_frames": 72,
+  "verification_scope": "12 overworld + 12 side-view + 20 courier + 14 reedling frames, plus 12 animated near layers and 2 static parallax layers. The retained characters are unchanged from the prior release."
+}
