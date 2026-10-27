@@ -23,7 +23,7 @@ const IMPORT_BYTES_LIMIT = 1024 * 1024;
 function boundedSchema(name, schema) {
   if (!schema || typeof schema !== 'object') return schema;
   const copy = structuredClone(schema);
-  if (name === 'pixelwall_import_project' && copy.properties?.bytes) {
+  if (['pixelwall_import_project', 'pixelwall_open_temporary'].includes(name) && copy.properties?.bytes) {
     copy.properties.bytes.maxItems = Math.min(copy.properties.bytes.maxItems ?? IMPORT_BYTES_LIMIT, IMPORT_BYTES_LIMIT);
   }
   return copy;
@@ -210,7 +210,6 @@ export function createMcpBridge({ webContents, configPath, exportRoot, appVersio
             const record = { epoch: hooks.telemetryContext?.epoch, eligible: hooks.telemetryContext?.eligible === true };
             if (!operationEpochs.has(started.operationId)) operationEpochs.set(started.operationId, record);
             if (operationEpochs.size > 1024) operationEpochs.delete(operationEpochs.keys().next().value);
-            if (hooks.cancelled?.()) void call('cancel', started.operationId).catch(() => {});
             // Continue observing a fire-and-forget apply so its terminal
             // outcome is recorded even when the caller never polls.
             const observer = { stopped: false, epoch: record.epoch, eligible: record.eligible };
@@ -237,7 +236,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, appVersio
         if (!operationEpochs.has(operationId)) operationEpochs.set(operationId, record);
         if (operationEpochs.size > 1024) operationEpochs.delete(operationEpochs.keys().next().value);
         hooks.onOperation?.(operationId);
-        if (hooks.cancelled?.()) { await call('cancel', operationId).catch(() => {}); throw Error('Local PixelWall connection closed.'); }
+        if (hooks.cancelled?.()) throw Error('Local PixelWall connection closed.');
         let current = started;
         while (!['completed', 'failed', 'cancelled', 'unknown'].includes(current?.status)) {
           if (hooks.cancelled?.()) throw Error('Local PixelWall connection closed.');
@@ -275,11 +274,30 @@ export function createMcpBridge({ webContents, configPath, exportRoot, appVersio
       case 'pixelwall_temporary_projects': return call('temporaryProjects');
       case 'pixelwall_open_temporary_project': return call('openTemporaryProject', args || {});
       case 'pixelwall_selection': return call('selection', args || {});
-      case 'pixelwall_export_plan': return call('exportPlan', args || {});
+      case 'pixelwall_export_plan': {
+        const plan = await call('exportPlan', args || {});
+        const delivery = { status: 'not_requested', conflictPolicy: 'refuse', folderAvailable: false, conflicts: [], checked: false, browserCompletionObservable: false };
+        if (exportRoot) {
+          try {
+            const rootStat = await fs.lstat(exportRoot);
+            if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) throw Error('The approved export folder is unavailable.');
+            const canonicalRoot = await fs.realpath(exportRoot);
+            for (const filename of plan.filenames || []) {
+              if (!filename || basename(filename) !== filename || /[\\/]/.test(filename) || filename === '.' || filename === '..') throw Error('The export plan contains an invalid filename.');
+              const existing = await fs.lstat(resolve(canonicalRoot, filename)).catch(error => error.code === 'ENOENT' ? null : Promise.reject(error));
+              if (existing) delivery.conflicts.push(filename);
+            }
+            delivery.folderAvailable = true;
+            delivery.checked = true;
+          } catch (error) { delivery.error = error instanceof Error ? error.message : String(error); }
+        } else delivery.error = 'Choose an export folder in PixelWall first.';
+        return { ...plan, delivery };
+      }
       case 'pixelwall_receipt': return call('receipt', args?.requestKey);
       case 'pixelwall_wait_operation': return call('waitForOperation', args || {});
       case 'pixelwall_animation_review': return call('animationReview', args || {});
       case 'checkpoint': return call('checkpoint', args || {});
+      case 'checkpointDelivered': return call('checkpointDelivered', args || {});
       case 'pixelwall_open_project': return call('openProject', args || {});
       case 'pixelwall_import_project': return call('importProject', args || {});
       case 'pixelwall_validate': return call('validate', args || {});
@@ -331,45 +349,64 @@ export function createMcpBridge({ webContents, configPath, exportRoot, appVersio
     return errorResponse(message.id, -32601, 'Unknown local PixelWall method.');
   }
   function attach(socket) {
-    if (controller && !controller.destroyed) { socket.destroy(); return; }
     const operations = new Set();
+    const cancelledOperations = new Set();
+    const cancelOwned = operationId => {
+      if (cancelledOperations.has(operationId)) return;
+      cancelledOperations.add(operationId);
+      void invoke('pixelwall_cancel', {operationId}).catch(() => {});
+    };
     let mutationChain = Promise.resolve();
     let disconnected = false;
-    sockets.add(socket);
-    socket.once('close', () => {
+    const disconnect = () => {
+      if (disconnected) return;
       disconnected = true;
       sockets.delete(socket);
       if (controller === socket) { controller = undefined; reportStatus(); }
-      // Only operation IDs explicitly launched by this authenticated socket
-      // are eligible for disconnect cancellation.
-      for (const operationId of operations) void invoke('pixelwall_cancel', { operationId }).catch(() => {});
-    });
+      // Only edits launched by this connection are eligible for cancellation.
+      for (const operationId of operations) cancelOwned(operationId);
+      operations.clear();
+    };
+    const socketFailed = () => { disconnect(); socket.destroy(); };
+    // Writes can fail after a writable/destroyed check: Node reports EPIPE through
+    // both the callback and the error event. Handle it on this socket, not globally.
+    socket.on('error', socketFailed);
+    socket.once('end', disconnect);
+    socket.once('close', disconnect);
+    if (controller && !controller.destroyed) { socket.destroy(); return; }
+    sockets.add(socket);
+    const send = value => {
+      if (disconnected || socket.destroyed || socket.writableEnded || socket.writable === false) return false;
+      try { socket.write(JSON.stringify(value) + '\n', error => { if(error) socketFailed(); }); return !disconnected; }
+      catch { socketFailed(); return false; }
+    };
     socket.setEncoding('utf8');
     let buffer = '';
     const readOnly = new Set(['pixelwall_inspect', 'pixelwall_commands', 'pixelwall_operation', 'pixelwall_preview', 'pixelwall_capture_preview', 'pixelwall_export_result', 'pixelwall_projects', 'pixelwall_storage', 'pixelwall_persistence', 'pixelwall_capabilities', 'pixelwall_command_schema', 'pixelwall_receipt', 'pixelwall_wait_operation', 'pixelwall_animation_review', 'pixelwall_temporary_projects', 'pixelwall_selection', 'pixelwall_export_plan', 'pixelwall_artifacts', 'pixelwall_read_artifact', 'pixelwall_tools', 'pixelwall_validate', 'pixelwall_cancel']);
     socket.on('data', chunk => {
+      if (disconnected) return;
       buffer += chunk;
       if (Buffer.byteLength(buffer) > MAX_MESSAGE_BYTES) { socket.destroy(); return; }
       let index;
-      while ((index = buffer.indexOf('\n')) >= 0) {
+      while (!disconnected && (index = buffer.indexOf('\n')) >= 0) {
         const line = buffer.slice(0, index); buffer = buffer.slice(index + 1);
         if (Buffer.byteLength(line) > MAX_LINE_BYTES) { socket.destroy(); return; }
         let message;
-        try { message = JSON.parse(line); } catch { socket.write(JSON.stringify(errorResponse(null, -32700, 'Invalid JSON.')) + '\n'); continue; }
+        try { message = JSON.parse(line); } catch { send(errorResponse(null, -32700, 'Invalid JSON.')); continue; }
         if (!message || typeof message !== 'object' || Array.isArray(message)) {
-          if (!socket.destroyed) socket.write(JSON.stringify(errorResponse(null, -32600, 'Invalid request.')) + '\n');
+          send(errorResponse(null, -32600, 'Invalid request.'));
           continue;
         }
         if (!tokenMatches(message.token, token)) {
-          if (!socket.destroyed) socket.write(JSON.stringify(errorResponse(message.id, -32001, 'Local PixelWall connection is not authorized.')) + '\n');
+          send(errorResponse(message.id, -32001, 'Local PixelWall connection is not authorized.'));
           continue;
         }
         if (!controller) { controller = socket; report({ operation: 'connect', outcome: 'success', dedupeKey: `connect:${++connectionSequence}` }); reportStatus(); }
         if (controller !== socket) { socket.destroy(); continue; }
         const name = message.method === 'tools/call' ? message.params?.name : null;
-        const dispatch = () => { if (socket.destroyed || controller !== socket) throw Error('Local PixelWall connection closed.'); return handle(message, { onOperation: operationId => operations.add(operationId), cancelled: () => disconnected }); };
+        const dispatch = () => { if (disconnected || socket.destroyed || controller !== socket) throw Error('Local PixelWall connection closed.'); return handle(message, { onOperation: operationId => { if (disconnected) cancelOwned(operationId); else operations.add(operationId); }, cancelled: () => disconnected }); };
         const task = name && !readOnly.has(name) ? (mutationChain = mutationChain.catch(() => {}).then(dispatch)) : Promise.resolve().then(dispatch);
-        task.then(result => { const operationId = result?.result?.structuredContent?.operationId; if (operationId) operations.add(operationId); if (!socket.destroyed) socket.write(JSON.stringify(result) + '\n'); else if (operationId) void invoke('pixelwall_cancel', { operationId }).catch(() => {}); }).catch(error => { if (!socket.destroyed) socket.write(JSON.stringify(errorResponse(message.id, -32603, error.message)) + '\n'); });
+        task.then(result => { send(result); }).catch(error => { send(errorResponse(message.id, -32603, error.message)); });
       }
     });
   }
