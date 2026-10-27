@@ -1,0 +1,13 @@
+<!doctype html>
+<meta charset="utf-8"><title>Reliable Riverbank loop</title>
+<style>body{font:16px system-ui;background:#17231f;color:#f7f0da;max-width:44rem;margin:2rem auto;padding:0 1rem}canvas{width:min(100%,768px);image-rendering:pixelated;border:2px solid #b59b62;background:#24433b}button,label{margin:.5rem .75rem .5rem 0;padding:.45rem .7rem}button{cursor:pointer}</style>
+<h1>Reliable Riverbank</h1><p>A 96×64 PixelWall starter: linked riverbank layers and a 12-frame canopy loop.</p>
+<canvas id="view" width="96" height="64" aria-label="Riverbank animation"></canvas>
+<p><button id="toggle">Pause</button><label><input id="reduce" type="checkbox"> Reduced motion</label> <span id="status">Frame 1 / 12</span></p>
+<script>
+const canvas=document.querySelector('#view'),ctx=canvas.getContext('2d'),toggle=document.querySelector('#toggle'),reduce=document.querySelector('#reduce'),status=document.querySelector('#status');
+const frames=Array.from({length:12},(_,i)=>`build/frames/frame-${String(i+1).padStart(2,'0')}.png`); let index=0,playing=true,last=0;
+function draw(){const image=new Image();image.onload=()=>{ctx.clearRect(0,0,96,64);ctx.drawImage(image,0,0);status.textContent=`Frame ${index+1} / 12`;};image.src=frames[index];}
+function tick(now){if(playing&&!reduce.checked&&now-last>125){index=(index+1)%frames.length;last=now;draw();}requestAnimationFrame(tick)}
+toggle.onclick=()=>{playing=!playing;toggle.textContent=playing?'Pause':'Play';};reduce.onchange=()=>{if(reduce.checked){index=0;draw();}};draw();requestAnimationFrame(tick);
+</script>

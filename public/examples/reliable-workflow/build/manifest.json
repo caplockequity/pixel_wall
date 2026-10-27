@@ -1,0 +1,30 @@
+{
+  "name": "Reliable Riverbank",
+  "document": "reliable-riverbank.pixelwall",
+  "width": 96,
+  "height": 64,
+  "frames": [
+    "frame-1",
+    "frame-02",
+    "frame-03",
+    "frame-04",
+    "frame-05",
+    "frame-06",
+    "frame-07",
+    "frame-08",
+    "frame-09",
+    "frame-10",
+    "frame-11",
+    "frame-12"
+  ],
+  "clip": "riverbank-loop",
+  "linkedStaticLayers": [
+    "ground",
+    "river",
+    "bank",
+    "trunk"
+  ],
+  "animatedLayers": [
+    "canopy"
+  ]
+}
