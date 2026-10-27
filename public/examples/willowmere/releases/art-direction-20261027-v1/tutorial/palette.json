@@ -1,0 +1,9 @@
+{
+  "ink":"#172d36", "deep":"#204747", "pine":"#28584c", "leafShadow":"#306c52", "leaf":"#4b8658", "leafLight":"#78a563", "sunLeaf":"#adbf79", "grass":"#649267", "grassLight":"#89a56c", "moss":"#aec084",
+  "waterDeep":"#205665", "water":"#287c83", "waterLight":"#4aa5a0", "foam":"#9dd3bc", "cream":"#e8dbaa",
+  "earth":"#514a42", "soil":"#776147", "ochre":"#a88555", "path":"#c8ad73", "pathLight":"#e1c88a",
+  "stoneDark":"#455d60", "stone":"#6c8280", "stoneLight":"#a1b0a0",
+  "woodDark":"#4d3b3e", "wood":"#855349", "woodLight":"#bc7c55",
+  "coralDark":"#85434a", "coral":"#c66759", "coralLight":"#e69771",
+  "gold":"#eab85d", "glow":"#fae2a0", "sky":"#b4cebb"
+}

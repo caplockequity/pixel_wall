@@ -1,0 +1,308 @@
+{
+  "overworld": {
+    "pairs": 12,
+    "allDecodedPixelsMatch": true,
+    "rows": [
+      {
+        "review": "final 0.png",
+        "canonical": "frame-00.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "3ef6c8610e8e130e01ddf3d5f37348aef9504d479e6490347b2b90e917522fb3",
+        "canonicalSHA256": "3ef6c8610e8e130e01ddf3d5f37348aef9504d479e6490347b2b90e917522fb3"
+      },
+      {
+        "review": "final 1.png",
+        "canonical": "frame-01.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "c71eaeea1377febc2ac1120d550222dfc547a7015e5bcdad73ccfb207ea08eb7",
+        "canonicalSHA256": "c71eaeea1377febc2ac1120d550222dfc547a7015e5bcdad73ccfb207ea08eb7"
+      },
+      {
+        "review": "final 2.png",
+        "canonical": "frame-02.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "ea6d47abadb7530f01926dca8e798ce37a32e65cf65128bf4ccbde5125c67658",
+        "canonicalSHA256": "ea6d47abadb7530f01926dca8e798ce37a32e65cf65128bf4ccbde5125c67658"
+      },
+      {
+        "review": "final 3.png",
+        "canonical": "frame-03.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "39caf3a1703908d7e92a33c78115261ecc2e690b8b6ea1234566ce72c9ff9fac",
+        "canonicalSHA256": "39caf3a1703908d7e92a33c78115261ecc2e690b8b6ea1234566ce72c9ff9fac"
+      },
+      {
+        "review": "final 4.png",
+        "canonical": "frame-04.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "b5f94ea2ef7a3ad0b511e0cda05b6a6b3fac4683791c1340b465ea2e488d4228",
+        "canonicalSHA256": "b5f94ea2ef7a3ad0b511e0cda05b6a6b3fac4683791c1340b465ea2e488d4228"
+      },
+      {
+        "review": "final 5.png",
+        "canonical": "frame-05.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "34aad02d406154897f85d4cf5ea4f73bb4959a44f17956f26ece6f6ec2c29450",
+        "canonicalSHA256": "34aad02d406154897f85d4cf5ea4f73bb4959a44f17956f26ece6f6ec2c29450"
+      },
+      {
+        "review": "final 6.png",
+        "canonical": "frame-06.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "3c057cc578744b08f82ab50c0a5c669aad14d979a018b328377f5d76b589ee56",
+        "canonicalSHA256": "3c057cc578744b08f82ab50c0a5c669aad14d979a018b328377f5d76b589ee56"
+      },
+      {
+        "review": "final 7.png",
+        "canonical": "frame-07.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "d3795d01f2579cd00c21b452e730b8229573979f21ab124bae0209ba095327b0",
+        "canonicalSHA256": "d3795d01f2579cd00c21b452e730b8229573979f21ab124bae0209ba095327b0"
+      },
+      {
+        "review": "final 8.png",
+        "canonical": "frame-08.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "12a23dccfe1322c37b365fa91c56bfa4dfe83933ef2112a4a7ca18831a4e1d72",
+        "canonicalSHA256": "12a23dccfe1322c37b365fa91c56bfa4dfe83933ef2112a4a7ca18831a4e1d72"
+      },
+      {
+        "review": "final 9.png",
+        "canonical": "frame-09.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "decd80173ab9c3f84af753968dce42eb2125dcd0e12c63e0ce6d1c27fd89babb",
+        "canonicalSHA256": "decd80173ab9c3f84af753968dce42eb2125dcd0e12c63e0ce6d1c27fd89babb"
+      },
+      {
+        "review": "final 10.png",
+        "canonical": "frame-10.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "29a22f95d5e90ed063d39618d3a22cbfa97535321cb3dcacfc6b2fd5b50a9f11",
+        "canonicalSHA256": "29a22f95d5e90ed063d39618d3a22cbfa97535321cb3dcacfc6b2fd5b50a9f11"
+      },
+      {
+        "review": "final 11.png",
+        "canonical": "frame-11.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "218b1242cc288d6f113d192ec0778ead975fca0dd37a68a934e278d36e243028",
+        "canonicalSHA256": "218b1242cc288d6f113d192ec0778ead975fca0dd37a68a934e278d36e243028"
+      }
+    ]
+  },
+  "sideview": {
+    "pairs": 12,
+    "allDecodedPixelsMatch": true,
+    "rows": [
+      {
+        "review": "final 0.png",
+        "canonical": "frame-00.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "4d9241f1e0afb096d3b72599ba8d5451bd7f06a9cf5758054992d249e6fd3fa7",
+        "canonicalSHA256": "4d9241f1e0afb096d3b72599ba8d5451bd7f06a9cf5758054992d249e6fd3fa7"
+      },
+      {
+        "review": "final 1.png",
+        "canonical": "frame-01.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "40943db4d9f4399d691591373e5d4ac886027db38fe281203f701b3c6b73a77f",
+        "canonicalSHA256": "40943db4d9f4399d691591373e5d4ac886027db38fe281203f701b3c6b73a77f"
+      },
+      {
+        "review": "final 2.png",
+        "canonical": "frame-02.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "5f6e1baacb7ff1821796aef51d7be141ea3cdf5ea97d1963ca834e0feb36f3c0",
+        "canonicalSHA256": "5f6e1baacb7ff1821796aef51d7be141ea3cdf5ea97d1963ca834e0feb36f3c0"
+      },
+      {
+        "review": "final 3.png",
+        "canonical": "frame-03.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "288fa9466d964ab91bd0ad2c91837e53010a9d7b4ec31ebf69dca65bc40a9038",
+        "canonicalSHA256": "288fa9466d964ab91bd0ad2c91837e53010a9d7b4ec31ebf69dca65bc40a9038"
+      },
+      {
+        "review": "final 4.png",
+        "canonical": "frame-04.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "a75de1a2ed53d8c86e0de412c4f9c9bd042ea329b51a281b2670f4316c700be6",
+        "canonicalSHA256": "a75de1a2ed53d8c86e0de412c4f9c9bd042ea329b51a281b2670f4316c700be6"
+      },
+      {
+        "review": "final 5.png",
+        "canonical": "frame-05.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "418582fb3c17a1b6172bc9849aef8926a0077d97802485f4347b92b5eefdaf7c",
+        "canonicalSHA256": "418582fb3c17a1b6172bc9849aef8926a0077d97802485f4347b92b5eefdaf7c"
+      },
+      {
+        "review": "final 6.png",
+        "canonical": "frame-06.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "c264476b554f26b4ab03a956f9dae17d67f5398f913a79d8467de5e1810f35a9",
+        "canonicalSHA256": "c264476b554f26b4ab03a956f9dae17d67f5398f913a79d8467de5e1810f35a9"
+      },
+      {
+        "review": "final 7.png",
+        "canonical": "frame-07.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "e32178ffdc4f4841c418b70b2fea578751edcfc4c56c576520205b374a58147a",
+        "canonicalSHA256": "e32178ffdc4f4841c418b70b2fea578751edcfc4c56c576520205b374a58147a"
+      },
+      {
+        "review": "final 8.png",
+        "canonical": "frame-08.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "c845b9452802c9f96ea8b891a5387319259da178804e62a08de140cc509dd7f5",
+        "canonicalSHA256": "c845b9452802c9f96ea8b891a5387319259da178804e62a08de140cc509dd7f5"
+      },
+      {
+        "review": "final 9.png",
+        "canonical": "frame-09.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "433931040f0780cbe723977c89db892f76766aed91887e72c0b3c36661b3f710",
+        "canonicalSHA256": "433931040f0780cbe723977c89db892f76766aed91887e72c0b3c36661b3f710"
+      },
+      {
+        "review": "final 10.png",
+        "canonical": "frame-10.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "b1693b79026bdd61fabb972b33fda2ed032530b1aa3ca29f666fbc06f30381d3",
+        "canonicalSHA256": "b1693b79026bdd61fabb972b33fda2ed032530b1aa3ca29f666fbc06f30381d3"
+      },
+      {
+        "review": "final 11.png",
+        "canonical": "frame-11.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "e64a92466f2e3b485a2d4444df6b8d292b6ea02e0bb1ba2ad7004b194455e1e1",
+        "canonicalSHA256": "e64a92466f2e3b485a2d4444df6b8d292b6ea02e0bb1ba2ad7004b194455e1e1"
+      }
+    ]
+  },
+  "showcase": {
+    "pairs": 12,
+    "allDecodedPixelsMatch": true,
+    "rows": [
+      {
+        "review": "final 0.png",
+        "canonical": "frame-00.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "a728aebbc387459aba7392fc5801f4cd0ed8255a74127a94547d10b87aa0a699",
+        "canonicalSHA256": "a728aebbc387459aba7392fc5801f4cd0ed8255a74127a94547d10b87aa0a699"
+      },
+      {
+        "review": "final 1.png",
+        "canonical": "frame-01.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "6fe8e47d535cd60f6c6e228d28a32656dceda57dae029bda252c19c598cde69a",
+        "canonicalSHA256": "6fe8e47d535cd60f6c6e228d28a32656dceda57dae029bda252c19c598cde69a"
+      },
+      {
+        "review": "final 2.png",
+        "canonical": "frame-02.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "26e136b4117a823d54f4f9ea2f79e39e687419ba975fb50b726650be76512daa",
+        "canonicalSHA256": "26e136b4117a823d54f4f9ea2f79e39e687419ba975fb50b726650be76512daa"
+      },
+      {
+        "review": "final 3.png",
+        "canonical": "frame-03.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "9e2ef6d2c1f51567c6a088d9243b5e7bb2a1ae7599f5e9c089c39450b6d7632b",
+        "canonicalSHA256": "9e2ef6d2c1f51567c6a088d9243b5e7bb2a1ae7599f5e9c089c39450b6d7632b"
+      },
+      {
+        "review": "final 4.png",
+        "canonical": "frame-04.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "cf2e3d5c300822d3f8167b245589969c5e8233e983a8dbd7f2359df57f9ecda3",
+        "canonicalSHA256": "cf2e3d5c300822d3f8167b245589969c5e8233e983a8dbd7f2359df57f9ecda3"
+      },
+      {
+        "review": "final 5.png",
+        "canonical": "frame-05.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "dde6c6a8d7ad4c95c6995dc1e764d8a15f72eec5ca7894a41a81c63a84007381",
+        "canonicalSHA256": "dde6c6a8d7ad4c95c6995dc1e764d8a15f72eec5ca7894a41a81c63a84007381"
+      },
+      {
+        "review": "final 6.png",
+        "canonical": "frame-06.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "df84437f3a2531b23f538bc48cc1b8d9678209e6b18d16224e24f38c49717aa5",
+        "canonicalSHA256": "df84437f3a2531b23f538bc48cc1b8d9678209e6b18d16224e24f38c49717aa5"
+      },
+      {
+        "review": "final 7.png",
+        "canonical": "frame-07.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "2e093c04f5a388682f9d3e668858bb32078b30912a1ae9b6542a7a07dc2ba322",
+        "canonicalSHA256": "2e093c04f5a388682f9d3e668858bb32078b30912a1ae9b6542a7a07dc2ba322"
+      },
+      {
+        "review": "final 8.png",
+        "canonical": "frame-08.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "3f100742e63482700787814cd9434495347d65a255b9e1186b2aba6785047e5e",
+        "canonicalSHA256": "3f100742e63482700787814cd9434495347d65a255b9e1186b2aba6785047e5e"
+      },
+      {
+        "review": "final 9.png",
+        "canonical": "frame-09.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "41c2f480fc29cfe622dfbe9168eec4b43e257b4924aee027edae0543d986b71d",
+        "canonicalSHA256": "41c2f480fc29cfe622dfbe9168eec4b43e257b4924aee027edae0543d986b71d"
+      },
+      {
+        "review": "final 10.png",
+        "canonical": "frame-10.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "a0b4e545464305286bd455db4397595844fac9a1c9dd9eacd1e0f7bf50844974",
+        "canonicalSHA256": "a0b4e545464305286bd455db4397595844fac9a1c9dd9eacd1e0f7bf50844974"
+      },
+      {
+        "review": "final 11.png",
+        "canonical": "frame-11.png",
+        "dimensionsMatch": true,
+        "decodedPixelsMatch": true,
+        "reviewSHA256": "fe325bebc47eb832767b193cf60620ed9a6028522547c50b5619c2977410be0e",
+        "canonicalSHA256": "fe325bebc47eb832767b193cf60620ed9a6028522547c50b5619c2977410be0e"
+      }
+    ]
+  }
+}
