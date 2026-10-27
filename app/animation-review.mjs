@@ -13,6 +13,7 @@ export function diagnoseAnimation(document, options = {}) {
   if (clip && !clip.frameIds.every(id => byId.has(id))) warnings.push({ code: 'clip-membership', severity: 'error', message: 'Clip references a missing frame.', clipId: clip.id });
   if (clip && options.frameIds && options.frameIds.some(id => !clip.frameIds.includes(id))) warnings.push({ code: 'clip-membership', severity: 'warning', message: 'Requested frame is outside the selected clip.', clipId: clip.id, frameIds: options.frameIds.filter(id => !clip.frameIds.includes(id)) });
   const anchored = Array.isArray(options.anchoredLayers) ? options.anchoredLayers : [];
+  const anchoredRegions = Array.isArray(options.anchoredRegions) ? options.anchoredRegions : [];
   const exclusions = new Set(options.exclusions ?? []);
   const excluded = (code, layerId) => exclusions.has(code) || (layerId && exclusions.has(`${code}:${layerId}`));
   const selected = frameIds.map(id => byId.get(id)).filter(Boolean);
@@ -29,6 +30,13 @@ export function diagnoseAnimation(document, options = {}) {
     const first = selected[0] && cel(document, selected[0], layerId); if (!first) continue;
     const firstPixels = imagePixels(document, first.imageId);
     for (const frame of selected.slice(1)) { const current = cel(document, frame, layerId); if (!current) continue; const pixels = imagePixels(document, current.imageId); const offsetChanged = (current.x ?? 0) !== (first.x ?? 0) || (current.y ?? 0) !== (first.y ?? 0); const pixelChanged = firstPixels && pixels && !rgbaEqual(firstPixels, pixels); if ((offsetChanged || pixelChanged) && !excluded('anchored-drift', layerId)) warnings.push({ code: 'anchored-drift', severity: 'warning', frameId: frame.id, layerId, message: pixelChanged ? 'Anchored layer pixels changed across frames.' : 'Anchored layer offset changed across frames.' }); }
+  }
+  for (const region of anchoredRegions) {
+    if (!region || !Number.isSafeInteger(region.x) || !Number.isSafeInteger(region.y) || !Number.isSafeInteger(region.width) || !Number.isSafeInteger(region.height) || region.width < 1 || region.height < 1) continue;
+    const first = selected[0]; if (!first) continue; let changed = false;
+    const firstRendered = options.renderFrame?.(document, first.id);
+    for (const frame of selected.slice(1)) { const rendered = options.renderFrame?.(document, frame.id); if (!firstRendered || !rendered) continue; for (let y = Math.max(0, region.y); y < Math.min(document.height, region.y + region.height) && !changed; y++) for (let x = Math.max(0, region.x); x < Math.min(document.width, region.x + region.width); x++) { const i = (y * document.width + x) * 4; if (firstRendered[i] !== rendered[i] || firstRendered[i + 1] !== rendered[i + 1] || firstRendered[i + 2] !== rendered[i + 2] || firstRendered[i + 3] !== rendered[i + 3]) { changed = true; break; } } }
+    if (changed && !excluded('anchored-region-drift')) warnings.push({ code: 'anchored-region-drift', severity: 'warning', region: { x: region.x, y: region.y, width: region.width, height: region.height }, message: 'Pixels changed inside an anchored region.' });
   }
   const expected = options.expectedFrameCount;
   if (expected !== undefined && (!Number.isSafeInteger(expected) || expected < 1 || selected.length !== expected)) warnings.push({ code: 'frame-count', severity: 'warning', expected: expected, actual: selected.length, message: `Expected ${expected} frames but found ${selected.length}.` });

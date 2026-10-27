@@ -74,3 +74,9 @@ export function replaceSceneComponent(component, replacement, { preserveLayerIds
   const layers = replacement.layers.map(layer => protectedIds.has(layer.id) && oldLayers.has(layer.id) ? structuredClone(oldLayers.get(layer.id)) : layer);
   return { ...replacement, layers, metadata: { ...replacement.metadata, manualLayerIds: [...protectedIds] } };
 }
+
+export function previewSceneComponentReplacement(component, replacement) {
+  const oldById = new Map((component?.layers ?? []).map(layer => [layer.id, layer])); const changed = [];
+  for (const layer of replacement?.layers ?? []) { const old = oldById.get(layer.id); let pixels = old ? 0 : layer.pixels.filter(Boolean).length; if (old) for (let i = 0; i < layer.pixels.length; i++) if (layer.pixels[i] !== old.pixels[i]) pixels++; if (pixels) changed.push({ layerId: layer.id, changedPixels: pixels }); }
+  return { componentId: component?.componentId ?? null, affectedLayers: changed, affectedPixelCount: changed.reduce((sum, value) => sum + value.changedPixels, 0), manualLayerIds: [...(component?.metadata?.manualLayerIds ?? [])] };
+}

@@ -10,6 +10,7 @@ import { validateAsepriteUserData } from './aseprite-properties.mjs';
 import { generateWaterScene } from './water-generator.mjs';
 import { decodeSelection } from './selection-spec.mjs';
 import { generateSceneComponent, SCENE_COMPONENT_KINDS, SCENE_COMPONENT_STYLES } from './scene-components.mjs';
+const stableFingerprint = value => { const text = JSON.stringify(value); let hash = 2166136261; for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 16777619); } return (hash >>> 0).toString(16).padStart(8, '0'); };
 /** PixelWall v4: a portable, transactional 2D document and raster engine. No DOM. */
 export const LIMITS = Object.freeze({ edge: 65535, canvasPixels: 4194304, imageEdge: 65535, pixels: 16777216, layers: 256, frames: 2048, palette: 65536, operations: 67108864 });
 export const BLEND_MODES = Object.freeze(['normal','multiply','screen','overlay','darken','lighten','color-dodge','color-burn','hard-light','soft-light','difference','exclusion','addition','subtract','divide','hue','saturation','color','luminosity']);
@@ -695,7 +696,7 @@ export function applyCommand(input,command){
   if(!frame)fail('Document has no frame');
   const prefix=c.id??`component-${generated.kind}-${generated.seed}`;
   for(const layer of generated.layers){const layerId=`${prefix}-${layer.id}`;if(doc.layers.some(value=>value.id===layerId))fail(`Component layer id exists: ${layerId}`);const imageId=`${layerId}-image`;reserve(doc,layer.pixels.length);doc.images[imageId]={width:generated.width,height:generated.height,pixels:[...layer.pixels]};doc.layers.push({id:layerId,name:layer.name,type:'image',parentId:null,visible:true,locked:false,opacity:1,blendMode:'normal'});for(const target of doc.frames)target.cels[layerId]={imageId,x:generated.x,y:generated.y,opacity:1};}
-  const layerFingerprints={}; for(const layer of generated.layers){const layerId=`${prefix}-${layer.id}`;layerFingerprints[layerId]=JSON.stringify(layer.pixels);}
+  const layerFingerprints={}; for(const layer of generated.layers){const layerId=`${prefix}-${layer.id}`;layerFingerprints[layerId]=stableFingerprint({pixels:layer.pixels});}
   doc.metadata={...doc.metadata,sceneComponents:[...(doc.metadata?.sceneComponents??[]),{...generated.metadata,layerPrefix:prefix,recipe:generated.recipe,layerFingerprints}]};
   break;
  }
@@ -703,10 +704,10 @@ export function applyCommand(input,command){
   if(!record(c.recipe)||typeof c.componentId!=='string')fail('Component identity and recipe are required');
   const meta=(doc.metadata?.sceneComponents??[]).find(value=>value.componentId===c.componentId||value.layerPrefix===c.componentId); if(!meta)fail('Scene component identity not found');
   const prefix=meta.layerPrefix??c.componentId, generated=generateSceneComponent({...c.recipe,componentId:meta.componentId}); const oldIds=doc.layers.filter(layer=>layer.id.startsWith(`${prefix}-`)).map(layer=>layer.id); const protectedIds=new Set(meta.manualLayerIds??c.preserveLayerIds??[]);
-  for(const layerId of oldIds){const current=doc.frames[0]?.cels?.[layerId], image=current&&doc.images[current.imageId], original=meta.layerFingerprints?.[layerId]; if(image&&original&&JSON.stringify(image.pixels)!==original){if(!c.allowModified)fail(`Scene component layer ${layerId} was manually edited; preview or pass allowModified:true with preserveLayerIds`);protectedIds.add(layerId);}}
+  for(const layerId of oldIds){const current=doc.frames[0]?.cels?.[layerId], image=current&&doc.images[current.imageId], original=meta.layerFingerprints?.[layerId]; if(image&&original&&stableFingerprint({pixels:image.pixels})!==original){if(!c.allowModified)fail(`Scene component layer ${layerId} was manually edited; preview or pass allowModified:true with preserveLayerIds`);protectedIds.add(layerId);}}
   for(const layerId of oldIds)if(!protectedIds.has(layerId)){doc.layers=doc.layers.filter(layer=>layer.id!==layerId);for(const frame of doc.frames)delete frame.cels[layerId];}
   for(const layer of generated.layers){const layerId=`${prefix}-${layer.id}`;if(protectedIds.has(layerId))continue;let imageId=`${layerId}-replacement-image`;let suffix=1;while(doc.images[imageId])imageId=`${layerId}-replacement-image-${suffix++}`;doc.images[imageId]={width:generated.width,height:generated.height,pixels:[...layer.pixels]};doc.layers.push({id:layerId,name:layer.name,type:'image',parentId:null,visible:true,locked:false,opacity:1,blendMode:'normal'});for(const frame of doc.frames)frame.cels[layerId]={imageId,x:generated.x,y:generated.y,opacity:1};}
-  const layerFingerprints={}; for(const layer of generated.layers){const layerId=`${prefix}-${layer.id}`;layerFingerprints[layerId]=JSON.stringify(layer.pixels);} doc.metadata={...doc.metadata,sceneComponents:(doc.metadata.sceneComponents??[]).map(value=>value.layerPrefix===prefix?{...generated.metadata,layerPrefix:prefix,manualLayerIds:[...protectedIds],layerFingerprints,recipe:generated.recipe}:value)};
+  const layerFingerprints={}; for(const layer of generated.layers){const layerId=`${prefix}-${layer.id}`;layerFingerprints[layerId]=stableFingerprint({pixels:layer.pixels});} doc.metadata={...doc.metadata,sceneComponents:(doc.metadata.sceneComponents??[]).map(value=>value.layerPrefix===prefix?{...generated.metadata,layerPrefix:prefix,manualLayerIds:[...protectedIds],layerFingerprints,recipe:generated.recipe}:value)};
   break;
  }
  case'batch':{if(!Array.isArray(c.commands)||c.commands.length>1024)fail('Invalid command batch');let result=input;for(const command of c.commands)result=applyCommand(result,command);return result;}

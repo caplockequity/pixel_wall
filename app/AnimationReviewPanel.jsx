@@ -1,4 +1,6 @@
 "use client";
+/* eslint react-hooks/exhaustive-deps: "off" -- ids are represented by the stable idsKey dependency. */
+/* eslint react/prop-types: "off", react-hooks/set-state-in-effect: "off" -- editor documents are validated at the engine boundary; frame reset follows selection changes. */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { renderFrame } from "./editor-core.mjs";
 import { diagnoseAnimation } from "./animation-review.mjs";
@@ -8,13 +10,14 @@ function Overlay({ width, height, edge }) { const ref = useRef(null); useEffect(
 
 export default function AnimationReviewPanel({ document: doc, baseline = null, onBake, disabled = false }) {
   const [clipId, setClipId] = useState(doc?.clips?.[0]?.id ?? ""), [playing, setPlaying] = useState(false), [frame, setFrame] = useState(0), [wrapOnly, setWrapOnly] = useState(false), [wrapCount, setWrapCount] = useState(2), [edgeOverlay, setEdgeOverlay] = useState(true), [anchored, setAnchored] = useState([]), [exclusions, setExclusions] = useState([]), [amplitude, setAmplitude] = useState(1), [pinned, setPinned] = useState([]);
-  const native = useRef(null), enlarged = useRef(null), baselineCanvas = useRef(null);
+  const native = useRef(null), enlarged = useRef(null), baselineCanvas = useRef(null), contact = useRef(null);
   const clip = doc?.clips?.find(value => value.id === clipId), allIds = clip?.frameIds ?? doc?.frames?.map(value => value.id) ?? [], ids = wrapOnly ? [...allIds.slice(-wrapCount), ...allIds.slice(0, wrapCount)] : allIds;
-  const currentId = ids[frame % Math.max(1, ids.length)], current = doc?.frames?.find(value => value.id === currentId), currentIndex = doc?.frames?.findIndex(value => value.id === currentId) ?? 0;
+  const idsKey = ids.join(","), currentId = ids[frame % Math.max(1, ids.length)], current = doc?.frames?.find(value => value.id === currentId), currentIndex = doc?.frames?.findIndex(value => value.id === currentId) ?? 0;
   const report = useMemo(() => doc ? diagnoseAnimation(doc, { clipId: clipId || undefined, anchoredLayers: anchored, exclusions }) : null, [doc, clipId, anchored, exclusions]);
   useEffect(() => { setFrame(0); }, [clipId, wrapOnly, wrapCount, doc]);
   useEffect(() => { if (!playing || !ids.length) return undefined; const timer = setInterval(() => setFrame(value => (value + 1) % ids.length), Math.max(16, current?.durationMs ?? 125)); return () => clearInterval(timer); }, [playing, ids.length, current?.durationMs]);
   useEffect(() => { if (!doc || !currentId) return; const pixels = renderFrame(doc, currentId); draw(native.current, pixels, doc.width, doc.height, 1); draw(enlarged.current, pixels, doc.width, doc.height, 4); if (baseline) { const baselineId = baseline.frames[currentIndex]?.id ?? baseline.frames[0]?.id; draw(baselineCanvas.current, renderFrame(baseline, baselineId), baseline.width, baseline.height, 1); } }, [doc, baseline, currentId, currentIndex]);
+  useEffect(() => { if (!doc || !ids.length || !contact.current) return; const columns = Math.min(8, ids.length), gap = 2, cellW = doc.width, cellH = doc.height, rows = Math.ceil(ids.length / columns); const canvas = contact.current; canvas.width = columns * cellW + (columns - 1) * gap; canvas.height = rows * cellH + (rows - 1) * gap; const ctx = canvas.getContext("2d"); ctx.imageSmoothingEnabled = false; ids.forEach((id, i) => { const source = document.createElement("canvas"); source.width = cellW; source.height = cellH; source.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(renderFrame(doc, id)), cellW, cellH), 0, 0); ctx.drawImage(source, (i % columns) * (cellW + gap), Math.floor(i / columns) * (cellH + gap)); }); }, [doc, idsKey]);
   if (!doc) return null;
   const layerOptions = doc.layers.filter(layer => layer.type !== "group");
   const toggle = (setter, id) => setter(values => values.includes(id) ? values.filter(value => value !== id) : [...values, id]);
@@ -25,7 +28,7 @@ export default function AnimationReviewPanel({ document: doc, baseline = null, o
     <div className="animation-review-views"><figure><div className="animation-review-canvas"><canvas ref={native} /><Overlay width={doc.width} height={doc.height} edge={edgeOverlay} /></div><figcaption>Native · frame {currentIndex + 1}</figcaption></figure><figure><canvas ref={enlarged} /><figcaption>Integer 4× · frame {currentIndex + 1}</figcaption></figure>{baseline && <figure><canvas ref={baselineCanvas} /><figcaption>Baseline · synchronized</figcaption></figure>}</div>
     <fieldset><legend>Anchored / moving layers</legend>{layerOptions.map(layer => <label key={layer.id}><input type="checkbox" checked={anchored.includes(layer.id)} onChange={() => toggle(setAnchored, layer.id)} /> {layer.name || layer.id}</label>)}<label>Moving amplitude <input type="number" min="0" max="8" step="1" value={amplitude} onChange={event => setAmplitude(Math.max(0, Math.min(8, Number(event.target.value) || 0)))} /></label><label>Pinned layers<select multiple value={pinned} onChange={event => setPinned([...event.target.selectedOptions].map(option => option.value))}>{layerOptions.map(layer => <option key={layer.id} value={layer.id}>{layer.name || layer.id}</option>)}</select></label></fieldset>
     {report && <div role="status"><strong>{report.warnings.length ? `${report.warnings.length} warning${report.warnings.length === 1 ? "" : "s"}` : "No review warnings"}</strong><ul>{report.warnings.map((warning, index) => <li key={`${warning.code}-${warning.frameId ?? "all"}-${index}`}><code>{warning.code}</code> — {warning.message} <button type="button" onClick={() => setExclusions(values => values.includes(warning.code) ? values : [...values, warning.code])}>Exclude</button></li>)}</ul></div>}
-    <figure className="animation-review-contact-sheet"><figcaption>Annotated frame range · {annotations.length} frames</figcaption><ol>{annotations.map(value => <li key={`${value.id}-${value.number}`}>#{value.number} {value.id} · {value.duration} ms</li>)}</ol></figure>
+    <figure className="animation-review-contact-sheet"><figcaption>Rendered contact sheet · {annotations.length} frames</figcaption><canvas ref={contact} aria-label="Annotated animation contact sheet" /><ol>{annotations.map(value => <li key={`${value.id}-${value.number}`}>#{value.number} {value.id} · {value.duration} ms</li>)}</ol></figure>
     {onBake && <button type="button" disabled={disabled} onClick={() => onBake({ movingLayers: anchored, pinnedLayers: pinned, amplitudeX: amplitude, period: doc.frames.length })}>Bake periodic motion</button>}
   </section>;
 }

@@ -165,6 +165,7 @@ export function generateWaterPatch(options = {}) {
   const width = integer(options.width, 64, 'Width', 8, 256), height = integer(options.height, width, 'Height', 8, 256);
   const fieldWidth = integer(options.fieldWidth, Math.max(width, x + width), 'fieldWidth', width, 2048), fieldHeight = integer(options.fieldHeight, Math.max(height, y + height), 'fieldHeight', height, 2048);
   if (x < 0 || y < 0 || x + width > fieldWidth || y + height > fieldHeight) throw new RangeError('Water patch origin and size must fit within the shared field.');
+  if (fieldWidth * fieldHeight > 4_194_304 || fieldWidth * fieldHeight * (options.frames ?? 12) > 16_777_216) throw new RangeError('Shared water field exceeds the bounded patch work budget.');
   const full = generateWaterScene({ ...options, allowLarge: true, width: fieldWidth, height: fieldHeight });
   const crop = (image) => ({ ...image, width, height, pixels: Array.from({ length: height }, (_, row) => image.pixels.slice((y + row) * fieldWidth + x, (y + row) * fieldWidth + x + width)).flat() });
   const patch = { ...full, width, height, images: Object.fromEntries(Object.entries(full.images).map(([id, image]) => [id, crop(image)])), frames: full.frames.map(frame => ({ ...frame, cels: Object.fromEntries(Object.entries(frame.cels).map(([id, cel]) => [id, { ...cel, x: 0, y: 0 }])) })) };
