@@ -37,7 +37,7 @@ import { createDocumentHistoryCache } from "./history-cache.mjs";
 import { editorUiContext } from "./editor-ui-context.mjs";
 import { listExternalTilesets, resolveExternalTileset } from "./external-tilesets.mjs";
 import { createAutomation, registerAutomation } from "./editor-automation.mjs";
-import { preflightCommands, throwIfCancelled } from "./command-preflight.mjs";
+import { captureCommands, preflightCommands, throwIfCancelled } from "./command-preflight.mjs";
 import { renderPreview, renderPreviewContactSheet, renderPreviewComparison } from "./preview-render.mjs";
 import SceneComponentsPanel from "./scene-components-panel.jsx";
 import PreviewPanel from "./PreviewPanel.jsx";
@@ -2257,7 +2257,13 @@ export default function Workbench() {
     const list = structuredClone(Array.isArray(commands) ? commands : [commands]);
     const capturedFrameId = activeRef.current.frameId;
     const capturedLayerId = activeRef.current.layerId;
-    const lock = {tool:"automation", base:before};
+    const callerSignal = signal;
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    callerSignal?.addEventListener("abort", cancel, {once:true});
+    if (callerSignal?.aborted) cancel();
+    signal = controller.signal;
+    const lock = {tool:"automation", base:before, cancel};
     operationRef.current = lock;
     let next = before;
     let processed = 0;
@@ -2295,6 +2301,7 @@ export default function Workbench() {
       setNotice(`Command edit failed after ${processed}/${list.length} commands · ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     } finally {
+      callerSignal?.removeEventListener("abort", cancel);
       if (operationRef.current === lock) operationRef.current = null;
     }
   }
@@ -2570,7 +2577,10 @@ export default function Workbench() {
   async function runBatch() {
     try {
       const parsed = JSON.parse(commandText);
-      const result = await applyAutomation(Array.isArray(parsed) ? parsed : [parsed], "Command batch");
+      const commands = captureCommands(Array.isArray(parsed) ? parsed : [parsed]).commands;
+      const result = await applyAutomation(commands, "Command batch", {onProgress: progress => {
+        if (progress.commandsProcessed % 32 === 0 || progress.status === "committed") setNotice(`Applying ${progress.commandsProcessed}/${progress.commandsTotal} commands · revision ${progress.revision}`);
+      }});
       setCommandResult(JSON.stringify(describeDocument(result), null, 2));
       setNotice("Command batch applied as one undoable edit.");
       canvasRef.current?.focus({preventScroll:true});
@@ -4233,7 +4243,9 @@ export default function Workbench() {
       <footer className="wb-status">
         {operationRef.current?.tool === "automation" && <button type="button" data-pixelwall-agent-controls onClick={() => {
           const operation = automationRef.current?.inspect().latestOperation;
-          if (operation) { automationRef.current.cancel(operation.id); setNotice("Cancellation requested; waiting for the current command to finish."); }
+          if (operation && ["queued", "running"].includes(operation.status)) automationRef.current.cancel(operation.id);
+          operationRef.current?.cancel?.();
+          setNotice("Cancellation requested; waiting for the current command to finish.");
         }}>Cancel edit</button>}
         <span role="status">
           {notice ||

@@ -42,7 +42,7 @@ async function fixture(t, script, {onCommand = choose, onDialog = () => ({action
     luaSource:'', luaTimeout:3000, luaDialog:{show:onDialog}, luaCommands:{show:onCommand}, location:{href:'https://pixelwall.example/editor',origin:'https://pixelwall.example'},
     editorUiContext, historyValuesEqual, createHistory, capturePackageRun, packageRunSettings, assertPackageRunCurrent, pixelRGBA, describeDocument,
     useCallback:fn=>fn,clamp:(value,min,max)=>Math.min(max,Math.max(min,value)),
-    analyticsRef:ref({recovery(){}}),errors:[],setModal(){},report(error){host.errors.push(error);},
+    analyticsRef:ref({recovery(){},scripted(){}}),errors:[],setModal(){},report(error){host.errors.push(error);},
     hex:p=>'#'+p.map(value=>value.toString(16).padStart(2,'0')).join(''),
     setBusy(value){host.busyRef.current=value;}, setLuaSaving(){}, setPlaying(){}, setScriptLanguage(){}, setDocuments(){}, setCommandResult(){}, setNotice(){}, setSaveStatus(){},
     setDoc(){},setHistoryVersion(){},setHistoryState(){},setSelection(){},setActiveFrame(){},setActiveLayer(){},setClipId(){},setSelectedFrames(){},setSelectedLayers(){},setTimelinePage(){},setZoom(){},

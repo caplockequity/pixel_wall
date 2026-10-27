@@ -90,3 +90,14 @@ test('production automation API reports successful changed edits, excludes no-op
   await assert.rejects(failed.apiApply([{ type: 'draw.stroke', points: [{ x: 1, y: 1 }], color: '#ffffffff' }], 'agent failure'));
   assert.deepEqual(failed.analyticsCalls, []);
 });
+
+test('the editor cancel control aborts UI command batches without automation attribution', async () => {
+  const h = harness({onYield: count => { if (count === 2) h.operationRef.current.cancel(); }});
+  const commands = Array.from({length:64}, (_, n) => ({type:'draw.stroke',points:[{x:n%8,y:Math.floor(n/8)}],color:'#ffffffff'}));
+  await assert.rejects(h.fn(commands, 'UI batch'), {name:'AbortError'});
+  assert.ok(h.calls.length > 0 && h.calls.length < commands.length);
+  assert.deepEqual(h.docRef.current, h.original);
+  assert.equal(h.historyRef.current.canUndo, false);
+  assert.equal(h.operationRef.current, null);
+  assert.deepEqual(h.analyticsCalls, []);
+});
