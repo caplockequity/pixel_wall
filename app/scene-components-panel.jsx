@@ -1,7 +1,7 @@
 "use client";
 /* eslint react/prop-types: "off", react-hooks/exhaustive-deps: "off" -- panel inputs are validated by the generator; primitive controls are listed explicitly. */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { generateSceneComponent, listSceneComponentPresets, SCENE_COMPONENT_KINDS, SCENE_COMPONENT_STYLES } from "./scene-components.mjs";
+import { generateSceneComponent, listSceneComponentPresets, previewSceneComponentReplacement, SCENE_COMPONENT_KINDS, SCENE_COMPONENT_STYLES } from "./scene-components.mjs";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
 const rgba = value => { const hex = value.slice(1); return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16), parseInt(hex.slice(6, 8) || "ff", 16)]; };
@@ -23,18 +23,24 @@ function Preview({ component }) {
   return <canvas ref={ref} className="wb-scene-component-preview" aria-label={`${component.kind} component preview`} role="img" />;
 }
 
-export default function SceneComponentsPanel({ onStamp, disabled = false }) {
+export default function SceneComponentsPanel({ document: doc = null, onStamp, onReplace, disabled = false }) {
   const presets = useMemo(() => listSceneComponentPresets(), []);
   const [kind, setKind] = useState("tree"), [style, setStyle] = useState("woodland"), [seed, setSeed] = useState(1);
   const preset = presets.find(value => value.kind === kind);
   const [width, setWidth] = useState(preset.size.width), [height, setHeight] = useState(preset.size.height), [x, setX] = useState(0), [y, setY] = useState(0), [componentId, setComponentId] = useState("hero-prop");
+  const existing = doc?.metadata?.sceneComponents ?? [], [existingId, setExistingId] = useState(existing[0]?.componentId ?? ""), [preserveManual, setPreserveManual] = useState(false);
   const [crownAspectRatio, setCrownAspectRatio] = useState(1), [asymmetry, setAsymmetry] = useState(0), [trunkBend, setTrunkBend] = useState(0), [rootSpread, setRootSpread] = useState(1), [lightDirection, setLightDirection] = useState("left"), [clusterGap, setClusterGap] = useState(0);
   const changeKind = value => { const next = presets.find(item => item.kind === value); setKind(value); setWidth(next.size.width); setHeight(next.size.height); };
   const artDirection = { crownAspectRatio, asymmetry, trunkBend, rootSpread, lightDirection, clusterGap };
   const component = useMemo(() => { try { return generateSceneComponent({ kind, style, seed, componentId, size: { width, height }, position: { x, y }, artDirection }); } catch { return null; } }, [kind, style, seed, componentId, width, height, x, y, crownAspectRatio, asymmetry, trunkBend, rootSpread, lightDirection, clusterGap]);
+  const selectedExisting = existing.find(value => value.componentId === existingId);
+  const replacement = useMemo(() => { try { return selectedExisting ? generateSceneComponent({ ...selectedExisting.recipe, style, seed, artDirection }) : null; } catch { return null; } }, [selectedExisting, style, seed, crownAspectRatio, asymmetry, trunkBend, rootSpread, lightDirection, clusterGap]);
+  const existingComponent = selectedExisting && doc?.frames?.[0] ? { componentId: selectedExisting.componentId, metadata: selectedExisting, layers: (selectedExisting.layerIds ?? []).map(id => { const cel = doc.frames[0].cels?.[id], image = cel && doc.images?.[cel.imageId]; return { id, pixels: image?.pixels ?? [], width: image?.width ?? 0, height: image?.height ?? 0 }; }) } : null;
+  const replacementPreview = existingComponent && replacement ? previewSceneComponentReplacement(existingComponent, replacement) : null;
   return <section className="wb-scene-components" aria-label="Scene components">
     <header><h2>Scene components</h2><p>Stamp editable trees, rocks, banks, bridges and terrain.</p></header>
     <div className="wb-scene-component-controls">
+      {existing.length > 0 && <><label>Existing component<select value={existingId} disabled={disabled} onChange={event => setExistingId(event.target.value)}>{existing.map(value => <option key={value.componentId} value={value.componentId}>{value.componentId}</option>)}</select></label><label><input type="checkbox" checked={preserveManual} disabled={disabled} onChange={event => setPreserveManual(event.target.checked)} /> Allow regeneration and preserve detected manual edits</label></>}
       <label>Kind<select value={kind} disabled={disabled} onChange={event => changeKind(event.target.value)}>{SCENE_COMPONENT_KINDS.map(value => <option key={value} value={value}>{value.replace("-", " ")}</option>)}</select></label>
       <label>Style<select value={style} disabled={disabled} onChange={event => setStyle(event.target.value)}>{SCENE_COMPONENT_STYLES.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
       <label>Seed<input type="number" min="0" max="4294967295" value={seed} disabled={disabled} onChange={event => setSeed(clamp(+event.target.value, 0, 4294967295))} /></label>
@@ -47,5 +53,6 @@ export default function SceneComponentsPanel({ onStamp, disabled = false }) {
     </div>
     {component ? <><Preview component={component} /><p>{component.layers.length} editable layers · {component.width}×{component.height}</p></> : <p role="alert">Choose valid component dimensions.</p>}
     <button type="button" disabled={disabled || !component} onClick={() => component && onStamp?.({ type: "scene.component", kind, style, seed, componentId, position: { x, y }, size: { width, height }, artDirection })}>Stamp component</button>
+    {selectedExisting && replacement && <div className="wb-scene-component-regeneration" aria-live="polite"><h3>Regeneration preview: {selectedExisting.componentId}</h3><Preview component={replacement} /><p>{replacementPreview?.affectedPixelCount ?? 0} changed pixels across {replacementPreview?.affectedLayers?.length ?? 0} layers. Manual layers recorded: {selectedExisting.manualLayerIds?.length ?? 0}.</p><button type="button" disabled={disabled} onClick={() => onReplace?.({ type: "scene.component.replace", componentId: selectedExisting.componentId, recipe: replacement.recipe, allowModified: preserveManual, preserveLayerIds: preserveManual ? (selectedExisting.manualLayerIds ?? []) : [] })}>Commit regeneration</button></div>}
   </section>;
 }
