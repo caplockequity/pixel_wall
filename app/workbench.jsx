@@ -2110,8 +2110,8 @@ export default function Workbench() {
     return { ids, loop: clip?.loop !== false };
   }
   function buildExportAtlasPlan(source, frameIds, scale, layerIds, options) {
-    const sourcePixels = Math.trunc(source.width * scale) * Math.trunc(source.height * scale) * frameIds.length;
-    if (!Number.isSafeInteger(sourcePixels) || sourcePixels > 64 * 1024 * 1024) throw Error("This atlas exceeds the export memory budget. Reduce scale or select a shorter clip.");
+    const sourcePixels = Math.max(1, Math.trunc(source.width * scale)) * Math.max(1, Math.trunc(source.height * scale)) * frameIds.length;
+    if (!Number.isSafeInteger(sourcePixels) || sourcePixels > 16 * 1024 * 1024) throw Error("This atlas exceeds the export memory budget. Reduce scale or select a shorter clip.");
     const visible = new Set(layerIds), byId = new Map(source.layers.map(layer => [layer.id, layer]));
     for (let pass = 0; pass < source.layers.length; pass++) for (const layer of source.layers) if (visible.has(layer.parentId)) visible.add(layer.id);
     for (const id of [...visible]) { let layer = byId.get(id); while (layer?.parentId) { visible.add(layer.parentId); layer = byId.get(layer.parentId); } }
@@ -2119,7 +2119,7 @@ export default function Workbench() {
     const entries = frameIds.map((id, index) => ({ id, name: `${stem(source.name)}-${String(index + 1).padStart(3, "0")}`, ...renderScaledExportFrame(scoped, id, scale, { colorManager, intent: renderingIntent }), durationMs: source.frames.find(frame => frame.id === id)?.durationMs ?? 100 }));
     const layout = ["rows", "columns"].includes(options.layout) ? "grid" : options.layout || "packed";
     const columns = options.layout === "columns" && options.rows ? Math.ceil(entries.length / options.rows) : options.columns;
-    const atlas = packAtlas(entries, { trim: options.trim !== false, padding: Number(options.padding ?? 1), border: Number(options.border ?? options.padding ?? 1), extrude: Number(options.extrude ?? 1), powerOfTwo: !!options.powerOfTwo, layout, ...(columns ? { columns } : {}), ...(options.width ? { width: Number(options.width) } : {}), ...(options.height ? { height: Number(options.height) } : {}), maxSize: Number(options.maxSize ?? 16384), scale: 1, clips: source.clips, slices: scaleExportSlices(source.slices, (source.width * scale) / source.width, (source.height * scale) / source.height) });
+    const atlas = packAtlas(entries, { trim: options.trim !== false, padding: Number(options.padding ?? 1), border: Number(options.border ?? options.padding ?? 1), extrude: Number(options.extrude ?? 1), powerOfTwo: !!options.powerOfTwo, layout, ...(columns ? { columns } : {}), ...(options.width ? { width: Number(options.width) } : {}), ...(options.height ? { height: Number(options.height) } : {}), maxSize: Number(options.maxSize ?? 16384), maxPixels: 16 * 1024 * 1024, planOnly: true, scale: 1, clips: source.clips, slices: scaleExportSlices(source.slices, scale, scale) });
     if (atlas.width * atlas.height * 4 > 64 * 1024 * 1024) throw Error("The generated atlas exceeds the export memory budget. Reduce padding, scale, or frame count.");
     return { width: atlas.width, height: atlas.height, frames: atlas.frames, layout: atlas.meta.layout, padding: atlas.meta.padding, border: atlas.meta.border, extrude: atlas.meta.extrude, trim: options.trim !== false, powerOfTwo: !!options.powerOfTwo };
   }
@@ -2143,8 +2143,8 @@ export default function Workbench() {
     const requiredEntitlement = PAID_FORMATS.has(format) ? "pro" : "free", canExport = requiredEntitlement === "free" || access.pro === true;
     const filename = stem(source.name) + "." + (format === "project" ? "pixelwall" : format === "sheet" ? "png" : format);
     const width = Math.max(1, Math.trunc(source.width * scale)), height = Math.max(1, Math.trunc(source.height * scale));
-    const atlas = format === "sheet" || format === "zip" ? buildExportAtlasPlan(source, frameIds, scale, layerIds, options) : null;
-    return {documentId:source.id, revision:revisionRef.current, format, scale, frameId:fid, frameIds, frameCount:frameIds.length, durations:frameIds.map(id => source.frames.find(frame => frame.id === id)?.durationMs ?? 0), loop:traversal.loop, sourceWidth:width, sourceHeight:height, outputWidth:atlas?.width ?? width, outputHeight:atlas?.height ?? height, width:atlas?.width ?? width, height:atlas?.height ?? height, atlas, layerIds, includeReferenceLayers:native || options.includeReferenceLayers === true, requiredEntitlement, entitlement:access.pro === true ? "pro" : "free", canExport, freeAlternative:requiredEntitlement === "pro" ? "Export PNG frames individually." : null, filenames:format === "sheet" ? [filename,stem(source.name)+".json"] : [filename], delivery:{status:"not_requested",conflicts:"checked-by-native-delivery",browserCompletionObservable:false}, memoryBudgetBytes:["gif","sheet","zip"].includes(format) ? (atlas?.width ?? width) * (atlas?.height ?? height) * 4 : width * height * 4, files:format === "sheet" ? 2 : 1};
+    const atlas = format === "sheet" || format === "zip" ? (options.skipAtlasPlan ? null : buildExportAtlasPlan(source, frameIds, scale, layerIds, options)) : null;
+    return {documentId:source.id, revision:revisionRef.current, format, scale, frameId:fid, frameIds, frameCount:frameIds.length, durations:frameIds.map(id => source.frames.find(frame => frame.id === id)?.durationMs ?? 0), loop:traversal.loop, sourceWidth:width, sourceHeight:height, outputWidth:atlas?.width ?? width, outputHeight:atlas?.height ?? height, width:atlas?.width ?? width, height:atlas?.height ?? height, atlas, layerIds, includeReferenceLayers:native || options.includeReferenceLayers === true, requiredEntitlement, entitlement:access.pro === true ? "pro" : "free", canExport, freeAlternative:requiredEntitlement === "pro" ? "Export PNG frames individually." : null, filenames:format === "sheet" ? [filename,stem(source.name)+".json"] : [filename], delivery:{status:"not_requested",conflicts:"checked-by-native-delivery",browserCompletionObservable:false}, memoryBudgetBytes:format === "gif" ? width * height * frameIds.length * 4 : format === "sheet" || format === "zip" ? (atlas?.width ?? width) * (atlas?.height ?? height) * 4 : width * height * 4, files:format === "sheet" ? 2 : 1};
   }
   async function exportArtwork(options = {}, source = "ui") {
     const attempt = analyticsRef.current.exportStarted(options.format || "png", source);
@@ -2200,7 +2200,7 @@ export default function Workbench() {
       };
     const format = options.format || "png",
       scale = ["project", "aseprite"].includes(format) ? 1 : validateExportScale(options.scale ?? 1);
-    const plan = createExportPlan(options, source);
+    const plan = createExportPlan({ ...options, skipAtlasPlan: true }, source);
     const fid = plan.frameId, ids = plan.frameIds, loop = plan.loop;
     const width = Math.max(1, Math.trunc(current.width * scale)), height = Math.max(1, Math.trunc(current.height * scale));
     if (PAID_FORMATS.has(format) && !(await access.requestAccess())) {
@@ -2271,6 +2271,7 @@ export default function Workbench() {
         ...(options.width ? { width: Number(options.width) } : {}),
         ...(options.height ? { height: Number(options.height) } : {}),
         maxSize: Number(options.maxSize ?? 16384),
+        maxPixels: 16 * 1024 * 1024,
         imageName:
           format === "sheet" ? stem(current.name) + ".png" : "sprites.png",
         scale: 1,

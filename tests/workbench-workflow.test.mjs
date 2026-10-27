@@ -45,4 +45,5 @@ test('production atlas plan reports packed output dimensions and layout inputs',
  s.buildExportAtlasPlan=production('buildExportAtlasPlan',s);s.exportFrameIds=production('exportFrameIds',s);s.plan=production('createExportPlan',s);
  const plan=s.plan({format:'sheet',scale:2,trim:false,padding:2,border:3,extrude:1,layout:'horizontal'});
  assert.equal(plan.sourceWidth,8);assert.equal(plan.sourceHeight,6);assert.equal(plan.outputWidth,plan.atlas.width);assert.equal(plan.outputHeight,plan.atlas.height);assert.equal(plan.atlas.layout,'horizontal');assert.equal(plan.atlas.border,3);assert.ok(plan.outputWidth>plan.sourceWidth);
+ assert.throws(()=>s.plan({format:'sheet',scale:1,width:8192,height:8192}),/pixel budget|atlas|maximum/i);
 });
