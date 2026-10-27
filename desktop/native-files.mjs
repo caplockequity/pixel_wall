@@ -3,6 +3,7 @@ import * as nodeFs from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { basename, dirname, extname, isAbsolute, join, resolve } from 'node:path';
+import { decodeProjectContainer, isProjectContainer } from './project-container.mjs';
 
 export const MAX_NATIVE_BYTES = 64 * 1024 * 1024;
 const extensions = { pixelwall: '.pixelwall', aseprite: '.aseprite' };
@@ -54,7 +55,7 @@ function validateBytes(value, format) {
   const bytes = value instanceof Uint8Array ? Buffer.from(value) : Buffer.from(value.slice(0));
   if (!bytes.length || bytes.length > MAX_NATIVE_BYTES) fail('The editable file must be between 1 byte and 64 MB.');
   if (format === 'pixelwall') {
-    let doc; try { doc = JSON.parse(bytes.toString('utf8')); } catch { fail('The PixelWall project is not valid JSON.'); }
+    let doc; try { doc = isProjectContainer(bytes) ? decodeProjectContainer(bytes) : JSON.parse(bytes.toString('utf8')); } catch (error) { fail(error?.message || 'The PixelWall project is not valid.'); }
     if (!doc || !['pixelwall-document', 'pixelwall-project'].includes(doc.format)) fail('Save accepts only editable PixelWall projects.');
   } else if (format === 'aseprite') {
     if (bytes.length < 128 || bytes.readUInt32LE(0) !== bytes.length || bytes.readUInt16LE(4) !== 0xa5e0) fail('Save accepts only editable sprite files.');

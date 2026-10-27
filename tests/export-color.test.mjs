@@ -11,6 +11,7 @@ import { createDocument, normalizeDocument, applyCommand, renderFrame } from '..
 import { readAseprite, writeAseprite, readPng, readBmp, readTga, importGif, makeGamePackage } from '../app/formats.mjs';
 import { planExport } from '../app/cli-export-plan.mjs';
 import { main, buildCliExportOutputs } from '../app/cli.mjs';
+import { decodeProjectContainer } from '../app/project-format.mjs';
 
 const folder = new URL('./fixtures/export-color/', import.meta.url);
 const oracle = JSON.parse(await readFile(new URL('expected.json', folder), 'utf8'));
@@ -164,7 +165,7 @@ test('real CLI render/export uses composite conversion and native exports retain
   for (const format of ['pixelwall', 'aseprite']) {
     const out = join(directory, `native.${format}`);
     await main(['export', input, '--format', format, '--out', out]);
-    const saved = format === 'pixelwall' ? json(await readFile(out)) : readAseprite(await readFile(out)).document;
+    const saved = format === 'pixelwall' ? decodeProjectContainer(await readFile(out)) : readAseprite(await readFile(out)).document;
     assert.deepEqual(documentProfile(saved), documentProfile(source));
     assert.deepEqual([...renderFrame(saved)], oracle.working);
     assert.equal(saved.layers.length, 2);

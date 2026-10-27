@@ -151,6 +151,7 @@ test('real CLI grid exports enforce licenses, unsupported-target and collision f
   const folder=await mkdtemp(join(tmpdir(),'pixelwall-grid-driver-'));t.after(()=>rm(folder,{recursive:true,force:true}));
   const appDirectory=new URL('../app/',import.meta.url);
   for(const name of (await readdir(appDirectory)).filter(name=>name.endsWith('.mjs')))await copyFile(new URL(name,appDirectory),join(folder,name));
+  await writeFile(join(folder,'project-format.mjs'),(await readFile(new URL('../app/project-format.mjs',import.meta.url),'utf8')).replaceAll('../desktop/project-container.mjs',new URL('../desktop/project-container.mjs',import.meta.url).href));
   await symlink(fileURLToPath(new URL('../node_modules',import.meta.url)),join(folder,'node_modules'),'dir');
   const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']),publicKey=await crypto.subtle.exportKey('jwk',pair.publicKey);
   const claims={version:2,product:'pixelwall-pro',mode:'live',purchaseId:'cs_live_gridfixture12345',issuedAt:1,perpetual:true,keyId:'grid-fixture'},payload=Buffer.from(JSON.stringify(claims)).toString('base64url');

@@ -9,6 +9,7 @@ import { createDocument, normalizeDocument, applyCommand } from '../app/editor-c
 import { readPng, readBmp, readTga, importGif, readAseprite } from '../app/formats.mjs';
 import { createGammaProfile } from '../app/color-management.mjs';
 import { loadNodeColorManager } from '../app/color-runtime-node.mjs';
+import { decodeProjectContainer } from '../app/project-format.mjs';
 
 process.env.PIXELWALL_PRO_LICENSE = '';
 function sprite(name = 'sprite') {
@@ -118,7 +119,7 @@ test('real Lua CLI still runs a sandboxed script and saves its command results',
   const run = await fixture(t), source = await run.source(), script = join(run.folder, 'edit.lua'), out = join(run.folder, 'lua.pixelwall');
   await writeFile(script, 'app.activeSprite.filename = "Lua driver test"\napp.activeImage:drawPixel(0,0,Color{r=0,g=255,b=0,a=255})');
   await main(['script', source, '--script', script, '--out', out]);
-  const saved = JSON.parse(await readFile(out, 'utf8'));
+  const saved = decodeProjectContainer(await readFile(out));
   assert.equal(saved.images.r.pixels[0], '#00ff00ff');
 });
 
@@ -134,8 +135,8 @@ test('Lua multi-project output preflights every path before writing and never re
   const clean = join(run.folder, 'complete');
   await main(['script', source, '--script', script, '--out-dir', clean]);
   assert.deepEqual((await readdir(clean)).sort(), ['001-First.pixelwall', '002-Second.pixelwall']);
-  assert.equal(JSON.parse(await readFile(join(clean, '001-First.pixelwall'), 'utf8')).name, 'First');
-  assert.equal(JSON.parse(await readFile(join(clean, '002-Second.pixelwall'), 'utf8')).width, 2);
+  assert.equal(decodeProjectContainer(await readFile(join(clean, '001-First.pixelwall'))).name, 'First');
+  assert.equal(decodeProjectContainer(await readFile(join(clean, '002-Second.pixelwall'))).width, 2);
 });
 
 // These pure-codec tests exercise output construction only, not licensed CLI access.

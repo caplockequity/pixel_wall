@@ -1151,6 +1151,18 @@
         ]
       },
       {
+        "heading": "A realistic scene workflow",
+        "paragraphs": [
+          "Follow the 600 × 350 river tutorial for a complete shape-command scene, bounded Lua detail, progress polling, recovery after a caller timeout, explicit export results, and compact project backups."
+        ],
+        "links": [
+          {
+            "href": "/guides/large-agent-edits",
+            "label": "Build a river scene with shapes and bounded Lua"
+          }
+        ]
+      },
+      {
         "heading": "Licensing is consistent",
         "paragraphs": [
           "Drawing, animation editing, scripting and the command API are free. Editable PixelWall and supported sprite files, plus individual PNG, BMP and TGA frame exports, are free. Pro is $15 USD once for animated GIFs, sprite sheets and atlases, game package ZIPs, and saved export presets.",
@@ -1173,11 +1185,13 @@
       }
     ],
     "related": [
+      "guides/large-agent-edits",
       "guides/ai-agents",
       "guides/command-api",
       "guides/command-line",
       "guides/getting-started"
-    ]
+    ],
+    "lastModified": "2026-10-26"
   },
   {
     "slug": "guides/command-api",
@@ -1197,14 +1211,14 @@
         "heading": "Available methods",
         "items": [
           "version: current browser API version, presently 1.",
-          "inspect(): current document summary and revision. commands(): command descriptions and field reference.",
-          "apply({commands, expectedRevision?, label?}): apply a batch of 1–2000 commands, limited to 16 MiB of command JSON, as one undoable change.",
+          "inspect(): current document summary, revision, and latestOperation. commands(): command descriptions and field reference.",
+          "apply({commands, expectedRevision?, label?, wait?}): apply 1–2000 commands, limited to 16 MiB of JSON, as one undoable change. wait:false returns an operationId before processing; poll operation(id) for staged commandsProcessed, commandsTotal, revision, completion, or error. operations() lists up to 64 in-memory records.",
           "runLua({source, params?, timeoutMs?, expectedRevision?}): run a bounded Lua script with the current document, selection and colors; successful changes are one undoable transaction.",
           "colorProfile(options): inspect, assign or convert a document color profile through the editor’s color manager.",
           "newDocument(options): save the previous document and activate a new one.",
           "preview({frameId?, scale?}): return an in-memory PNG preview at up to 8× scale.",
           "save(): await a durable local save. It does not download a backup or create cloud storage.",
-          "export(options): invoke the editor’s export flow. Individual PNG, BMP and TGA frames and editable projects are free; gif, sheet, and zip require Pro.",
+          "export(options): generate files and request browser downloads by default; pass download:false to generate retrievable files without clicking. The returned exportResult separates generated.files from download status, including per-file requests. exportResult() retrieves the latest handoff. Object URLs live until the next export, dismissal, or editor unmount; browser completion is unobservable.",
           "undo() and redo(): use the active document’s editing history."
         ]
       },
@@ -1214,13 +1228,27 @@
           "An invalid command or mismatched expectedRevision rejects the batch. Catch errors and show them to the user; do not assume that an export or save completed because a call began. The UI’s memory, document, storage, and format limits still apply.",
           "The API is local to the page. It is not an unauthenticated network editing server and does not upload projects. A user-connected external tool may call it, but PixelWall does not embed AI. The CLI provides the corresponding local-file workflow."
         ]
+      },
+      {
+        "heading": "Long edits and file handoff",
+        "paragraphs": [
+          "commandsProcessed counts staged commands. A completed operation has committed once; a failed operation leaves no partial edit. If a client stops waiting, inspect latestOperation before retrying. Save after completion to make the edit durable. The operation log is page-local and disappears on reload.",
+          "Use export({format:\"project\", download:false}) for a compact editable backup or format:\"png\" for a finished frame. Read each generated file URL inside the same page and confirm persistence in your host; a generated file is not proof of a completed download."
+        ],
+        "links": [
+          {
+            "href": "/guides/large-agent-edits",
+            "label": "Follow the complete workflow and recovery example"
+          }
+        ]
       }
     ],
     "related": [
       "guides/scripting",
       "guides/command-line",
       "guides/export-formats"
-    ]
+    ],
+    "lastModified": "2026-10-26"
   },
   {
     "slug": "guides/command-line",
@@ -1274,6 +1302,12 @@
           "Supply the downloaded ownership license with --license, or supply the raw PW2 code using PIXELWALL_PRO_LICENSE. A valid signed PW2 license verifies offline against the public keys included in the build. Existing PW1 codes need one online conversion first.",
           "Frame selectors are zero-based indices or frame IDs. --clip accepts a clip ID or exact name. CLI scale supports integer factors from 1 to 64, subject to output memory limits; the interactive editor exposes 1×, 2×, 4×, and 8× choices.",
           "The CLI runs Lua sprite-editing scripts in a bounded worker. File features outside the documented format support may not survive import and export. Read warnings on stderr and keep the source file. Individual PNG/BMP/TGA images cannot preserve editable layers or clips."
+        ]
+      },
+      {
+        "heading": "Compact native files and readable JSON",
+        "paragraphs": [
+          "PixelWall 0.4.1 writes losslessly compressed PWPZ .pixelwall files and reads both compact and legacy JSON projects. A .json output or export --format json keeps an inspectable JSON payload. Update older desktop or CLI installations before opening compact files."
         ]
       }
     ],
@@ -1448,11 +1482,26 @@
           "PixelWall does not currently publish a standalone MCP server, public REST editing API, JavaScript or Python SDK, or universal agent protocol. There is no automatic connection from an arbitrary ChatGPT conversation. An agent needs explicit access to the local CLI, the running editor page, or the visible application."
         ],
         "links": [
-          { "href": "/guides/command-line", "label": "Read the CLI reference" },
-          { "href": "/guides/command-api", "label": "Read the browser command API" },
-          { "href": "/guides/scripting", "label": "Read scripting and command-batch support" },
-          { "href": "/agent-integration.json", "label": "Open the machine-readable capability statement" },
-          { "href": "/llms.txt", "label": "Open the LLM discovery file" }
+          {
+            "href": "/guides/command-line",
+            "label": "Read the CLI reference"
+          },
+          {
+            "href": "/guides/command-api",
+            "label": "Read the browser command API"
+          },
+          {
+            "href": "/guides/scripting",
+            "label": "Read scripting and command-batch support"
+          },
+          {
+            "href": "/agent-integration.json",
+            "label": "Open the machine-readable capability statement"
+          },
+          {
+            "href": "/llms.txt",
+            "label": "Open the LLM discovery file"
+          }
         ]
       },
       {
@@ -1482,6 +1531,18 @@
         ]
       },
       {
+        "heading": "A realistic scene workflow",
+        "paragraphs": [
+          "Follow the 600 × 350 river tutorial for a complete shape-command scene, bounded Lua detail, progress polling, recovery after a caller timeout, explicit export results, and compact project backups."
+        ],
+        "links": [
+          {
+            "href": "/guides/large-agent-edits",
+            "label": "Build a river scene with shapes and bounded Lua"
+          }
+        ]
+      },
+      {
         "heading": "Safety, saving, and licensing",
         "paragraphs": [
           "Inspect the current document and use expectedRevision before a browser edit when another person or tool may also change it. Treat a successful apply and a successful save as separate results. Keep a downloaded project backup before unattended batches or application replacement.",
@@ -1504,11 +1565,13 @@
       }
     ],
     "related": [
+      "guides/large-agent-edits",
       "guides/command-line",
       "guides/command-api",
       "guides/scripting",
       "guides/offline-and-downloads"
-    ]
+    ],
+    "lastModified": "2026-10-26"
   },
   {
     "slug": "guides/isometric-water",
@@ -1725,6 +1788,96 @@
       "guides/command-api",
       "guides/command-line",
       "tileset-maker"
+    ]
+  },
+  {
+    "slug": "guides/large-agent-edits",
+    "lastModified": "2026-10-26",
+    "title": "Build a river scene with shapes and bounded Lua",
+    "description": "A practical 600 × 350 agent workflow with bulk shapes, small Lua details, progress polling, explicit export handoff, and compact editable backups.",
+    "eyebrow": "AGENT WORKFLOW",
+    "intro": "Use broad shapes for a scene, small pixel loops for details, and explicit checkpoints between batches. This reproducible river example keeps the artwork layered and editable in the web editor, desktop app, and CLI.",
+    "sections": [
+      {
+        "heading": "Start with shapes for broad areas",
+        "paragraphs": [
+          "A 600 × 350 canvas contains 210,000 pixels per full-size layer. Filling it one pixel at a time through a scripting API adds unnecessary calls. Use draw.rect, draw.polygon, draw.ellipse, and draw.line for large areas and repeated marks. For a procedural raster, consider one cel.set pixel buffer within the command size limit.",
+          "This original tutorial creates three named layers—Ground, River, and Rocks and ripples—with 40 commands. It is a teaching example, not a performance comparison with another scene. The provided project and PNG let you inspect the result before running anything."
+        ],
+        "media": {
+          "src": "/examples/agent-river.png",
+          "alt": "A blue pixel-art river curves through green ground with rocks and short ripples.",
+          "caption": "600 × 350 pixels, three named layers, 40 shape and layer commands."
+        },
+        "links": [
+          {
+            "href": "/examples/agent-river-commands.json",
+            "label": "Download the 40-command river batch"
+          },
+          {
+            "href": "/examples/agent-river.pixelwall",
+            "label": "Download the compact editable river project"
+          },
+          {
+            "href": "/examples/agent-river.png",
+            "label": "Open the rendered river PNG"
+          }
+        ]
+      },
+      {
+        "heading": "Run the scene in the editor",
+        "paragraphs": [
+          "Create a new 600 × 350 document first. The example uses the default layer-1 and frame-1 IDs and adds its own named layers, so apply it once to that new document. In Scripts → Commands, paste the downloaded JSON. A browser agent with page execution can use the following equivalent calls.",
+          "For a long operation, retain its operationId and poll in separate short calls. commandsProcessed counts staged commands; it does not mean they have committed. Only status completed confirms that the entire batch committed as one undoable edit."
+        ],
+        "code": "const api = window.pixelwall;\nawait api.newDocument({width:600, height:350, name:\"River workflow\"});\n// Load the downloaded JSON array into commands.\nconst before = api.inspect();\nconst job = await api.apply({\n  commands, expectedRevision:before.revision,\n  label:\"River base shapes\", wait:false\n});\n// Make this call again later; avoid one long browser-tool wait.\nconst progress = api.operation(job.operationId);\n// {status, commandsProcessed, commandsTotal, revision, ...}\n// Save once the full batch has committed:\nif (progress.status === \"completed\") await api.save();"
+      },
+      {
+        "heading": "Use Lua for a small, bounded detail",
+        "paragraphs": [
+          "The companion script creates a detached 16 × 16 image, draws a few reed stems, and attaches it as a new cel on a named layer. Use small per-pixel loops for custom details; use shapes or bulk image data for large uniform areas. Detached images also let you assemble a detail before attaching it.",
+          "The Lua timeout can be raised to 10,000 ms, but larger limits do not turn an inefficient full-canvas loop into a good workflow. A timed-out or failed script discards its staged result. Inspect the revision after a failure and change the approach before retrying. Successful separate batches remain committed; rollback applies to the failed transaction."
+        ],
+        "code": "-- Run after agent-river-commands.json on the 600 x 350 tutorial project.\n-- Keep per-pixel work small: this detached 16 x 16 image has only 256 cells.\napp.transaction(\"Add a small reed sprite\", function()\n  local image = Image(16, 16)\n  local green = Color{r=137, g=181, b=89, a=255}\n  for y = 2, 14 do\n    image:drawPixel(7, y, green)\n    if y > 6 then image:drawPixel(11, y, green) end\n    if y > 9 then image:drawPixel(3, y, green) end\n  end\n  local layer = app.sprite:newLayer()\n  layer.name = \"Lua reed detail\"\n  app.sprite:newCel(layer, app.sprite.frames[1], image, Point(180, 180))\nend)\nprint(\"Reed detail added as one undoable edit\")",
+        "links": [
+          {
+            "href": "/examples/agent-river-detail.lua",
+            "label": "Download the bounded Lua detail script"
+          }
+        ]
+      },
+      {
+        "heading": "Recover when a caller stops waiting",
+        "paragraphs": [
+          "A browser automation timeout may only mean the caller stopped waiting while the editor continued. Reconnect to the same open editor and inspect latestOperation, or look up the saved operationId with operation(id). Do not resend an edit solely because a client timed out.",
+          "If status is running, keep polling. If completed, inspect the new revision and save. If failed, read error and inspect the unchanged live document before correcting the batch. The operation log is in memory and retains the latest 64 operations; closing or reloading the editor removes it. After a reload, inspect artwork and saved recovery revisions before deciding whether to rerun anything.",
+          "Split very large jobs into at most 2,000 commands and 16 MiB of JSON per batch; use smaller batches when individual commands are expensive. Wait for completion, inspect the new revision, and save between batches. Each batch is one Undo step."
+        ],
+        "code": "const state = window.pixelwall.inspect();\nconst job = state.latestOperation;\nif (job) {\n  const progress = window.pixelwall.operation(job.id);\n  console.log(progress.status, progress.commandsProcessed,\n    progress.commandsTotal, progress.revision, progress.error);\n}"
+      },
+      {
+        "heading": "Separate file generation from download completion",
+        "paragraphs": [
+          "Generate an export without clicking a download by passing download:false. The result separates generated files from download requests. Each file supplies its filename, MIME type, byte length, and a page-local object URL. A sheet export includes both PNG and JSON.",
+          "Read or copy the bytes in the same editor page before another export, dismissal, or editor close revokes those URLs. The URLs are not public network links and cannot be fetched from another process. For local automation without page execution, use the CLI to write to an explicit path.",
+          "download.status = requested means an anchor click was requested; browser download completion remains unobservable. Confirm the file in your own download manager or filesystem. exportResult() retrieves the latest handoff after a caller timeout."
+        ],
+        "code": "const result = await window.pixelwall.export({format:\"png\", download:false});\nconst handoff = result.exportResult;\nconst file = handoff.generated.files[0];\nconst bytes = new Uint8Array(await (await fetch(file.url)).arrayBuffer());\nconsole.log(file.filename, bytes.length, handoff.download.status);\n// Persist bytes with your host's approved file-transfer mechanism.\n// Or request a regular browser download by omitting download:false."
+      },
+      {
+        "heading": "Keep an editable backup and run the same workflow locally",
+        "paragraphs": [
+          "PixelWall 0.4.1 saves losslessly compressed PWPZ .pixelwall files and still opens legacy JSON project files. Layers, frames, image links, palettes, and project metadata stay editable. File size depends on the artwork; flat pixel scenes can compress especially well. Older PixelWall versions cannot read the new container, so update before opening it.",
+          "Use CLI --format json when you need a readable project payload for an older tool. Keep the compact project as your editable backup and use PNGs for finished transparent sprites. A local save and a downloaded backup are separate checkpoints."
+        ],
+        "code": "node pixelwall.mjs new --width 600 --height 350 --name \"River workflow\" --out river.pixelwall\nnode pixelwall.mjs apply river.pixelwall --commands agent-river-commands.json --out river.pixelwall\nnode pixelwall.mjs script river.pixelwall --script agent-river-detail.lua --timeout 10000 --out river-detailed.pixelwall\nnode pixelwall.mjs render river-detailed.pixelwall --frame 0 --out river.png\nnode pixelwall.mjs export river-detailed.pixelwall --format json --out river.json"
+      }
+    ],
+    "related": [
+      "guides/ai-agents",
+      "guides/command-api",
+      "guides/scripting",
+      "guides/command-line"
     ]
   }
 ]

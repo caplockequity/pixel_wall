@@ -30,7 +30,7 @@ import {
   writeTga,
   makeGamePackage,
 } from "./formats.mjs";
-import { parseProject } from "./project-format.mjs";
+import { parseProject, encodeProjectContainer, decodeProjectContainer } from "./project-format.mjs";
 import { openStore } from "./storage.mjs";
 import { createHistory, historyValuesEqual } from "./history.mjs";
 import { createDocumentHistoryCache } from "./history-cache.mjs";
@@ -40,7 +40,6 @@ import { createAutomation, registerAutomation } from "./editor-automation.mjs";
 import { validateExtension, parsePalette } from "./editor-extensions.mjs";
 import { useProAccess, ProDialog } from "./pro-access";
 import { useDownload, DownloadReady } from "./use-download";
-import { strToU8 } from "fflate";
 import { encodeGif } from "./formats.mjs";
 import TilePixelEditor from "./tile-pixel-editor";
 import { registerOffline } from "./offline-client.mjs";
@@ -1293,7 +1292,7 @@ export default function Workbench() {
   }
   function pointerDown(event) {
     if (luaAbortRef.current || nativeSessionRef.current?.busy) return;
-    if (!doc || playing || event.button !== 0 || automationRef.current?.desktop.locked || nativeSessionRef.current?.busy) return;
+    if (!doc || playing || event.button !== 0 || automationRef.current?.desktop.locked || nativeSessionRef.current?.busy || operationRef.current?.tool === "automation") return;
     event.currentTarget.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
     const p = point(event);
@@ -1453,6 +1452,7 @@ export default function Workbench() {
     setCursor(p);
     const op = operationRef.current;
     if (!op) return;
+    if (op.tool === "automation") return;
     if (op.tool === "hand") {
       viewportRef.current.scrollLeft =
         op.scroll.x - (event.clientX - op.startClient.x);
@@ -1507,6 +1507,7 @@ export default function Workbench() {
   function pointerUp(event) {
     const op = operationRef.current;
     if (!op) return;
+    if (op.tool === "automation") return;
     operationRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -2143,9 +2144,9 @@ export default function Workbench() {
       mime = "application/octet-stream",
       suffix = format;
     if (format === "project") {
-      bytes = strToU8(JSON.stringify(current));
+      bytes = encodeProjectContainer(current);
       suffix = "pixelwall";
-      mime = "application/json";
+      mime = "application/octet-stream";
     } else if (format === "aseprite") {
       bytes = writeAseprite(current);
     } else if (format === "bmp" || format === "tga") {
@@ -2226,12 +2227,12 @@ export default function Workbench() {
       }
     } else throw Error("Unsupported export format.");
     const filename = `${stem(current.name)}.${suffix}`;
-    downloads.downloadFiles([
+    const exportResult = downloads.downloadFiles([
       { blob: new Blob([bytes], { type: mime }), filename },
       ...(companion ? [companion] : []),
-    ]);
+    ], { request: options.download !== false });
     setNotice(`${filename} exported · ${bytes.length.toLocaleString()} bytes`);
-    return { filename, bytes: bytes.length, mime };
+    return { filename, bytes: bytes.length, mime, exportResult };
   }
   async function doExport(options) {
     setBusy(true);
@@ -2244,6 +2245,55 @@ export default function Workbench() {
       throw error;
     } finally {
       setBusy(false);
+    }
+  }
+  async function applyAutomation(commands, label = "Script", {onProgress} = {}) {
+    automationRef.current?.desktop.assertEditable();
+    if (nativeSessionRef.current?.busy || luaAbortRef.current || restoringRef.current || operationRef.current)
+      throw Error("Finish the current operation before applying commands.");
+    const before = docRef.current;
+    const capturedRevision = revisionRef.current;
+    if (!before) throw Error("Open a project first.");
+    const list = structuredClone(Array.isArray(commands) ? commands : [commands]);
+    const capturedFrameId = activeRef.current.frameId;
+    const capturedLayerId = activeRef.current.layerId;
+    const lock = {tool:"automation", base:before};
+    operationRef.current = lock;
+    let next = before;
+    let processed = 0;
+    try {
+      await deferred();
+      let yieldedAt = performance.now();
+      for (let index = 0; index < list.length; index++) {
+        if (docRef.current !== before || revisionRef.current !== capturedRevision || operationRef.current !== lock)
+          throw Error("The project changed while the edit was running. No partial edits were committed.");
+        next = applyCommand(next, {frameId:capturedFrameId, layerId:capturedLayerId, ...list[index]});
+        processed = index + 1;
+        onProgress?.({status:"running", commandsProcessed:index + 1, commandsTotal:list.length, revision:capturedRevision});
+        if ((index + 1) % 32 === 0 || performance.now() - yieldedAt >= 16) {
+          await deferred();
+          yieldedAt = performance.now();
+        }
+      }
+      if (docRef.current !== before || revisionRef.current !== capturedRevision || operationRef.current !== lock)
+        throw Error("The project changed while the edit was running. No partial edits were committed.");
+      historyRef.current.commit(next, label);
+      setSaveStatus("Unsaved changes");
+      docRef.current = next;
+      revisionRef.current++;
+      documentRevisionsRef.current.set(docRef.current.id, (documentRevisionsRef.current.get(docRef.current.id) || 0) + 1);
+      analyticsRef.current.committed(list, historyRef.current.lastChange?.changed);
+      reconcile(next);
+      setDoc(next);
+      setHistoryVersion((v) => v + 1);
+      setHistoryState({canUndo:historyRef.current?.canUndo || false, canRedo:historyRef.current?.canRedo || false});
+      onProgress?.({status:"committed", commandsProcessed:list.length, commandsTotal:list.length, revision:revisionRef.current});
+      return next;
+    } catch (error) {
+      setNotice(`Command edit failed after ${processed}/${list.length} commands · ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    } finally {
+      if (operationRef.current === lock) operationRef.current = null;
     }
   }
   useEffect(() => {
@@ -2269,13 +2319,13 @@ export default function Workbench() {
         return {...loaded, storedRevision:loaded.storedRevision ?? loaded.revision, revision:documentRevisionsRef.current.get(id) || 0};
       },
       nativeEncode: (document, format) => format === "aseprite"
-        ? writeAseprite(document) : new TextEncoder().encode(JSON.stringify(normalizeDocument(document), null, 2) + "\n"),
+        ? writeAseprite(document) : encodeProjectContainer(normalizeDocument(document)),
       nativeDecode: (file) => {
         if (file.format === "aseprite") {
           const result = readAseprite(new Uint8Array(file.bytes));
           return {...result, document:{...result.document, name:stem(file.name)}};
         }
-        const raw = JSON.parse(new TextDecoder().decode(file.bytes));
+        const raw = decodeProjectContainer(file.bytes);
         return {document:raw.version === 4 && raw.format === "pixelwall-document" ? normalizeDocument(raw) : migrateLegacy(parseProject(JSON.stringify(raw))), warnings:[]};
       },
       nativePersistImported: async (document) => {
@@ -2338,10 +2388,16 @@ export default function Workbench() {
         return {revision:revisionRef.current,...manager.profileInfo(documentProfile(docRef.current)),profile:documentProfile(docRef.current)};
       },
       runLua: (options) => runLua(options),
-      apply: async (commands, label) => {
-        commit(commands, label);
-        analyticsRef.current.automation("apply", commands.length);
-        await deferred();
+      apply: async (commands, label, {onProgress} = {}) => {
+        const list = Array.isArray(commands) ? commands : [commands];
+        const reportProgress = progress => {
+          if (progress.status === "committed") setNotice(`Applied ${progress.commandsProcessed}/${progress.commandsTotal} commands · revision ${progress.revision}`);
+          else if (progress.commandsProcessed === 0 || progress.commandsProcessed % 32 === 0) setNotice(`Applying ${progress.commandsProcessed}/${progress.commandsTotal} commands · revision ${progress.revision}`);
+          onProgress?.(progress);
+        };
+        reportProgress({status:"running", commandsProcessed:0, commandsTotal:list.length, revision:revisionRef.current});
+        await applyAutomation(list, label, {onProgress:reportProgress});
+        analyticsRef.current.automation("apply", list.length);
       },
       newDocument: async (options) => {
         const result = await newDocument(options);
@@ -2375,6 +2431,7 @@ export default function Workbench() {
         analyticsRef.current.automation("export");
         return result;
       },
+      exportResult: () => downloads.getLastResult(),
       undo: () => {
         const before = revisionRef.current;
         undo();
@@ -2909,6 +2966,7 @@ export default function Workbench() {
                   onPointerMove={pointerMove}
                   onPointerUp={pointerUp}
                   onPointerCancel={() => {
+                    if (operationRef.current?.tool === "automation") return;
                     if (operationRef.current?.base)
                       setDoc(operationRef.current.base);
                     operationRef.current = null;

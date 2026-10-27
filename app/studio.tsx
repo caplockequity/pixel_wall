@@ -7,7 +7,7 @@ import {
 } from "./sprite-export.mjs";
 import { createSpriteExportPlan, exportFileStem } from "./sprite-export-core.mjs";
 import { createTilemapExportPlan } from "./tilemap-export-core.mjs";
-import { createBlankProject, parseProject, stringifyProject } from "./project-format.mjs";
+import { createBlankProject, parseProject, stringifyProject, stringifyProjectBytes } from "./project-format.mjs";
 import { HelpTip, OnboardingGuide, type GuideTarget } from "./onboarding";
 import { NewProjectDialog } from "./new-project";
 import { ExportPresets } from "./export-presets";
@@ -2840,8 +2840,8 @@ export default function Studio() {
 
   function saveProjectFile() {
     try {
-      const source = stringifyProject(portableProject(), portableEditor(), { includeReference: true, pretty: true });
-      downloadBlob(new Blob([source], { type: "application/json" }), `${exportFileStem(projectName, "pixelwall-project")}.pixelwall`);
+      const source = stringifyProjectBytes(portableProject(), portableEditor(), { includeReference: true });
+      downloadBlob(new Blob([source], { type: "application/octet-stream" }), `${exportFileStem(projectName, "pixelwall-project")}.pixelwall`);
       setNotice("Portable project ready · reference included");
       captureAnalyticsEvent("project_file_operation", {
         ...analyticsProjectShape,
@@ -2895,7 +2895,7 @@ export default function Studio() {
     event.target.value = "";
     if (!file) return;
     try {
-      const loaded = parseProject(await file.text()) as { project: PortableProject; editor: PortableEditor };
+      const loaded = parseProject(new Uint8Array(await file.arrayBuffer())) as { project: PortableProject; editor: PortableEditor };
       if (!GRID_SIZES.includes(loaded.project.size) || loaded.project.frames.length > MAX_FRAMES || loaded.project.layers.length > MAX_LAYERS) {
         throw new Error("Project exceeds editor limits");
       }
