@@ -46,7 +46,6 @@ const launchNotes = [
   { title: "Exports", detail: "Free native project and individual PNG/BMP/TGA exports. Pro adds animated GIFs, sprite atlases with JSON, Tiled game packages, and saved export presets." },
   { title: "Local ownership", detail: "A document library with recovery versions, portable project backups, downloadable browser and CLI bundles, and offline Pro ownership licenses." },
   { title: "Free automation", detail: "JavaScript commands, a browser command API, Lua scripting, extensions, and a local CLI. External tools can control PixelWall when their environment provides access; no AI runs inside the app." },
-  { title: "Local agent connection", detail: "The desktop app can opt in to an authenticated local MCP launcher for inspection, bounded edits, previews, exports, and verified generated-file handoff. It requires a downloaded CLI, Node.js 22.13 or newer, and a selected export folder." },
 ];
 
 function downloadUrl(download: Download) {
