@@ -1,6 +1,6 @@
 {
   "name": "pixelwall-desktop",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "PixelWall local desktop studio",
   "private": true,
   "type": "module",
