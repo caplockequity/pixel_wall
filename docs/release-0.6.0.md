@@ -1,17 +1,17 @@
 # PixelWall 0.6.0 — reliable agent workflows
 
 PixelWall 0.6.0 makes long, agent-driven artwork sessions easier to observe,
-recover, and verify. This release is source-ready documentation; it is not a
-claim that the web or desktop packages have been published.
+recover, and verify. The following is the proposed final changelog; package
+publication is tracked separately by the release checklist.
 
 Highlights:
 
 - Long command batches report validation, staging, committing, and completion
   phases with processed counts, revisions, and phase timings.
 - Operation receipts survive reconnects and distinguish completed, failed,
-  cancelled, and unknown outcomes. A closed MCP connection is still an
-  upcoming hardening item: EPIPE must be handled without turning a completed
-  editor operation into a transport crash.
+  cancelled, and unknown outcomes. Closed MCP connections now have explicit
+  EPIPE handling; assembled transport validation remains part of the release
+  checklist.
 - Local library persistence, generated artifacts, verified disk checkpoints,
   and temporary/file-backed documents are separate states. A full library does
   not prevent a verified project checkpoint or a bound-file save.
@@ -29,6 +29,11 @@ Highlights:
   content-hash deduplication, logical-versus-encoded usage, and a persisted
   16 MiB–1 GiB user budget.
 
-Release gate: run the full web build and tests, the desktop packaging checks,
-the native MCP smoke test, and the signed/notarized macOS workflow before
-calling 0.6.0 released.
+## Release checklist
+
+- [ ] Full web lint, tests, and `npm run build:vercel`.
+- [ ] Desktop build, native MCP smoke, and production export/reopen checks.
+- [ ] Closed-connection/EPIPE assembled transport validation.
+- [ ] Signed/notarized macOS arm64 and x64 packages, plus SHA-256 verification.
+- [ ] Vercel production deployment and public-route audit.
+- [ ] GitHub release assets and provenance reviewed before publication.

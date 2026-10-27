@@ -1,7 +1,6 @@
 /** Versioned machine-readable command contract shared by CLI and clients. */
 import { COMMANDS, LIMITS } from './editor-core.mjs';
 
-const common = new Set(['frameId','layerId','clipId','sliceId','tilesetId','sourceFrameId','expectedRevision']);
 const requiredByType = new Map([
   ['batch',['commands']], ['layer.update',['layerId','patch']], ['layer.remove',['layerId']],
   ['frame.update',['patch']], ['frame.remove',[]], ['cel.set',['width','height','pixels']],
@@ -22,11 +21,11 @@ const FIELD_TYPES = {
   scene:{type:'string'},
   kind:{type:'string'},
   id:{type:'string'},frameId:{type:'string'},layerId:{type:'string'},clipId:{type:'string'},sliceId:{type:'string'},tilesetId:{type:'string'},sourceFrameId:{type:'string'},targetLayerId:{type:'string'},
-  color:{type:'string'},componentId:{type:'string'},preserveLayerIds:{type:'array'},
+  color:{type:'string'},
   kernel:{type:'array'},
   bias:{type:'number'},
-  commands:{type:'array',items:{type:'object'},maxItems:1024}, points:{type:'array'}, pixels:{type:'array'}, palette:{type:'array',minItems:1}, frameIds:{type:'array',minItems:1}, movingLayers:{type:'array'},pinnedLayers:{type:'array'},foamRegions:{type:'array'},selection:{oneOf:[{type:'array'},{type:'object'}]}, mapping:{type:'object'},
-  from:{type:'object'},to:{type:'object'},origin:{type:'object'},size:{oneOf:[{type:'integer',minimum:4,maximum:128},{type:'object'}]},field:{type:'object'},flowDirection:{type:'object'},riverPath:{type:'array',maxItems:128},waterfallRegions:{type:'array'},phaseMap:{type:'array'},pinnedRegions:{type:'object'},layerAmplitudes:{type:'object'},phaseOffsets:{type:'object'},endColor:{type:'string'},patch:{type:'object'},clip:{type:'object'},layer:{type:'object'},slice:{type:'object'},profile:{type:'object'},replacements:{type:'object'}, metadata:{type:'object'},
+  commands:{type:'array',items:{type:'object'},maxItems:1024}, points:{type:'array'}, pixels:{type:'array'}, palette:{type:'array',minItems:1}, frameIds:{type:'array'}, selection:{oneOf:[{type:'array'},{type:'object'}]}, mapping:{type:'object'},
+  from:{type:'object'},to:{type:'object'},origin:{type:'object'},size:{oneOf:[{type:'integer',minimum:4,maximum:128},{type:'object'}]},field:{type:'object'},flowDirection:{type:'object'},riverPath:{type:'array',maxItems:128},waterfallRegions:{type:'array'},phaseMap:{type:'array'},layerAmplitudes:{type:'object'},phaseOffsets:{type:'object'},endColor:{type:'string'},patch:{type:'object'},clip:{type:'object'},layer:{type:'object'},slice:{type:'object'},profile:{type:'object'},replacements:{type:'object'}, metadata:{type:'object'},
   x:{type:'integer'},y:{type:'integer'},width:{type:'integer'},height:{type:'integer'},index:{type:'integer'},durationMs:{type:'integer'},seed:{type:'integer'},count:{type:'integer'},radius:{type:'integer'},
   opacity:{type:'number'},amount:{type:'number'},scale:{type:'number'},scaleX:{type:'number'},scaleY:{type:'number'},
   filled:{type:'boolean'},loop:{type:'boolean'},linked:{type:'boolean'},replace:{type:'boolean'},bake:{type:'boolean'},visibleOnly:{type:'boolean'},
@@ -67,7 +66,7 @@ function checkValue(value, rule, path) {
   if (rule.minItems !== undefined && value.length < rule.minItems) fail(`${path} must contain at least ${rule.minItems} items.`, 'INVALID_ARGUMENT', path);
   if (rule.properties && rule.type === 'object') for (const key of Object.keys(value)) { if (rule.additionalProperties === false && !rule.properties[key]) fail(`${path}.${key} is not supported.`, 'UNKNOWN_ARGUMENT', `${path}.${key}`); checkValue(value[key],rule.properties[key],`${path}.${key}`); }
 }
-export function validateCommand(command, { index = null, maxCommands = 2000 } = {}) {
+export function validateCommand(command, { index = null } = {}) {
   const prefix = index == null ? 'command' : `commands[${index}]`;
   if (!command || typeof command !== 'object' || Array.isArray(command)) fail(`${prefix} must be an object.`, 'INVALID_COMMAND', prefix);
   const schema = COMMAND_SCHEMAS[command.type];

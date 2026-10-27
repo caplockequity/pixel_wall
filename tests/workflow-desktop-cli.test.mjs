@@ -76,7 +76,7 @@ test('maintained riverbank workflow survives desktop MCP edits, retries, cancell
       artifacts.set(artifactId, { artifactId, name: filename, bytes: bytes.length, sha256, data: bytes, documentId: document.id, revision });
       return { documentId: document.id, revision, filename, bytes: bytes.length, artifactId, sha256, persistence: { status: 'persisted' } };
     },
-    artifacts: () => [...artifacts.values()].map(({ data, ...metadata }) => metadata),
+    artifacts: () => [...artifacts.values()].map(artifact => Object.fromEntries(Object.entries(artifact).filter(([key]) => key !== 'data'))),
     readArtifact: async ({ artifactId, offset = 0, length = 1024 * 1024 }) => {
       const artifact = artifacts.get(artifactId); if (!artifact) return null;
       const bytes = artifact.data.slice(offset, offset + length);
