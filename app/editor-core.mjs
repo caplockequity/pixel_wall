@@ -695,7 +695,16 @@ export function applyCommand(input,command){
   if(!frame)fail('Document has no frame');
   const prefix=c.id??`component-${generated.kind}-${generated.seed}`;
   for(const layer of generated.layers){const layerId=`${prefix}-${layer.id}`;if(doc.layers.some(value=>value.id===layerId))fail(`Component layer id exists: ${layerId}`);const imageId=`${layerId}-image`;reserve(doc,layer.pixels.length);doc.images[imageId]={width:generated.width,height:generated.height,pixels:[...layer.pixels]};doc.layers.push({id:layerId,name:layer.name,type:'image',parentId:null,visible:true,locked:false,opacity:1,blendMode:'normal'});for(const target of doc.frames)target.cels[layerId]={imageId,x:generated.x,y:generated.y,opacity:1};}
-  doc.metadata={...doc.metadata,sceneComponents:[...(doc.metadata?.sceneComponents??[]),generated.metadata]};
+  doc.metadata={...doc.metadata,sceneComponents:[...(doc.metadata?.sceneComponents??[]),{...generated.metadata,layerPrefix:prefix,recipe:generated.recipe}]};
+  break;
+ }
+ case'scene.component.replace':{
+  if(!record(c.recipe)||typeof c.componentId!=='string')fail('Component identity and recipe are required');
+  const meta=(doc.metadata?.sceneComponents??[]).find(value=>value.componentId===c.componentId||value.layerPrefix===c.componentId); if(!meta)fail('Scene component identity not found');
+  const prefix=meta.layerPrefix??c.componentId, generated=generateSceneComponent({...c.recipe,componentId:meta.componentId}); const oldIds=doc.layers.filter(layer=>layer.id.startsWith(`${prefix}-`)).map(layer=>layer.id); const protectedIds=new Set(meta.manualLayerIds??c.preserveLayerIds??[]);
+  for(const layerId of oldIds)if(!protectedIds.has(layerId)){doc.layers=doc.layers.filter(layer=>layer.id!==layerId);for(const frame of doc.frames)delete frame.cels[layerId];}
+  for(const layer of generated.layers){const layerId=`${prefix}-${layer.id}`;if(protectedIds.has(layerId))continue;let imageId=`${layerId}-replacement-image`;let suffix=1;while(doc.images[imageId])imageId=`${layerId}-replacement-image-${suffix++}`;doc.images[imageId]={width:generated.width,height:generated.height,pixels:[...layer.pixels]};doc.layers.push({id:layerId,name:layer.name,type:'image',parentId:null,visible:true,locked:false,opacity:1,blendMode:'normal'});for(const frame of doc.frames)frame.cels[layerId]={imageId,x:generated.x,y:generated.y,opacity:1};}
+  doc.metadata={...doc.metadata,sceneComponents:(doc.metadata.sceneComponents??[]).map(value=>value.layerPrefix===prefix?{...generated.metadata,layerPrefix:prefix,manualLayerIds:[...protectedIds],recipe:generated.recipe}:value)};
   break;
  }
  case'batch':{if(!Array.isArray(c.commands)||c.commands.length>1024)fail('Invalid command batch');let result=input;for(const command of c.commands)result=applyCommand(result,command);return result;}
@@ -784,6 +793,7 @@ export const COMMANDS=Object.freeze([
  ['batch','Apply an ordered command list atomically.',{commands:'Array of up to 1024 command objects.'}],
  ['scene.water','Generate a deterministic animated water scene into a blank document.',{scene:'pond | river | stream | waterfall | shoreline',view:'top-down (default) | isometric (2:1)',seed:'Unsigned shoreline/land seed',waterSeed:'Optional unsigned independent water animation seed; defaults to seed',season:'spring | summer | autumn | winter',frames:'1–32, default 12',durationMs:'1–65535, default 125',details:'0–4 scene detail level',rippleDensity:'0–1, default .5',phaseOffset:'Integer -65535…65535; wraps by frame count. Use for isolated pieces.',palette:'Named color-role object with RGB/RGBA hex values; no arrays',replace:'Required true when replacing non-empty artwork.'}],
  ['scene.component','Stamp a deterministic editable scene component into every frame.',{kind:`${SCENE_COMPONENT_KINDS.join(' | ')}`,style:`${SCENE_COMPONENT_STYLES.join(' | ')}`,seed:'Unsigned component seed',position:'{x,y} canvas position; defaults 0,0',size:'Integer square or {width,height}, 4–128',palette:'Named palette-role overrides',id:'Optional unique layer prefix.'}],
+ ['scene.component.replace','Regenerate one identified scene component while preserving declared manual layers.',{componentId:'Stable component identity or layer prefix.',recipe:'Saved scene component recipe.',preserveLayerIds:'Optional layer IDs protected from replacement.'}],
  ['object.userData','Replace native user data on a sprite, layer, cel, tag, slice, tileset or tile.',{target:'sprite | layer | cel | tag | slice | tileset | tile',tilesetId:'Tileset/tile target ID',tileIndex:'Zero-based native tile index',layerId:'Layer target ID',frameId:'Cel frame ID',clipId:'Tag target ID',sliceId:'Slice target ID',userData:'{text?,color?:#rrggbbaa,propertiesBytes?:native property block}'}],
  ['document.update','Rename the document or replace metadata.',{patch:'{name?:string,metadata?:object}'}],
  ['document.colorProfile','Assign a working profile or apply a bounded precomputed color conversion.',{profile:'{type:0|1|2,flags?:0|1,gamma?:number,icc?:byte[],name?:string}',replacements:'Optional validated images/palette/framePalettes; preserves dimensions, IDs, links, layers and color mode.'}],

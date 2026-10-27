@@ -14,20 +14,21 @@ export function diagnoseAnimation(document, options = {}) {
   if (clip && options.frameIds && options.frameIds.some(id => !clip.frameIds.includes(id))) warnings.push({ code: 'clip-membership', severity: 'warning', message: 'Requested frame is outside the selected clip.', clipId: clip.id, frameIds: options.frameIds.filter(id => !clip.frameIds.includes(id)) });
   const anchored = Array.isArray(options.anchoredLayers) ? options.anchoredLayers : [];
   const exclusions = new Set(options.exclusions ?? []);
+  const excluded = (code, layerId) => exclusions.has(code) || (layerId && exclusions.has(`${code}:${layerId}`));
   const selected = frameIds.map(id => byId.get(id)).filter(Boolean);
   for (const [index, frame] of selected.entries()) {
     for (const layer of document.layers) {
       const value = cel(document, frame, layer.id);
-      if (!value && layer.visible && !exclusions.has(`missing-exposure:${layer.id}`)) warnings.push({ code: 'missing-exposure', severity: 'warning', frameId: frame.id, layerId: layer.id, message: `Layer ${layer.name ?? layer.id} has no exposure in frame ${index + 1}.` });
-      if (value && !imagePixels(document, value.imageId) && !exclusions.has(`missing-image:${layer.id}`)) warnings.push({ code: 'missing-image', severity: 'error', frameId: frame.id, layerId: layer.id, message: `Layer ${layer.name ?? layer.id} references missing image ${value.imageId}.` });
+      if (!value && layer.visible && !excluded('missing-exposure', layer.id)) warnings.push({ code: 'missing-exposure', severity: 'warning', frameId: frame.id, layerId: layer.id, message: `Layer ${layer.name ?? layer.id} has no exposure in frame ${index + 1}.` });
+      if (value && !imagePixels(document, value.imageId) && !excluded('missing-image', layer.id)) warnings.push({ code: 'missing-image', severity: 'error', frameId: frame.id, layerId: layer.id, message: `Layer ${layer.name ?? layer.id} references missing image ${value.imageId}.` });
     }
     if (!Number.isSafeInteger(frame.durationMs) || frame.durationMs < 1) warnings.push({ code: 'duration', severity: 'error', frameId: frame.id, message: 'Frame duration must be a positive integer.' });
-    if (Object.values(frame.cels ?? {}).some(item => item && ((item.x ?? 0) < 0 || (item.y ?? 0) < 0))) warnings.push({ code: 'canvas-edge', severity: 'warning', frameId: frame.id, message: 'A cel is offset outside the canvas.' });
+    if (Object.values(frame.cels ?? {}).some(item => item && ((item.x ?? 0) < 0 || (item.y ?? 0) < 0)) && !excluded('canvas-edge')) warnings.push({ code: 'canvas-edge', severity: 'warning', frameId: frame.id, message: 'A cel is offset outside the canvas.' });
   }
   for (const layerId of anchored) {
     const first = selected[0] && cel(document, selected[0], layerId); if (!first) continue;
     const firstPixels = imagePixels(document, first.imageId);
-    for (const frame of selected.slice(1)) { const current = cel(document, frame, layerId); if (!current) continue; const pixels = imagePixels(document, current.imageId); const offsetChanged = (current.x ?? 0) !== (first.x ?? 0) || (current.y ?? 0) !== (first.y ?? 0); const pixelChanged = firstPixels && pixels && !rgbaEqual(firstPixels, pixels); if (offsetChanged || pixelChanged) warnings.push({ code: 'anchored-drift', severity: 'warning', frameId: frame.id, layerId, message: pixelChanged ? 'Anchored layer pixels changed across frames.' : 'Anchored layer offset changed across frames.' }); }
+    for (const frame of selected.slice(1)) { const current = cel(document, frame, layerId); if (!current) continue; const pixels = imagePixels(document, current.imageId); const offsetChanged = (current.x ?? 0) !== (first.x ?? 0) || (current.y ?? 0) !== (first.y ?? 0); const pixelChanged = firstPixels && pixels && !rgbaEqual(firstPixels, pixels); if ((offsetChanged || pixelChanged) && !excluded('anchored-drift', layerId)) warnings.push({ code: 'anchored-drift', severity: 'warning', frameId: frame.id, layerId, message: pixelChanged ? 'Anchored layer pixels changed across frames.' : 'Anchored layer offset changed across frames.' }); }
   }
   const expected = options.expectedFrameCount;
   if (expected !== undefined && (!Number.isSafeInteger(expected) || expected < 1 || selected.length !== expected)) warnings.push({ code: 'frame-count', severity: 'warning', expected: expected, actual: selected.length, message: `Expected ${expected} frames but found ${selected.length}.` });
@@ -43,7 +44,8 @@ function shiftedPixels(pixels, width, height, dx, dy, pinnedRegions = []) {
 
 /** Bake periodic per-layer offsets into ordinary editable cels. Pinned layers never move. */
 export function bakeAnchoredMotion(document, { frames = document.frames.length, layers = [], pinnedLayers = [], pinnedRegions = {}, amplitudeX = 1, amplitudeY = 0, layerAmplitudes = {}, phaseOffsets = {}, period = frames } = {}) {
-  if (!Number.isSafeInteger(frames) || frames < 1 || frames > 64 || !Number.isSafeInteger(period) || period < 1 || period > 64) throw new RangeError('frames and period must be integers from 1 to 64.');
+  if (!Number.isSafeInteger(frames) || frames < 1 || frames > 64 || !Number.isSafeInteger(period) || period < 1 || period > 64 || frames % period !== 0) throw new RangeError('frames and period must be integers from 1 to 64, with period dividing frames.');
+  if (![amplitudeX, amplitudeY].every(value => Number.isFinite(value)) || Object.values(layerAmplitudes).some(value => !Number.isFinite(Number(value.x ?? 0)) || !Number.isFinite(Number(value.y ?? 0)))) throw new RangeError('Motion amplitudes must be finite numbers.');
   const moving = new Set(layers), pinned = new Set(pinnedLayers); const result = structuredClone(document); const source = result.frames[0];
   result.frames = Array.from({ length: frames }, (_, index) => { const frame = structuredClone(result.frames[index % result.frames.length] ?? source); frame.id = result.frames[index]?.id ?? `motion-frame-${index + 1}`; frame.durationMs = source?.durationMs ?? 100; const phase = (index / period) * Math.PI * 2; for (const layerId of moving) { if (pinned.has(layerId)) continue; const current = frame.cels?.[layerId]; if (!current) continue; const image = result.images?.[current.imageId]; if (!image) continue; const settings = layerAmplitudes[layerId] ?? {}; const offset = Number(phaseOffsets[layerId] ?? settings.phase ?? 0); const dx = Math.round(Math.sin(phase + offset) * Number(settings.x ?? amplitudeX)), dy = Math.round(Math.sin(phase + offset) * Number(settings.y ?? amplitudeY)); if (dx || dy || pinnedRegions[layerId]?.length) { const imageId = `${current.imageId}-motion-${index + 1}`; result.images[imageId] = { ...image, pixels: shiftedPixels(image.pixels, image.width, image.height, dx, dy, pinnedRegions[layerId] ?? []) }; current.imageId = imageId; } } return frame; });
   result.metadata = { ...(result.metadata ?? {}), animationBake: { kind: 'anchored-motion', frames, period, movingLayers: [...moving], pinnedLayers: [...pinned], pinnedRegions, amplitudeX, amplitudeY, layerAmplitudes, phaseOffsets } };

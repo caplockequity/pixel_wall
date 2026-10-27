@@ -35,12 +35,25 @@ test('component recipes support art direction and protect manual layers', () => 
   assert.deepEqual(kept.layers.find(layer => layer.id === original.layers[0].id), original.layers[0]);
 });
 
+test('scene component replacement is editor-wired and preserves protected manual layers', () => {
+  let doc = createDocument({ id: 'replace', width: 48, height: 48 });
+  doc = applyCommand(doc, { type: 'scene.component', kind: 'tree', seed: 4, id: 'hero-tree', componentId: 'hero-tree' });
+  const meta = doc.metadata.sceneComponents[0], protectedId = 'hero-tree-component-tree-1';
+  const original = doc.images[doc.frames[0].cels[protectedId].imageId].pixels.slice();
+  doc.metadata.sceneComponents[0].manualLayerIds = [protectedId];
+  const changed = applyCommand(doc, { type: 'scene.component.replace', componentId: meta.componentId, recipe: { ...meta.recipe, artDirection: { crownAspectRatio: 1.5 } } });
+  assert.deepEqual(changed.images[changed.frames[0].cels[protectedId].imageId].pixels, original);
+  assert.ok(changed.metadata.sceneComponents[0].recipe.artDirection);
+});
+
 test('water patches compose only masked pixels and retain base dimensions', () => {
-  const base = generateWaterPatch({ id: 'base', width: 32, height: 24, frames: 3, originX: 4, originY: 3 });
-  const patch = generateWaterPatch({ id: 'patch', width: 8, height: 8, frames: 2, originX: 8, originY: 6 });
+  const base = generateWaterPatch({ id: 'base', width: 32, height: 24, fieldWidth: 32, fieldHeight: 24, frames: 3, originX: 0, originY: 0 });
+  const patch = generateWaterPatch({ id: 'patch', width: 8, height: 8, fieldWidth: 32, fieldHeight: 24, frames: 2, originX: 8, originY: 6 });
   const composed = composeWaterPatch(base, patch, { x: 8, y: 6, mask: (x, y) => x < 4 });
   assert.equal(composed.width, 32); assert.equal(composed.height, 24);
   assert.equal(composed.metadata.waterCompositions.length, 1);
+  const monolithic = generateWaterPatch({ id: 'mono', width: 8, height: 8, fieldWidth: 32, fieldHeight: 24, frames: 2, originX: 8, originY: 6 });
+  assert.deepEqual(composed.images[composed.frames[0].cels.water.imageId].pixels.slice(6 * 32 + 8, 6 * 32 + 16), monolithic.images[monolithic.frames[0].cels.water.imageId].pixels.slice(0, 8));
 });
 
 test('wrap comparison reports transition changes without requiring identical endpoints', () => {
