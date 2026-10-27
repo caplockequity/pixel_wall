@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "version": "0.6.1",
+  "publishedAt": "2026-10-27",
+  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-6-1",
+  "releaseNotes": [
+    "Fixed Save and Save As when the local library is full: confirmed native saves now keep the project in its bound file without retrying the library save.",
+    "Fixed closing with multiple file-backed documents by checking each document’s saved revision.",
+    "Reopening restores bound files while preserving older library backups; failed recovery blocks stale writes.",
+    "Fixed New and Import after saving to a native file, and connected the file-backed open workflow.",
+    "Clarified that closing a project tab keeps its saved artwork and recovery history in local storage."
+  ],
+  "downloads": {
+    "darwin-arm64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.1/PixelWall-0.6.1-mac-arm64.zip",
+      "filename": "PixelWall-0.6.1-mac-arm64.zip",
+      "signed": true,
+      "size": 114794255,
+      "sha256": "7d82d154b82301b64313c7f8f09c0712acd8b7e3b5be945532fe594557d6da9d",
+      "notarized": true
+    },
+    "darwin-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.1/PixelWall-0.6.1-mac-x64.zip",
+      "filename": "PixelWall-0.6.1-mac-x64.zip",
+      "signed": true,
+      "size": 121543372,
+      "sha256": "58ebabd958c78c8e99b1536759446d95051c990c69bcadc88e12281ec27949ab",
+      "notarized": true
+    },
+    "win32-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.1/PixelWall-0.6.1-windows-x64.exe",
+      "filename": "PixelWall-0.6.1-windows-x64.exe",
+      "signed": false,
+      "size": 95200032,
+      "sha256": "d8dc19b135c7de28393594bffca31631475dfe4d68c3615830816113d52086de"
+    },
+    "linux-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.1/PixelWall-0.6.1-linux-x64.AppImage",
+      "filename": "PixelWall-0.6.1-linux-x64.AppImage",
+      "signed": false,
+      "size": 118416262,
+      "sha256": "b040255cd0295de440601b3fced49260fa89cab305dd77365b6750660b6866ea"
+    }
+  }
+}

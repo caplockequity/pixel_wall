@@ -14,6 +14,8 @@ assert.ok(outputIndex>=0 && process.argv[outputIndex+1], 'Pass --output with a d
 const outputRoot=resolve(process.argv[outputIndex+1]);mkdirSync(outputRoot,{recursive:true});
 const root=mkdtempSync(join(outputRoot,'native-storage-'));
 const source=fileURLToPath(new URL('../',import.meta.url));
+const appIndex=process.argv.indexOf('--app-root');
+const appRoot=appIndex>=0?resolve(process.argv[appIndex+1]):join(source,'desktop/app');
 const userData=join(root,'roundtrip-data'), bindingPath=join(root,'roundtrip-bindings.json'), output=join(root,'roundtrip.pixelwall');
 mkdirSync(userData,{recursive:true});
 app.setPath('userData',userData);app.on('window-all-closed',()=>{});
@@ -21,7 +23,7 @@ protocol.registerSchemesAsPrivileged([{scheme:'pixelwall',privileges:{standard:t
 let win,ipc;const report={};const deadline=setTimeout(()=>{console.error('TEST TIMEOUT');win?.destroy();app.exit(1);},60000);
 void app.whenReady().then(async()=>{
  try {
-  protocol.handle('pixelwall',request=>{const url=new URL(request.url);const path=['/','/editor'].includes(url.pathname)?join(source,'desktop/app/index.html'):resolve(source,'desktop/app','.'+url.pathname);return net.fetch(pathToFileURL(path).href);});
+  protocol.handle('pixelwall',request=>{const url=new URL(request.url);const path=['/','/editor'].includes(url.pathname)?join(appRoot,'index.html'):resolve(appRoot,'.'+url.pathname);return net.fetch(pathToFileURL(path).href);});
   ipcMain.handle('pixelwall:mcp:status',()=>({enabled:false}));
   ipc=createNativeFileIpc({ipcMain,dialog:{showSaveDialog:async()=>({canceled:false,filePath:output}),showMessageBox:async()=>({response:0}),showOpenDialog:async()=>({canceled:true,filePaths:[]})},store:createNativeBindingStore(bindingPath)});
   async function open(){win=new BrowserWindow({show:false,webPreferences:{preload:join(source,'desktop/native-preload.cjs'),contextIsolation:true,sandbox:true,nodeIntegration:false}});const binding=ipc.attach(win);await win.loadURL('pixelwall://app/editor');for(let i=0;i<100;i++){if(await win.webContents.executeJavaScript('(()=>{try{return !!window.pixelwall?.inspect().document?.id}catch{return false}})()'))break;await new Promise(r=>setTimeout(r,50));}return binding;}
