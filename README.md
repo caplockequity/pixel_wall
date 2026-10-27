@@ -118,6 +118,14 @@ The event inventory covers:
   assets; they indicate a click, not a completed download or installation.
 - Hosted Workbench: document and command use, imports, storage/recovery, exports,
   and Pro interactions through explicit events and fixed operation categories.
+- Agent automation: successful changed hosted-editor operations emit the consented
+  `automation_edit_completed` event with `operation` values `apply`, `lua`,
+  `color_profile`, `undo` or `redo`; an optional bounded `command_count` is sent
+  when available. The aggregate `site_traffic_counted` counterpart uses
+  `action: "automation_edit"`, `source: "automation"` and the same operation.
+  Automated export outcomes use `action: "export"` with `source: "automation"`;
+  older export events without a source remain unattributed. These counters never
+  include agent IDs, scripts, artwork, document names or command arguments.
 - Classic editor: lifecycle/guidance, committed edits, structure, playback,
   references, file operations, autosave and export outcomes.
 - Privacy grants: `analytics_consent_updated`. Refusals and withdrawals do not
@@ -129,7 +137,12 @@ catalog and final payload filtering. Test with an isolated SDK or intercepted
 requests so validation traffic is not mistaken for real visitors.
 
 The versioned dashboard definitions are in `docs/analytics/posthog-dashboards.json`.
-They cover website/downloads, product signals, editor/exports, and Pro/reliability (39 insights).
+They cover website/downloads, product signals, editor/exports, Pro/reliability,
+and agent discovery/automation (42 insights). The agent dashboard separates
+anonymous aggregate edits and automated export outcomes from the optional
+consented `automation_edit_completed` subset, so the same activity is not added
+twice. Its daily aggregate series use UTC-rounded timestamps and count events,
+not visitors or sessions.
 Only schema 2 production events are included; no historical activity is backfilled.
 To manage them, use a personal API key with project/read, dashboard/read,
 insight/read and query/read access; applying also needs dashboard/write and

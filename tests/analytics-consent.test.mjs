@@ -111,8 +111,9 @@ test("Essential counts send only fixed categories with no SDK, browser IDs, cook
   assert.equal(calls.requests.length, 4);
   assert.deepEqual(JSON.parse(calls.requests[0].body), { event: "site_page_viewed", page_group: "guides" });
   assert.deepEqual(JSON.parse(calls.requests[1].body), { event: "desktop_download_clicked", page_group: "editor", platform: "darwin-arm64", version: "0.3.3", package_type: "zip" });
-  assert.deepEqual(JSON.parse(calls.requests[2].body), { event: "export_outcome", page_group: "editor", export_type: "sprite_sheet_png", outcome: "success" });
+  assert.deepEqual(JSON.parse(calls.requests[2].body), { event: "export_outcome", page_group: "editor", export_type: "sprite_sheet_png", outcome: "success", source: "ui" });
   assert.equal(JSON.parse(calls.requests[3].body).export_type, "other");
+  assert.equal(JSON.parse(calls.requests[3].body).source, "ui");
   for (const request of calls.requests) {
     assert.equal(request.url, "/api/traffic");
     assert.equal(request.credentials, "omit");
@@ -124,6 +125,29 @@ test("Essential counts send only fixed categories with no SDK, browser IDs, cook
   api.captureAnonymousPageView("/editor");
   assert.equal(calls.requests.length, 5);
   assert.equal(calls.imports, 0);
+});
+
+test("anonymous automation edits and sourced exports use fixed editor categories", async () => {
+  const { api, calls } = setup();
+  api.captureAnonymousAutomationEdit("lua");
+  api.captureAnonymousAutomationEdit("color_profile");
+  api.captureAnonymousExportOutcome("png", "success", "automation");
+  api.captureAnonymousExportOutcome("png", "success", "ui");
+  api.captureAnonymousAutomationEdit("inspect");
+  await settleSdk();
+  assert.deepEqual(JSON.parse(calls.requests[0].body), {
+    event: "automation_edit_completed", page_group: "editor", operation: "lua",
+  });
+  assert.deepEqual(JSON.parse(calls.requests[1].body), {
+    event: "automation_edit_completed", page_group: "editor", operation: "color_profile",
+  });
+  assert.deepEqual(JSON.parse(calls.requests[2].body), {
+    event: "export_outcome", page_group: "editor", export_type: "png", outcome: "success", source: "automation",
+  });
+  assert.deepEqual(JSON.parse(calls.requests[3].body), {
+    event: "export_outcome", page_group: "editor", export_type: "png", outcome: "success", source: "ui",
+  });
+  assert.equal(calls.requests.length, 4);
 });
 
 test("previous refusals stay dark until a new explicit choice; malformed and unreadable preferences fail closed", () => {
@@ -504,6 +528,9 @@ test("the final payload boundary rejects enrichment, private identifiers and unk
   assert.equal(result.properties.$session_id, id);
   assert.equal(result.properties.$browser, "Chrome");
   assert.equal(result.properties.$process_person_profile, false);
+  const automation = sdk.config.before_send({ event: "automation_edit_completed", properties: { operation: "open", command_count: 4 } });
+  assert.equal(automation.properties.operation, undefined);
+  assert.equal(automation.properties.command_count, 4);
   assert.equal(result.$set, undefined);
   for (const name of ["$snapshot", "$autocapture", "$pageleave", "$identify", "$groupidentify", "private-event", "__proto__"]) {
     assert.equal(sdk.config.before_send({ event: name, properties: {} }), null);

@@ -50,7 +50,7 @@ import TilePixelEditor from "./tile-pixel-editor";
 import { registerOffline } from "./offline-client.mjs";
 import { sameFrameRender } from "./frame-render-equality.mjs";
 import SheetImportPreview from "./sheet-import-preview.jsx";
-import { captureAnalyticsEvent, captureAnonymousCreation, captureAnonymousExportOutcome, getAnalyticsConsentStatus, isAnonymousTrafficEnabled, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
+import { captureAnalyticsEvent, captureAnonymousCreation, captureAnonymousExportOutcome, captureAnonymousAutomationEdit, getAnalyticsConsentStatus, isAnonymousTrafficEnabled, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
 import { createWorkbenchAnalytics, analyticsFormat } from "./workbench-analytics.mjs";
 import { encodeClipboardImage, decodeClipboardImage } from "./native-clipboard-payload.mjs";
 import { renderScaledExportFrame } from "./export-render.mjs";
@@ -584,6 +584,7 @@ export default function Workbench() {
       aggregateEnabled: isAnonymousTrafficEnabled,
       captureAggregateCreation: captureAnonymousCreation,
       captureAggregateExport: captureAnonymousExportOutcome,
+      captureAggregateAutomationEdit: captureAnonymousAutomationEdit,
     });
   }
   const pendingImportFormatRef = useRef("image");
@@ -2430,11 +2431,12 @@ export default function Workbench() {
         if (operation !== "inspect") {
           const profile = icc ? manager.readProfile(icc) : "sRGB";
           const next = operation === "assign" ? manager.assignProfile(before, profile) : manager.convertDocument(before, profile, {intent});
-          commitSnapshot(next, operation === "assign" ? "Assign color profile" : "Convert color profile", before, revision);
+          const changed = commitSnapshot(next, operation === "assign" ? "Assign color profile" : "Convert color profile", before, revision);
+          analyticsRef.current.automationEdit("color_profile", changed);
         }
         return {revision:revisionRef.current,...manager.profileInfo(documentProfile(docRef.current)),profile:documentProfile(docRef.current)};
       },
-      runLua: (options) => runLua(options),
+      runLua: (options) => runLua(options, {source: "automation"}),
       apply: async (commands, label, {onProgress, signal} = {}) => {
         const list = Array.isArray(commands) ? commands : [commands];
         const reportProgress = progress => {
@@ -2445,6 +2447,7 @@ export default function Workbench() {
         reportProgress({status:"running", commandsProcessed:0, commandsTotal:list.length, revision:revisionRef.current});
         await applyAutomation(list, label, {onProgress:reportProgress, signal});
         analyticsRef.current.automation("apply", list.length);
+        analyticsRef.current.automationEdit("apply", historyRef.current.lastChange?.changed, list.length);
       },
       newDocument: async (options) => {
         const result = await newDocument(options);
@@ -2488,13 +2491,21 @@ export default function Workbench() {
       exportResult: () => downloads.getLastResult(),
       undo: () => {
         const before = revisionRef.current;
+        const beforeDocument = docRef.current;
         undo();
-        if (revisionRef.current !== before) analyticsRef.current.automation("undo");
+        if (revisionRef.current !== before) {
+          analyticsRef.current.automation("undo");
+          analyticsRef.current.automationEdit("undo", !historyValuesEqual(beforeDocument, docRef.current));
+        }
       },
       redo: () => {
         const before = revisionRef.current;
+        const beforeDocument = docRef.current;
         redo();
-        if (revisionRef.current !== before) analyticsRef.current.automation("redo");
+        if (revisionRef.current !== before) {
+          analyticsRef.current.automation("redo");
+          analyticsRef.current.automationEdit("redo", !historyValuesEqual(beforeDocument, docRef.current));
+        }
       },
     };
   });
@@ -2559,11 +2570,8 @@ export default function Workbench() {
   async function runBatch() {
     try {
       const parsed = JSON.parse(commandText);
-      const result = await window.pixelwall.apply({
-        commands: Array.isArray(parsed) ? parsed : [parsed],
-        label: "Command batch",
-      });
-      setCommandResult(JSON.stringify(result, null, 2));
+      const result = await applyAutomation(Array.isArray(parsed) ? parsed : [parsed], "Command batch");
+      setCommandResult(JSON.stringify(describeDocument(result), null, 2));
       setNotice("Command batch applied as one undoable edit.");
       canvasRef.current?.focus({preventScroll:true});
     } catch (error) {
@@ -2578,10 +2586,12 @@ export default function Workbench() {
     if (luaAbortRef.current && !allowLua) throw Error("Wait for the Lua script to finish or cancel it.");
     if (docRef.current !== before || revisionRef.current !== revision || operationRef.current || restoringRef.current)
       throw Error("The project changed while this operation was running. Run it again to apply it to the current artwork.");
+    const changed = !historyValuesEqual(before, next);
     historyRef.current.commit(next, label, context);
     install(next, {allowLua});
     if (context) restoreUiContext(context.afterContext);
     setSaveStatus("Unsaved changes");
+    return changed;
   }
   function guardScriptInteraction(event) {
     if (luaAbortRef.current && !event.target.closest?.("[data-pixelwall-lua-controls]")) {event.preventDefault();event.stopPropagation();}
@@ -2656,7 +2666,7 @@ export default function Workbench() {
     setScriptLanguage("lua");
     return runLua({source:captured.source}, {packageRun:captured});
   }
-  async function runLua({source = luaSource, params = {}, timeoutMs = luaTimeout} = {}, {packageRun} = {}) {
+  async function runLua({source = luaSource, params = {}, timeoutMs = luaTimeout} = {}, {packageRun, source: runSource = "ui"} = {}) {
     automationRef.current?.desktop.assertEditable();
     if (busyRef.current || nativeSessionRef.current?.busy || luaAbortRef.current || operationRef.current || restoringRef.current) throw Error("Finish the current operation before running Lua.");
     const before = docRef.current, revision = revisionRef.current;
@@ -2691,7 +2701,7 @@ export default function Workbench() {
       const saved = await storeRef.current.saveDocuments(result.documents.map(document => ({document, settings:{expectedRevision:document.id === before.id ? savedRevisionsRef.current.get(document.id) : 0, label:"Lua script"}})), {settings:packageRun ? packageRunSettings(packageRun,result.plugin) : []});
       for (const entry of saved) { savedRevisionsRef.current.set(entry.document.id, entry.revision); savedDocumentsRef.current.set(entry.document.id, entry.document); }
       const originalAfterContext = result.document.id === before.id ? afterContext : editorUiContext(edited, beforeContext);
-      commitSnapshot(edited, "Lua script", before, revision, {allowLua:true, context:{beforeContext, afterContext:originalAfterContext}});
+      const changed = commitSnapshot(edited, "Lua script", before, revision, {allowLua:true, context:{beforeContext, afterContext:originalAfterContext}});
       for (const entry of saved.filter(entry => entry.document.id !== before.id)) {
         historyCacheRef.current.invalidate(entry.document.id);
         const seed = result.created.find(document => document.id === entry.document.id);
@@ -2706,6 +2716,12 @@ export default function Workbench() {
       if (result.document.id !== before.id) {
         const loaded = saved.find(entry => entry.document.id === result.document.id);
         await activate(loaded.document, loaded.revision, {allowLua:true});
+      }
+      const changedDocument = !historyValuesEqual(edited, before) || result.created.length > 0;
+      analyticsRef.current.scripted(changed || changedDocument);
+      if (runSource === "automation") {
+        analyticsRef.current.automation("lua", result.stats?.commands);
+        analyticsRef.current.automationEdit("lua", changed || changedDocument, result.stats?.commands);
       }
       restoreUiContext(afterContext);
       setCommandResult([...result.prints, `${result.stats.commands} editing commands applied.`].join("\n"));

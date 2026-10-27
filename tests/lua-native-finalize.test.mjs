@@ -20,9 +20,10 @@ const gate=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return {p
 const ref=current=>({current});
 async function harness(t){
  const original=createDocument({id:'project',width:2,height:2}),store=await openStore({name:crypto.randomUUID(),indexedDB:new IDBFactory()});t.after(()=>store.close());const saved=await store.saveDocument(original,{expectedRevision:0});
+ const analyticsCalls=[];
  const scope={luaTimeout:3000,editorUiContext,historyValuesEqual,pixelRGBA,describeDocument,createHistory,
  docRef:ref(original),revisionRef:ref(0),documentRevisionsRef:ref(new Map([[original.id,0]])),storedRevisionRef:ref(saved.revision),savedRevisionsRef:ref(new Map([[original.id,saved.revision]])),savedDocumentsRef:ref(new Map([[original.id,original]])),historyRef:ref(createHistory(original)),historyCacheRef:ref(createDocumentHistoryCache()),nativeSessionRef:ref(null),activeRef:ref({frameId:original.frames[0].id,layerId:original.layers[0].id}),uiContextRef:ref(editorUiContext(original)),operationRef:ref(null),restoringRef:ref(false),busyRef:ref(false),luaAbortRef:ref(null),luaSavingRef:ref(false),saveQueueRef:ref(Promise.resolve()),storeRef:ref(store),pathRef:ref([]),luaRangeRef:ref({}),viewportRef:ref(null),window:{innerWidth:1024,innerHeight:768},clamp:(value,min,max)=>Math.max(min,Math.min(max,value)),canvasRef:ref({focus(){}}),automationRef:ref(null),process:{env:{}},location:{origin:'http://localhost',href:'http://localhost/studio'},luaDialog:{show(){throw Error('Unexpected dialog');}},luaCommands:{show(){throw Error('Unexpected commands');}},
- runLuaScript:(input,options)=>runLuaScript(input,{...options,wasmUri:undefined}),hex:p=>'#'+p.map(v=>v.toString(16).padStart(2,'0')).join(''),reconcile(){},analyticsRef:ref({})};
+ runLuaScript:(input,options)=>runLuaScript(input,{...options,wasmUri:undefined}),hex:p=>'#'+p.map(v=>v.toString(16).padStart(2,'0')).join(''),reconcile(){},analyticsRef:ref({scripted:(...args)=>analyticsCalls.push(['scripted',...args]),automation:(...args)=>analyticsCalls.push(['automation',...args]),automationEdit:(...args)=>analyticsCalls.push(['automationEdit',...args])})};
  for(const name of ['setZoom','setTimelinePage','setSelectedFrames','setSelectedLayers','setPlaying','setLuaSaving','setDoc','setHistoryVersion','setHistoryState','setSelection','setActiveFrame','setActiveLayer','setClipId','setSaveStatus','setDocuments','setCommandResult','setNotice'])scope[name]=()=>{};
  scope.setBusy=value=>{scope.busyRef.current=value;};scope.restoreUiContext=context=>{scope.uiContextRef.current=editorUiContext(scope.docRef.current,context);};
  for(const name of ['install','activate','commitSnapshot','undo','redo','runLua'])scope[name]=closure(name,scope);
@@ -30,7 +31,7 @@ async function harness(t){
  const bridge={cancelOpen:async()=>{},ackOpen:async()=>{},bindOpen:async()=>({status:'bound',documentId:'imported'})},calls=[];
  const host={flushRecovery:async()=>{if(scope.luaAbortRef.current)throw Error('Finish the current edit or script before opening a file.');calls.push('flush');},decode:async()=>{calls.push('decode');return {document:createDocument({id:'imported',width:1,height:1})};},persistImported:async document=>{calls.push('persist');return {document,revision:0};},activate:async()=>calls.push('activate')};
  const native=createNativeDocumentSession(bridge,host);scope.nativeSessionRef.current=native;
- return {scope,store,original,native,bridge,host,calls,close};
+ return {scope,store,original,native,bridge,host,calls,close,analyticsCalls};
 }
 
 test('durable Lua results install during rejected external-open cleanup and remain undoable',async t=>{
@@ -41,12 +42,39 @@ test('durable Lua results install during rejected external-open cleanup and rema
  await durable.promise;const opening=f.native.acceptOpen({files:[{token:'external',name:'external.aseprite'}]}),rejected=assert.rejects(opening,/Finish the current edit or script/);await enteredCleanup.promise;
  assert.equal(f.native.busy,true);assert.equal(f.scope.luaSavingRef.current,true);assert.equal((await f.store.loadDocument(f.original.id)).document.layers[0].name,'Lua result');releaseSave.resolve();
  try{await running;assert.equal(f.scope.docRef.current.layers[0].name,'Lua result');assert.equal(f.scope.historyRef.current.canUndo,true);assert.deepEqual(f.calls,[]);}finally{cleanup.resolve();await rejected;}
+ assert.deepEqual(f.analyticsCalls, [['scripted', true]]);
  f.scope.undo();assert.equal(f.scope.docRef.current.layers[0].name,'Layer 1');f.scope.redo();assert.equal(f.scope.docRef.current.layers[0].name,'Lua result');
 });
 
 test('Lua cannot start when an accepted native open already owns the editor',async t=>{
  const f=await harness(t),entered=gate(),release=gate();f.host.flushRecovery=async()=>{entered.resolve();await release.promise;};const opening=f.native.acceptOpen({files:[{token:'external',name:'external.aseprite'}]});await entered.promise;
  await assert.rejects(f.scope.runLua({source:"error('must never run')"}),/Finish the current operation/);assert.equal(f.scope.luaAbortRef.current,null);release.resolve();await opening;assert.deepEqual(f.calls,['decode','persist','activate']);assert.equal(f.scope.docRef.current,f.original);
+});
+
+test('automation Lua reports only a committed document edit, while UI Lua stays unclassified', async t => {
+ const automation=await harness(t);
+ await automation.scope.runLua({source:"app.activeSprite.layers[1].name='Agent edit'"},{source:'automation'});
+ assert.deepEqual(automation.analyticsCalls, [['scripted', true], ['automation', 'lua', 1], ['automationEdit', 'lua', true, 1]]);
+ const noop=await harness(t);
+ await noop.scope.runLua({source:"app.activeSprite.layers[1].name='Layer 1'"},{source:'automation'});
+ assert.deepEqual(noop.analyticsCalls, [['scripted', false], ['automation', 'lua', 1], ['automationEdit', 'lua', false, 1]]);
+ const ui=await harness(t);
+ await ui.scope.runLua({source:"app.activeSprite.layers[1].name='UI edit'"});
+ assert.deepEqual(ui.analyticsCalls, [['scripted', true]]);
+});
+
+test('failed or cancelled Lua never reports an edit', async t => {
+ const failed=await harness(t);
+ await assert.rejects(failed.scope.runLua({source:"error('failed')"}));
+ assert.deepEqual(failed.analyticsCalls, []);
+ const cancelled=await harness(t);
+ const running=cancelled.scope.runLua({source:'while true do end',timeoutMs:100});
+ await assert.rejects(running);
+ assert.deepEqual(cancelled.analyticsCalls, []);
+ const unavailable=await harness(t);
+ unavailable.store.saveDocuments=async()=>{throw Error('storage unavailable');};
+ await assert.rejects(unavailable.scope.runLua({source:"app.activeSprite.layers[1].name='not saved'"}));
+ assert.deepEqual(unavailable.analyticsCalls, []);
 });
 
 test('close during durable Lua save remains blocked while completion still installs',async t=>{
@@ -65,5 +93,6 @@ test('ordinary and merely-running Lua snapshots remain blocked by native operati
  const running=f.scope.runLua({source:"local second=Sprite(2,2);second.layers[1].name='New Lua document'"});await durable.promise;
  const opening=f.native.acceptOpen({files:[{token:'external',name:'external.aseprite'}]}),rejected=assert.rejects(opening,/Finish the current edit or script/);await enteredCleanup.promise;releaseSave.resolve();
  try {await running;assert.notEqual(f.scope.docRef.current.id,f.original.id);assert.equal(f.scope.docRef.current.layers[0].name,'New Lua document');assert.deepEqual(f.calls,[]);assert.equal((await f.store.loadDocument(f.scope.docRef.current.id)).document.layers[0].name,'New Lua document');}finally{cleanup.resolve();await rejected;}
+ assert.deepEqual(f.analyticsCalls, [['scripted', true]]);
  f.scope.undo();assert.equal(f.scope.docRef.current.layers[0].name,'Layer 1');f.scope.redo();assert.equal(f.scope.docRef.current.layers[0].name,'New Lua document');
 });
