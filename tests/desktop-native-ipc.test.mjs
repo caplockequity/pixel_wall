@@ -45,17 +45,27 @@ test('reload stops delivery until a new renderer subscription is ready', async (
 });
 test('sandbox preload exposes only fixed methods and strips IPC events from notifications', async () => {
   const source = await readFile(new URL('../desktop/native-preload.cjs', import.meta.url), 'utf8');
-  let bridge, listener, removed;
+  let bridge, agent, listener, removed;
+  const listeners = new Map();
   const messages = [], secretEvent = { sender: 'privileged' };
   vm.runInNewContext(source, { require(name) { assert.equal(name, 'electron'); return {
-    contextBridge: { exposeInMainWorld: (name, api) => { assert.ok(['pixelwallNativeFiles', 'pixelwallNativeClipboard'].includes(name)); if (name === 'pixelwallNativeFiles') bridge = api; } },
-    ipcRenderer: { invoke: (channel, payload) => messages.push([channel, payload]), on: (channel, fn) => { listener = fn; }, removeListener: (_channel, fn) => { removed = fn; } },
+    contextBridge: { exposeInMainWorld: (name, api) => { assert.ok(['pixelwallNativeFiles', 'pixelwallNativeClipboard', 'pixelwallAgentConnection'].includes(name)); if (name === 'pixelwallNativeFiles') bridge = api; if (name === 'pixelwallAgentConnection') agent = api; } },
+    ipcRenderer: { invoke: (channel, payload) => messages.push([channel, payload]), on: (channel, fn) => { listeners.set(channel, fn); listener = fn; }, removeListener: (channel, fn) => { removed = fn; if (listeners.get(channel) === fn) listeners.delete(channel); } },
   }; } });
   assert.deepEqual(Object.keys(bridge).sort(), [...NATIVE_METHODS, 'onOpen'].sort());
   assert.equal(bridge.send, undefined); assert.equal(bridge.invoke, undefined); assert.equal(bridge.readFile, undefined);
   bridge.info({ documentId: 'doc' }); assert.deepEqual(messages[0], ['pixelwall:native:info', { documentId: 'doc' }]);
   let notified; const stop = bridge.onOpen((...args) => { notified = args; }); listener(secretEvent, { files: [] });
   assert.deepEqual(notified, [{ files: [] }]); stop(); assert.equal(removed, listener);
+  assert.deepEqual(Object.keys(agent).sort(), ['disable', 'onChanged', 'status']);
+  agent.status(); assert.deepEqual(messages.at(-1), ['pixelwall:mcp:status', undefined]);
+  agent.disable(); assert.deepEqual(messages.at(-1), ['pixelwall:mcp:disable', undefined]);
+  let connection;
+  const stopConnection = agent.onChanged(value => { connection = value; });
+  const connectionListener = listeners.get('pixelwall:mcp:changed');
+  connectionListener(secretEvent, { enabled: true, connected: true });
+  assert.deepEqual(connection, { enabled: true, connected: true });
+  stopConnection(); assert.equal(listeners.has('pixelwall:mcp:changed'), false);
 });
 test('desktop packages native modules, preserves sandbox settings and declares both editable associations', async () => {
   const main = await readFile(new URL('../desktop/main.mjs', import.meta.url), 'utf8');

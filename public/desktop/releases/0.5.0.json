@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "version": "0.5.0",
+  "publishedAt": "2026-10-27",
+  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-5-0",
+  "releaseNotes": [
+    "Added an opt-in authenticated local MCP launcher for a running PixelWall desktop window, with inspection, bounded edits, progress polling, cancellation, previews, exports, and verified generated-file handoff.",
+    "Added retry-safe request keys, immutable preflight validation, observable operation progress, and cancellation between commands while preserving atomic document commits.",
+    "Added deterministic editable scene components for trees, rocks, river banks, bridges, and terrain accents, with named layers, shared palettes, bounded sizes, and reproducible seeds.",
+    "Added before/after artwork review previews and bounded local artifact storage with expiry, checksums, and explicit separation between file generation and browser download completion.",
+    "Updated the web editor, standalone browser edition, CLI, and desktop guidance for compact backups, legacy JSON reopening, local MCP setup, scene components, and agent recovery."
+  ],
+  "downloads": {
+    "darwin-arm64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.5.0/PixelWall-0.5.0-mac-arm64.zip",
+      "filename": "PixelWall-0.5.0-mac-arm64.zip",
+      "signed": true,
+      "size": 114755576,
+      "sha256": "8c30ad1b3734e64d2abc1a90c0aca15944f67f1ef1085802e678c12958187c10",
+      "notarized": true
+    },
+    "darwin-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.5.0/PixelWall-0.5.0-mac-x64.zip",
+      "filename": "PixelWall-0.5.0-mac-x64.zip",
+      "signed": true,
+      "size": 121503227,
+      "sha256": "64dbbe32d09ea1676ba251b825f17449fa067c098dc4f3c6e1ffd1e9e06bfd32",
+      "notarized": true
+    },
+    "win32-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.5.0/PixelWall-0.5.0-windows-x64.exe",
+      "filename": "PixelWall-0.5.0-windows-x64.exe",
+      "signed": false,
+      "size": 95170030,
+      "sha256": "12ed1cec8c9532d4648dc0cb69d0f09fa129ffc7abc38f131fa772bd6cea53d1"
+    },
+    "linux-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.5.0/PixelWall-0.5.0-linux-x64.AppImage",
+      "filename": "PixelWall-0.5.0-linux-x64.AppImage",
+      "signed": false,
+      "size": 118375542,
+      "sha256": "773b9e874ae60770f8501be3abc72a0297118137d2336e82ad1fbb435b023b47"
+    }
+  }
+}

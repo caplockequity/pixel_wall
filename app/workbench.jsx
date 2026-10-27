@@ -1,5 +1,5 @@
 "use client";
-/* eslint react/prop-types: "off" -- Editor documents are validated at the engine boundary. */
+/* eslint react/prop-types: "off", @next/next/no-img-element: "off" -- Editor documents are validated at the engine boundary; local PNG previews use data URLs. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createDocument,
@@ -37,6 +37,11 @@ import { createDocumentHistoryCache } from "./history-cache.mjs";
 import { editorUiContext } from "./editor-ui-context.mjs";
 import { listExternalTilesets, resolveExternalTileset } from "./external-tilesets.mjs";
 import { createAutomation, registerAutomation } from "./editor-automation.mjs";
+import { captureCommands, preflightCommands, throwIfCancelled } from "./command-preflight.mjs";
+import { renderPreview, renderPreviewContactSheet, renderPreviewComparison } from "./preview-render.mjs";
+import SceneComponentsPanel from "./scene-components-panel.jsx";
+import PreviewPanel from "./PreviewPanel.jsx";
+import ArtifactLibrary from "./ArtifactLibrary.jsx";
 import { validateExtension, parsePalette } from "./editor-extensions.mjs";
 import { useProAccess, ProDialog } from "./pro-access";
 import { useDownload, DownloadReady } from "./use-download";
@@ -189,16 +194,6 @@ function rgbaImage(rgba, w, h) {
     0,
   );
   return c;
-}
-function resizeRgba(rgba, w, h, scale) {
-  if (scale === 1) return rgba;
-  const out = new Uint8Array(w * h * scale * scale * 4);
-  for (let y = 0; y < h * scale; y++)
-    for (let x = 0; x < w * scale; x++) {
-      const i = (Math.floor(y / scale) * w + Math.floor(x / scale)) * 4;
-      out.set(rgba.subarray(i, i + 4), (y * w * scale + x) * 4);
-    }
-  return out;
 }
 const FIELD_HELP = {
   "Opacity": "Control how transparent the selected layer is",
@@ -425,6 +420,9 @@ export default function Workbench() {
   const [panel, setPanel] = useState("layers"),
     [modal, setModal] = useState(null),
     [notice, setNotice] = useState(""),
+    [previewResult, setPreviewResult] = useState(null),
+    [previewBaseline, setPreviewBaseline] = useState(null),
+    [agentConnection, setAgentConnection] = useState(null),
     [saveStatus, setSaveStatus] = useState("Opening your workspace…"),
     [documents, setDocuments] = useState([]),
     [revisions, setRevisions] = useState([]),
@@ -541,6 +539,7 @@ export default function Workbench() {
     savedDocumentsRef = useRef(new Map()),
     activeRef = useRef({ frameId: "", layerId: "" }),
     operationRef = useRef(null),
+    previewBaselineRef = useRef(null),
     restoringRef = useRef(false),
     pathRef = useRef([]),
     canvasRef = useRef(null),
@@ -2228,7 +2227,7 @@ export default function Workbench() {
       }
     } else throw Error("Unsupported export format.");
     const filename = `${stem(current.name)}.${suffix}`;
-    const exportResult = downloads.downloadFiles([
+    const exportResult = await downloads.publishFiles([
       { blob: new Blob([bytes], { type: mime }), filename },
       ...(companion ? [companion] : []),
     ], { request: options.download !== false });
@@ -2248,7 +2247,7 @@ export default function Workbench() {
       setBusy(false);
     }
   }
-  async function applyAutomation(commands, label = "Script", {onProgress} = {}) {
+  async function applyAutomation(commands, label = "Script", {onProgress, signal} = {}) {
     automationRef.current?.desktop.assertEditable();
     if (nativeSessionRef.current?.busy || luaAbortRef.current || restoringRef.current || operationRef.current)
       throw Error("Finish the current operation before applying commands.");
@@ -2258,7 +2257,13 @@ export default function Workbench() {
     const list = structuredClone(Array.isArray(commands) ? commands : [commands]);
     const capturedFrameId = activeRef.current.frameId;
     const capturedLayerId = activeRef.current.layerId;
-    const lock = {tool:"automation", base:before};
+    const callerSignal = signal;
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    callerSignal?.addEventListener("abort", cancel, {once:true});
+    if (callerSignal?.aborted) cancel();
+    signal = controller.signal;
+    const lock = {tool:"automation", base:before, cancel};
     operationRef.current = lock;
     let next = before;
     let processed = 0;
@@ -2266,6 +2271,7 @@ export default function Workbench() {
       await deferred();
       let yieldedAt = performance.now();
       for (let index = 0; index < list.length; index++) {
+        throwIfCancelled(signal);
         if (docRef.current !== before || revisionRef.current !== capturedRevision || operationRef.current !== lock)
           throw Error("The project changed while the edit was running. No partial edits were committed.");
         next = applyCommand(next, {frameId:capturedFrameId, layerId:capturedLayerId, ...list[index]});
@@ -2278,6 +2284,7 @@ export default function Workbench() {
       }
       if (docRef.current !== before || revisionRef.current !== capturedRevision || operationRef.current !== lock)
         throw Error("The project changed while the edit was running. No partial edits were committed.");
+      throwIfCancelled(signal);
       historyRef.current.commit(next, label);
       setSaveStatus("Unsaved changes");
       docRef.current = next;
@@ -2294,6 +2301,7 @@ export default function Workbench() {
       setNotice(`Command edit failed after ${processed}/${list.length} commands · ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     } finally {
+      callerSignal?.removeEventListener("abort", cancel);
       if (operationRef.current === lock) operationRef.current = null;
     }
   }
@@ -2377,6 +2385,52 @@ export default function Workbench() {
       revision: () => revisionRef.current,
       inspect: () => describeDocument(docRef.current),
       commands: () => COMMANDS,
+      validate: async ({commands, timeoutMs} = {}) => {
+        const current = docRef.current;
+        if (!current) throw Error("Open a project first.");
+        return preflightCommands(current, commands, {...activeRef.current, timeoutMs});
+      },
+      projects: async () => {
+        const entries = await storeRef.current?.listDocuments() ?? [];
+        return {activeDocumentId:docRef.current?.id, projects:entries};
+      },
+      openProject: async ({documentId} = {}) => {
+        if (typeof documentId !== "string" || !documentId || documentId.length > 200) throw Error("Choose a project ID from the project list.");
+        if (busyRef.current || luaAbortRef.current || nativeSessionRef.current?.busy || operationRef.current || restoringRef.current) throw Error("Finish the current operation before opening a project.");
+        const store = storeRef.current;
+        if (!store) throw Error("The local library is unavailable.");
+        if (documentId === docRef.current?.id) return;
+        const before = docRef.current, revision = revisionRef.current;
+        const saved = await store.loadDocument(documentId);
+        if (!saved) throw Error("Project not found in the local library.");
+        if (!await save()) throw Error("Save the current project before opening another project.");
+        if (docRef.current !== before || revisionRef.current !== revision) throw Error("The current project changed. Retry opening the project after finishing the edit.");
+        await activate(saved.document, saved.revision);
+        setClosedDocuments(ids => ids.filter(value => value !== documentId));
+      },
+      importProject: async ({bytes, name} = {}) => {
+        if (!Array.isArray(bytes) || !bytes.length || bytes.length > 16 * 1024 * 1024 || bytes.some(value => !Number.isInteger(value) || value < 0 || value > 255)) throw Error("Provide project bytes as an array of at most 16 MiB.");
+        if (busyRef.current || luaAbortRef.current || nativeSessionRef.current?.busy || operationRef.current || restoringRef.current) throw Error("Finish the current operation before importing a project.");
+        const decoded = decodeProjectContainer(new Uint8Array(bytes));
+        const next = decoded.format === "pixelwall-document" && decoded.version === 4 ? normalizeDocument(decoded) : migrateLegacy(parseProject(JSON.stringify(decoded)));
+        next.id = crypto.randomUUID();
+        if (name !== undefined) {
+          if (typeof name !== "string" || !name.trim() || name.length > 240) throw Error("Project name must contain 1–240 characters.");
+          next.name = name.trim();
+        }
+        const store = storeRef.current;
+        const before = docRef.current, revision = revisionRef.current;
+        if (!store || !await save()) throw Error("Save the current project before importing another project.");
+        const stored = await store.saveDocument(next, {label:"Agent import"});
+        if (docRef.current !== before || revisionRef.current !== revision) throw Error("The current project changed. The imported project was saved in the library; open it after finishing the edit.");
+        await activate(next, stored.revision);
+        setDocuments(await store.listDocuments());
+      },
+      artifacts: () => downloads.artifacts(),
+      artifact: id => downloads.artifact(id),
+      readArtifact: options => downloads.readArtifact(options),
+      removeArtifact: id => downloads.removeArtifact(id),
+      downloadArtifact: id => downloads.downloadArtifact(id),
       colorProfile: async ({operation = "inspect", icc, intent = 1} = {}) => {
         if (!["inspect", "assign", "convert"].includes(operation)) throw Error("Choose inspect, assign or convert.");
         const before = docRef.current, revision = revisionRef.current;
@@ -2390,7 +2444,7 @@ export default function Workbench() {
         return {revision:revisionRef.current,...manager.profileInfo(documentProfile(docRef.current)),profile:documentProfile(docRef.current)};
       },
       runLua: (options) => runLua(options, {source: "automation"}),
-      apply: async (commands, label, {onProgress} = {}) => {
+      apply: async (commands, label, {onProgress, signal} = {}) => {
         const list = Array.isArray(commands) ? commands : [commands];
         const reportProgress = progress => {
           if (progress.status === "committed") setNotice(`Applied ${progress.commandsProcessed}/${progress.commandsTotal} commands · revision ${progress.revision}`);
@@ -2398,7 +2452,7 @@ export default function Workbench() {
           onProgress?.(progress);
         };
         reportProgress({status:"running", commandsProcessed:0, commandsTotal:list.length, revision:revisionRef.current});
-        await applyAutomation(list, label, {onProgress:reportProgress});
+        await applyAutomation(list, label, {onProgress:reportProgress, signal});
         analyticsRef.current.automation("apply", list.length);
         analyticsRef.current.automationEdit("apply", historyRef.current.lastChange?.changed, list.length);
       },
@@ -2407,22 +2461,29 @@ export default function Workbench() {
         analyticsRef.current.automation("new_document");
         return result;
       },
-      preview: async ({ frameId, scale = 1 } = {}) => {
-        const current = docRef.current,
-          s = clamp(scale, 1, 8);
+      capturePreview: () => {
+        previewBaselineRef.current = docRef.current;
+        setPreviewBaseline(docRef.current);
+        return {documentId:docRef.current.id,revision:revisionRef.current};
+      },
+      preview: async (options = {}) => {
+        const current = docRef.current;
+        if (!current) throw Error("Open a project first.");
         const manager = colorManager || await loadBrowserColorManager();
-        const rgba = resizeRgba(
-          manager.displayFrame(current, frameId || activeRef.current.frameId),
-          current.width,
-          current.height,
-          s,
-        );
-        const c = rgbaImage(rgba, current.width * s, current.height * s);
-        return {
-          width: c.width,
-          height: c.height,
-          dataUrl: c.toDataURL("image/png"),
-        };
+        const settings = {...options, frameId:options.frameId || activeRef.current.frameId,
+          renderFrame:(document, frameId) => manager.displayFrame(document, frameId)};
+        const png = image => { const {rgba, ...metadata} = image; return {...metadata, dataUrl:rgbaImage(rgba, image.width, image.height).toDataURL("image/png")}; };
+        if (options.compare || options.kind === "comparison") {
+          const baseline = previewBaselineRef.current;
+          if (!baseline || baseline.id !== current.id) throw Error("Capture a comparison baseline for this project first.");
+          const result = renderPreviewComparison(baseline, current, settings);
+          return {...result, before:png(result.before), after:png(result.after), diff:undefined,
+            dataUrl:rgbaImage(result.diff, result.width, result.height).toDataURL("image/png")};
+        }
+        const result = options.contactSheet || options.kind === "contact-sheet"
+          ? renderPreviewContactSheet(current, {...settings, columns:options.columns ?? Math.min(8, options.frameIds?.length ?? current.frames.length)})
+          : renderPreview(current, settings);
+        return png(result);
       },
       save: async () => {
         const result = await save();
@@ -2491,6 +2552,14 @@ export default function Workbench() {
     return () => { remove(); if (nativeSessionRef.current === session) nativeSessionRef.current = null; };
   }, [report]);
   useEffect(() => {
+    const bridge = window.pixelwallAgentConnection;
+    if (!bridge) return;
+    let mounted = true;
+    void bridge.status().then(value => { if (mounted) setAgentConnection(value); }).catch(report);
+    const remove = bridge.onChanged(value => { if (mounted) setAgentConnection(value); });
+    return () => { mounted = false; remove(); };
+  }, [report]);
+  useEffect(() => {
     if (docRef.current && storeRef.current && nativeSessionRef.current && !nativeReadyRef.current) {
       nativeReadyRef.current = true;
       void (async () => {
@@ -2508,7 +2577,10 @@ export default function Workbench() {
   async function runBatch() {
     try {
       const parsed = JSON.parse(commandText);
-      const result = await applyAutomation(Array.isArray(parsed) ? parsed : [parsed], "Command batch");
+      const commands = captureCommands(Array.isArray(parsed) ? parsed : [parsed]).commands;
+      const result = await applyAutomation(commands, "Command batch", {onProgress: progress => {
+        if (progress.commandsProcessed % 32 === 0 || progress.status === "committed") setNotice(`Applying ${progress.commandsProcessed}/${progress.commandsTotal} commands · revision ${progress.revision}`);
+      }});
       setCommandResult(JSON.stringify(describeDocument(result), null, 2));
       setNotice("Command batch applied as one undoable edit.");
       canvasRef.current?.focus({preventScroll:true});
@@ -2766,6 +2838,10 @@ export default function Workbench() {
           />
         </div>
       </header>
+      {agentConnection?.enabled && <aside className="wb-agent-status" aria-label="Local agent connection">
+        <span>{agentConnection.connected ? "Agent connected" : "Waiting for local agent"} · Exports: {agentConnection.exportRoot}</span>
+        <button type="button" onClick={() => void window.pixelwallAgentConnection.disable().then(setAgentConnection).catch(report)}>Disconnect agent</button>
+      </aside>}
       <nav className="wb-project-bar" aria-label="Projects">
         <IconButton icon={ChevronLeft} label="Scroll projects left" onClick={() => documentTabsRef.current?.scrollBy({left:-260, behavior:"smooth"})} />
         <div className="wb-doc-tabs" ref={documentTabsRef} onWheel={event => {
@@ -2805,6 +2881,9 @@ export default function Workbench() {
           <Search size={13} />
           Commands
         </button>
+        <button onClick={() => setModal("components")}>Scene components</button>
+        <button onClick={() => {setPreviewResult(null);setModal("preview");}}>Review artwork</button>
+        <button onClick={() => setModal("artifacts")}>Generated files</button>
       </nav>
       <section className="wb-options" aria-label="Tool options">
         <strong>{TOOLS.find((t) => t[0] === tool)?.[1]}</strong>
@@ -3876,6 +3955,10 @@ export default function Workbench() {
                     spellCheck={false}
                   />
                 </label>
+                <button onClick={() => { try {
+                  const value = JSON.parse(commandText);
+                  void automationRef.current.validate({commands:Array.isArray(value) ? value : [value]}).then(result => setCommandResult(JSON.stringify(result, null, 2))).catch(report);
+                } catch (error) { report(error); } }}>Validate batch</button>
                 <button className="wb-primary" onClick={runBatch}>
                   Run command batch
                 </button>
@@ -4158,6 +4241,12 @@ export default function Workbench() {
         </div>
       </section>
       <footer className="wb-status">
+        {operationRef.current?.tool === "automation" && <button type="button" data-pixelwall-agent-controls onClick={() => {
+          const operation = automationRef.current?.inspect().latestOperation;
+          if (operation && ["queued", "running"].includes(operation.status)) automationRef.current.cancel(operation.id);
+          operationRef.current?.cancel?.();
+          setNotice("Cancellation requested; waiting for the current command to finish.");
+        }}>Cancel edit</button>}
         <span role="status">
           {notice ||
             "Draw, animate, and export. All artwork stays on your device."}
@@ -4259,6 +4348,24 @@ export default function Workbench() {
           </form>
         </Modal>
       )}
+      {modal === "components" && <Modal title="Scene components" onClose={() => setModal(null)} wide>
+        <SceneComponentsPanel disabled={busy || !!operationRef.current} onStamp={command => {
+          if (run(command, "Stamp scene component")) setNotice("Component added as editable layers. Undo restores the previous scene.");
+        }} />
+      </Modal>}
+      {modal === "preview" && <Modal title="Review artwork" onClose={() => setModal(null)} wide>
+        <button type="button" onClick={() => { automationRef.current.capturePreview(); setPreviewResult(null); }}>Capture comparison baseline</button>
+        <PreviewPanel key={doc.id} document={doc} beforeDocument={previewBaseline?.id === doc.id ? previewBaseline : null}
+          result={previewResult} onRender={options => void automationRef.current.preview(options).then(setPreviewResult).catch(report)} />
+        {previewResult && <div className="wb-preview-images">
+          {previewResult.kind === "comparison" ? <>{["before", "after"].map(name => <figure key={name}><figcaption>{name === "before" ? "Before" : "After"}</figcaption><img src={previewResult[name].dataUrl} alt={`${name} artwork preview`} /></figure>)}<figure><figcaption>Changed pixels</figcaption><img src={previewResult.dataUrl} alt="Changed pixels in red" /></figure></>
+            : <figure><img src={previewResult.dataUrl} alt={previewResult.kind === "contact-sheet" ? "Animation contact sheet" : "Artwork preview"} /></figure>}
+        </div>}
+      </Modal>}
+      {modal === "artifacts" && <Modal title="Generated files" onClose={() => setModal(null)} wide>
+        <p>Generated copies stay on this device for up to 24 hours, subject to the 128 MiB / 64-file limit. Download a copy to keep it.</p>
+        <ArtifactLibrary listArtifacts={downloads.artifacts} onDownload={downloads.downloadArtifact} onRemove={downloads.removeArtifact} onReleaseUrl={downloads.releaseArtifactUrl} refreshKey={downloads.lastResult?.id} />
+      </Modal>}
       {modal === "water" && (
         <Modal title="Generate water scene" wide onClose={() => setModal(null)}>
           <form onSubmit={(e) => { e.preventDefault(); void newWaterScene(waterOptions).catch(report); }}>

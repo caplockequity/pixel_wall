@@ -8,6 +8,7 @@ import { tilesetSlots, assertTilesetEditable } from './tileset-access.mjs';
 import { indexedConversionOptions, quantizePalette, mapIndexedImage } from './indexed-color.mjs';
 import { validateAsepriteUserData } from './aseprite-properties.mjs';
 import { generateWaterScene } from './water-generator.mjs';
+import { generateSceneComponent, SCENE_COMPONENT_KINDS, SCENE_COMPONENT_STYLES } from './scene-components.mjs';
 /** PixelWall v4: a portable, transactional 2D document and raster engine. No DOM. */
 export const LIMITS = Object.freeze({ edge: 65535, canvasPixels: 4194304, imageEdge: 65535, pixels: 16777216, layers: 256, frames: 2048, palette: 65536, operations: 67108864 });
 export const BLEND_MODES = Object.freeze(['normal','multiply','screen','overlay','darken','lighten','color-dodge','color-burn','hard-light','soft-light','difference','exclusion','addition','subtract','divide','hue','saturation','color','luminosity']);
@@ -688,6 +689,14 @@ export function applyCommand(input,command){
   for(const key of ['name','width','height','colorMode','colorProfile','palette','layers','frames','images','clips','slices','tilesets','metadata'])doc[key]=replacement[key];
   break;
  }
+ case'scene.component':{
+  const generated=generateSceneComponent(c); const frame=doc.frames[0];
+  if(!frame)fail('Document has no frame');
+  const prefix=c.id??`component-${generated.kind}-${generated.seed}`;
+  for(const layer of generated.layers){const layerId=`${prefix}-${layer.id}`;if(doc.layers.some(value=>value.id===layerId))fail(`Component layer id exists: ${layerId}`);const imageId=`${layerId}-image`;reserve(doc,layer.pixels.length);doc.images[imageId]={width:generated.width,height:generated.height,pixels:[...layer.pixels]};doc.layers.push({id:layerId,name:layer.name,type:'image',parentId:null,visible:true,locked:false,opacity:1,blendMode:'normal'});for(const target of doc.frames)target.cels[layerId]={imageId,x:generated.x,y:generated.y,opacity:1};}
+  doc.metadata={...doc.metadata,sceneComponents:[...(doc.metadata?.sceneComponents??[]),generated.metadata]};
+  break;
+ }
  case'batch':{if(!Array.isArray(c.commands)||c.commands.length>1024)fail('Invalid command batch');let result=input;for(const command of c.commands)result=applyCommand(result,command);return result;}
  case'object.userData':{let target;if(c.target==='sprite')target=doc;else if(c.target==='layer')target=layerFor(doc,c.layerId,true);else if(c.target==='cel'){const layer=layerFor(doc,c.layerId,true);target=frameFor(doc,c.frameId).cels[layer.id];}else if(c.target==='tileset'||c.target==='tile'){const ts=doc.tilesets.find(t=>t.id===c.tilesetId);if(!ts)fail('Tileset missing');assertTilesetEditable(doc,ts.id);if(c.target==='tileset')target=ts;else{const slots=tilesetSlots(doc,ts),index=integer(c.tileIndex,'Tile index',0,slots.count-1);ts.tileUserData=[...(ts.tileUserData??[])];const userData=validateAsepriteUserData(c.userData);ts.tileUserData[index]=userData;target=slots.entries.get(index);if(target)target.userData=userData;break;}}else if(c.target==='tag')target=doc.clips.find(v=>v.id===c.clipId);else if(c.target==='slice')target=doc.slices.find(v=>v.id===c.sliceId);else fail('Unsupported user-data target');if(!target)fail('User-data target missing');target.userData=validateAsepriteUserData(c.userData);break;}
  case'document.update':{if(!record(c.patch))fail('Document patch missing');for(const key of Object.keys(c.patch))if(!['name','metadata'].includes(key))fail(`Document field ${key} cannot be patched`);if(c.patch.name!==undefined)doc.name=name(c.patch.name,'Untitled Sprite');if(c.patch.metadata!==undefined)doc.metadata=jsonCopy(c.patch.metadata);break;}
@@ -767,6 +776,7 @@ const STROKE={...DRAW,size:'Integer 1–256 (default 1).',brush:'square | circle
 export const COMMANDS=Object.freeze([
  ['batch','Apply an ordered command list atomically.',{commands:'Array of up to 1024 command objects.'}],
  ['scene.water','Generate a deterministic animated water scene into a blank document.',{scene:'pond | river | stream | waterfall | shoreline',view:'top-down (default) | isometric (2:1)',seed:'Unsigned shoreline/land seed',waterSeed:'Optional unsigned independent water animation seed; defaults to seed',season:'spring | summer | autumn | winter',frames:'1–32, default 12',durationMs:'1–65535, default 125',details:'0–4 scene detail level',rippleDensity:'0–1, default .5',phaseOffset:'Integer -65535…65535; wraps by frame count. Use for isolated pieces.',palette:'Named color-role object with RGB/RGBA hex values; no arrays',replace:'Required true when replacing non-empty artwork.'}],
+ ['scene.component','Stamp a deterministic editable scene component into every frame.',{kind:`${SCENE_COMPONENT_KINDS.join(' | ')}`,style:`${SCENE_COMPONENT_STYLES.join(' | ')}`,seed:'Unsigned component seed',position:'{x,y} canvas position; defaults 0,0',size:'Integer square or {width,height}, 4–128',palette:'Named palette-role overrides',id:'Optional unique layer prefix.'}],
  ['object.userData','Replace native user data on a sprite, layer, cel, tag, slice, tileset or tile.',{target:'sprite | layer | cel | tag | slice | tileset | tile',tilesetId:'Tileset/tile target ID',tileIndex:'Zero-based native tile index',layerId:'Layer target ID',frameId:'Cel frame ID',clipId:'Tag target ID',sliceId:'Slice target ID',userData:'{text?,color?:#rrggbbaa,propertiesBytes?:native property block}'}],
  ['document.update','Rename the document or replace metadata.',{patch:'{name?:string,metadata?:object}'}],
  ['document.colorProfile','Assign a working profile or apply a bounded precomputed color conversion.',{profile:'{type:0|1|2,flags?:0|1,gamma?:number,icc?:byte[],name?:string}',replacements:'Optional validated images/palette/framePalettes; preserves dimensions, IDs, links, layers and color mode.'}],

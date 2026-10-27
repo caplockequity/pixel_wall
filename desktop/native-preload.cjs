@@ -21,6 +21,16 @@ contextBridge.exposeInMainWorld('pixelwallNativeFiles', Object.freeze({
     return () => ipcRenderer.removeListener('pixelwall:native:opened', listener);
   },
 }));
+contextBridge.exposeInMainWorld('pixelwallAgentConnection', Object.freeze({
+  status: () => ipcRenderer.invoke('pixelwall:mcp:status'),
+  disable: () => ipcRenderer.invoke('pixelwall:mcp:disable'),
+  onChanged: callback => {
+    if (typeof callback !== 'function') throw new TypeError('Connection handler must be a function.');
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('pixelwall:mcp:changed', listener);
+    return () => ipcRenderer.removeListener('pixelwall:mcp:changed', listener);
+  },
+}));
 
 // Grant one image operation only for real copy/paste input. Never prevent default:
 // ordinary text fields keep Electron's native text clipboard behavior.

@@ -30,7 +30,7 @@ function host(doc, requestAccess = async () => true) {
   colorManager:manager, loadBrowserColorManager:async () => manager, renderingIntent:1,
   docRef, activeRef:{current:{frameId:doc.frames[0].id,layerId:doc.layers[0].id}}, clipId:'',
   targetLayers:() => [doc.layers[0].id], PAID_FORMATS:new Set(['gif','sheet','zip']), access:{requestAccess},
-  stem:() => 'fixture', deferred:async () => {}, downloads:{downloadFiles:(items,options) => { files.push(...items); requests.push(options); return { generated:{status:'generated'}, download:{status:options?.request === false ? 'not_requested' : 'requested'} }; }}, setNotice:() => {}};
+  stem:() => 'fixture', deferred:async () => {}, downloads:{publishFiles:(items,options) => { files.push(...items); requests.push(options); return { generated:{status:'generated'}, download:{status:options?.request === false ? 'not_requested' : 'requested'} }; }}, setNotice:() => {}};
  const run = Function(...Object.keys(deps), `${code}\nreturn generateArtwork;`)(...Object.values(deps));
  return {run, files, requests, docRef};
 }
