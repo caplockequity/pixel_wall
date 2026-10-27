@@ -19,8 +19,8 @@ const enumValues = {
   mode:['canvas','scale'], colorMode:['rgba','indexed','grayscale'], effect:['replace','outline','brightness','contrast','hue','saturation','convolution','despeckle']
 };
 const FIELD_TYPES = {
-  commands:{type:'array',items:{type:'object'},maxItems:1024}, points:{type:'array',minItems:2}, pixels:{type:'array'}, palette:{type:'array',minItems:1}, frameIds:{type:'array',minItems:1}, selection:{oneOf:[{type:'array'},{type:'object'}]}, mapping:{type:'object'},
-  from:{type:'object'},to:{type:'object'},endColor:{type:'string'},patch:{type:'object'},clip:{type:'object'},layer:{type:'object'},slice:{type:'object'},profile:{type:'object'},replacements:{type:'object'}, metadata:{type:'object'},
+  commands:{type:'array',items:{type:'object'},maxItems:1024}, points:{type:'array'}, pixels:{type:'array'}, palette:{type:'array',minItems:1}, frameIds:{type:'array',minItems:1}, movingLayers:{type:'array'},pinnedLayers:{type:'array'},foamRegions:{type:'array'},selection:{oneOf:[{type:'array'},{type:'object'}]}, mapping:{type:'object'},
+  from:{type:'object'},to:{type:'object'},origin:{type:'object'},size:{},field:{type:'object'},flowDirection:{type:'object'},pinnedRegions:{type:'object'},layerAmplitudes:{type:'object'},phaseOffsets:{type:'object'},endColor:{type:'string'},patch:{type:'object'},clip:{type:'object'},layer:{type:'object'},slice:{type:'object'},profile:{type:'object'},replacements:{type:'object'}, metadata:{type:'object'},
   x:{type:'integer'},y:{type:'integer'},width:{type:'integer'},height:{type:'integer'},index:{type:'integer'},durationMs:{type:'integer'},seed:{type:'integer'},count:{type:'integer'},radius:{type:'integer'},
   opacity:{type:'number'},amount:{type:'number'},scale:{type:'number'},scaleX:{type:'number'},scaleY:{type:'number'},
   filled:{type:'boolean'},loop:{type:'boolean'},linked:{type:'boolean'},replace:{type:'boolean'},bake:{type:'boolean'},visibleOnly:{type:'boolean'},
