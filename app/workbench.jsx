@@ -50,7 +50,7 @@ import TilePixelEditor from "./tile-pixel-editor";
 import { registerOffline } from "./offline-client.mjs";
 import { sameFrameRender } from "./frame-render-equality.mjs";
 import SheetImportPreview from "./sheet-import-preview.jsx";
-import { captureAnalyticsEvent, captureAnonymousCreation, captureAnonymousExportOutcome, captureAnonymousAutomationEdit, getAnalyticsConsentStatus, isAnonymousTrafficEnabled, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
+import { captureAnalyticsEvent, captureAnonymousCreation, captureAnonymousExportOutcome, captureAnonymousAutomationEdit, captureAnonymousAutomationOperation, getAnalyticsConsentStatus, isAnonymousTrafficEnabled, ANALYTICS_CONSENT_CHANGED_EVENT } from "./analytics";
 import { createWorkbenchAnalytics, analyticsFormat } from "./workbench-analytics.mjs";
 import { encodeClipboardImage, decodeClipboardImage } from "./native-clipboard-payload.mjs";
 import { renderScaledExportFrame } from "./export-render.mjs";
@@ -585,6 +585,7 @@ export default function Workbench() {
       captureAggregateCreation: captureAnonymousCreation,
       captureAggregateExport: captureAnonymousExportOutcome,
       captureAggregateAutomationEdit: captureAnonymousAutomationEdit,
+      captureAggregateAutomationOperation: captureAnonymousAutomationOperation,
     });
   }
   const pendingImportFormatRef = useRef("image");
@@ -2435,14 +2436,16 @@ export default function Workbench() {
         if (!["inspect", "assign", "convert"].includes(operation)) throw Error("Choose inspect, assign or convert.");
         const before = docRef.current, revision = revisionRef.current;
         const manager = colorManager || await loadBrowserColorManager();
+        let changed = false;
         if (operation !== "inspect") {
           const profile = icc ? manager.readProfile(icc) : "sRGB";
           const next = operation === "assign" ? manager.assignProfile(before, profile) : manager.convertDocument(before, profile, {intent});
-          const changed = commitSnapshot(next, operation === "assign" ? "Assign color profile" : "Convert color profile", before, revision);
+          changed = commitSnapshot(next, operation === "assign" ? "Assign color profile" : "Convert color profile", before, revision);
           analyticsRef.current.automationEdit("color_profile", changed);
         }
-        return {revision:revisionRef.current,...manager.profileInfo(documentProfile(docRef.current)),profile:documentProfile(docRef.current)};
+        return {revision:revisionRef.current, changed, ...manager.profileInfo(documentProfile(docRef.current)),profile:documentProfile(docRef.current)};
       },
+      automationOperation: data => analyticsRef.current.automationOperation(data),
       runLua: (options) => runLua(options, {source: "automation"}),
       apply: async (commands, label, {onProgress, signal} = {}) => {
         const list = Array.isArray(commands) ? commands : [commands];
@@ -2455,6 +2458,7 @@ export default function Workbench() {
         await applyAutomation(list, label, {onProgress:reportProgress, signal});
         analyticsRef.current.automation("apply", list.length);
         analyticsRef.current.automationEdit("apply", historyRef.current.lastChange?.changed, list.length);
+        return { changed: historyRef.current.lastChange?.changed === true, revision: revisionRef.current };
       },
       newDocument: async (options) => {
         const result = await newDocument(options);
@@ -2500,19 +2504,23 @@ export default function Workbench() {
         const before = revisionRef.current;
         const beforeDocument = docRef.current;
         undo();
+        const changed = !historyValuesEqual(beforeDocument, docRef.current);
         if (revisionRef.current !== before) {
           analyticsRef.current.automation("undo");
-          analyticsRef.current.automationEdit("undo", !historyValuesEqual(beforeDocument, docRef.current));
+          analyticsRef.current.automationEdit("undo", changed);
         }
+        return { revision: revisionRef.current, changed };
       },
       redo: () => {
         const before = revisionRef.current;
         const beforeDocument = docRef.current;
         redo();
+        const changed = !historyValuesEqual(beforeDocument, docRef.current);
         if (revisionRef.current !== before) {
           analyticsRef.current.automation("redo");
-          analyticsRef.current.automationEdit("redo", !historyValuesEqual(beforeDocument, docRef.current));
+          analyticsRef.current.automationEdit("redo", changed);
         }
+        return { revision: revisionRef.current, changed };
       },
     };
   });
@@ -2737,7 +2745,7 @@ export default function Workbench() {
       setCommandResult([...result.prints, `${result.stats.commands} editing commands applied.`].join("\n"));
       setNotice(packageRun ? "Package command applied and preferences saved. Undo restores artwork and selection." : "Lua script applied. Undo restores the previous artwork and selection.");
       canvasRef.current?.focus({preventScroll:true});
-      return {revision:revisionRef.current,document:describeDocument(docRef.current),prints:result.prints,stats:result.stats};
+      return {revision:revisionRef.current,changed:changed || changedDocument,document:describeDocument(docRef.current),prints:result.prints,stats:result.stats};
     } finally { luaAbortRef.current = null; luaSavingRef.current = false; setLuaSaving(false); setBusy(false); }
   }
   async function showRecovery() {

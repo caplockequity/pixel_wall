@@ -57,7 +57,8 @@ production, set these two public variables in Vercel and rebuild:
 
 Optional collection runs only on `pixelwall.dev` and `www.pixelwall.dev`.
 Local development, Vercel aliases, private Sites previews, desktop apps, the
-standalone browser bundle and the CLI are excluded. Leaving the token unset is
+standalone browser bundle and the CLI are excluded from browser analytics. Packaged
+desktop MCP has a separate, off-by-default reporting choice described below. Leaving the token unset is
 supported and keeps PostHog disabled.
 
 Browser events use the first-party `/beam` relay. It strips cookies,
@@ -126,6 +127,22 @@ The event inventory covers:
   Automated export outcomes use `action: "export"` with `source: "automation"`;
   older export events without a source remain unattributed. These counters never
   include agent IDs, scripts, artwork, document names or command arguments.
+  Workflow outcomes additionally use `automation_operation_completed` (optional)
+  and `site_traffic_counted` with `action: "automation_operation"` (aggregate).
+  These distinguish validation, previews, project operations, artifact actions,
+  failures and cancellations from actual edits. Scene components use the `scene`
+  command family. A successful export means generation; its
+  `artifact_persistence` separately reports whether retrieval storage succeeded.
+- Desktop MCP: packaged apps with the new reporting control can explicitly enable
+  **Help → Share anonymous MCP usage**. It is off by default and separate from
+  permission to connect an agent. `desktop_automation_counted` contains fixed
+  operation/outcome categories and, where applicable, `changed`, preview kind or
+  artifact persistence. `save_artifact` succeeds only after disk and hash
+  verification. No persistent identity, content, paths, model names or raw errors
+  are sent; timestamps are rounded to the UTC date. Reports have no offline queue,
+  retries or backfill. Disabling aborts pending reports. Existing 0.5.0 apps cannot
+  report; a desktop update and explicit opt-in are required. CLI and standalone
+  use remain untracked. These are reported actions, not verified agents or users.
 - Classic editor: lifecycle/guidance, committed edits, structure, playback,
   references, file operations, autosave and export outcomes.
 - Privacy grants: `analytics_consent_updated`. Refusals and withdrawals do not
@@ -138,11 +155,12 @@ requests so validation traffic is not mistaken for real visitors.
 
 The versioned dashboard definitions are in `docs/analytics/posthog-dashboards.json`.
 They cover website/downloads, product signals, editor/exports, Pro/reliability,
-and agent discovery/automation (42 insights). The agent dashboard separates
+and agent discovery/automation (48 insights). The agent dashboard separates
 anonymous aggregate edits and automated export outcomes from the optional
 consented `automation_edit_completed` subset, so the same activity is not added
 twice. Its daily aggregate series use UTC-rounded timestamps and count events,
-not visitors or sessions.
+not visitors or sessions. Desktop MCP operations and verified saves have separate
+charts; aggregate events cannot be linked into per-user conversion funnels.
 Only schema 2 production events are included; no historical activity is backfilled.
 To manage them, use a personal API key with project/read, dashboard/read,
 insight/read and query/read access; applying also needs dashboard/write and
@@ -310,7 +328,8 @@ production domain. Page views use fixed page groups rather than URLs; public lin
 and current desktop downloads use a known destination list. The current page is
 counted on permission, and earlier activity is not recovered. Referral categories
 describe the immediate source only. Private previews and downloadable apps remain
-outside this site analytics integration.
+outside this site analytics integration. Packaged desktop MCP offers its own
+explicit opt-in anonymous operation reporting; it does not use the browser SDK.
 
 See [the search launch notes](docs/search-launch.md) for verification, production
 checks, and the remaining account setup. Regenerate the downloadable starter

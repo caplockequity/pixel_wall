@@ -3,6 +3,7 @@ export const captureAnalyticsEvent = () => {};
 export const captureAnonymousExportOutcome = () => {};
 export const captureAnonymousCreation = () => {};
 export const captureAnonymousAutomationEdit = () => {};
+export const captureAnonymousAutomationOperation = () => {};
 export const captureAnonymousCheckoutStart = () => {};
 export const isAnonymousTrafficEnabled = () => false;
 export const getAnalyticsConsentStatus = () => "unavailable";

@@ -19,6 +19,10 @@ const EXPORT_TYPES = new Set([
 ]);
 const EXPORT_OUTCOMES = new Set(["success", "failure", "blocked"]);
 const AUTOMATION_EDIT_OPERATIONS = new Set(["apply", "lua", "color_profile", "undo", "redo"]);
+const AUTOMATION_OPERATIONS = new Set(["apply", "lua", "color_profile", "undo", "redo", "new_document", "open_project", "import_project", "save", "export", "validate", "capture_preview", "preview", "read_artifact", "download_artifact", "remove_artifact"]);
+const AUTOMATION_OPERATION_OUTCOMES = new Set(["success", "failure", "cancelled", "blocked", "missing"]);
+const PREVIEW_KINDS = new Set(["frame", "contact-sheet", "comparison"]);
+const ARTIFACT_PERSISTENCE = new Set(["persisted", "failed", "not_requested"]);
 const EXPORT_SOURCES = new Set(["ui", "automation"]);
 const DOWNLOADS = new Map([
   ["darwin-arm64", "zip"],
@@ -133,6 +137,16 @@ async function readPayload(request) {
       ) return null;
       return { ...parsed, action: "automation_edit" };
     }
+    if (parsed.event === "automation_operation_completed") {
+      if (parsed.page_group !== "editor"
+        || !["event,operation,outcome,page_group", "artifact_persistence,event,operation,outcome,page_group", "event,operation,outcome,page_group,preview_kind", "artifact_persistence,event,operation,outcome,page_group,preview_kind"].includes(keys.join(","))
+        || typeof parsed.operation !== "string" || !AUTOMATION_OPERATIONS.has(parsed.operation)
+        || typeof parsed.outcome !== "string" || !AUTOMATION_OPERATION_OUTCOMES.has(parsed.outcome)) return null;
+      if (Object.hasOwn(parsed, "changed")) return null;
+      if (Object.hasOwn(parsed, "preview_kind") && (typeof parsed.preview_kind !== "string" || !PREVIEW_KINDS.has(parsed.preview_kind))) return null;
+      if (Object.hasOwn(parsed, "artifact_persistence") && (typeof parsed.artifact_persistence !== "string" || !ARTIFACT_PERSISTENCE.has(parsed.artifact_persistence))) return null;
+      return { ...parsed, action: "automation_operation" };
+    }
     return null;
   } catch {
     return null;
@@ -222,6 +236,12 @@ export async function handleTrafficCountRequest(request, {
   } else if (payload.event === "automation_edit_completed") {
     event.properties.source = "automation";
     event.properties.operation = payload.operation;
+  } else if (payload.event === "automation_operation_completed") {
+    event.properties.source = "automation";
+    event.properties.operation = payload.operation;
+    event.properties.outcome = payload.outcome;
+    if (Object.hasOwn(payload, "preview_kind")) event.properties.preview_kind = payload.preview_kind;
+    if (Object.hasOwn(payload, "artifact_persistence")) event.properties.artifact_persistence = payload.artifact_persistence;
   } else if (payload.event === "checkout_started") {
     event.properties.billing_mode = payload.billing_mode;
   }

@@ -56,7 +56,7 @@ function validateInput(schema, value, path = 'arguments') {
   }
 }
 
-export function createMcpBridge({ webContents, configPath, exportRoot, host = '127.0.0.1', port = 0, net = { createServer }, fs = { mkdir, writeFile, readFile, chmod, rm, lstat, realpath, open, unlink, link }, now = Date.now, onStatus } = {}) {
+export function createMcpBridge({ webContents, configPath, exportRoot, host = '127.0.0.1', port = 0, net = { createServer }, fs = { mkdir, writeFile, readFile, chmod, rm, lstat, realpath, open, unlink, link }, now = Date.now, onStatus, telemetry } = {}) {
   if (!webContents?.executeJavaScript) fail('An editor window is required for the local agent bridge.');
   if (!configPath) fail('A local agent configuration path is required.');
   if (host !== '127.0.0.1') fail('The local agent bridge only permits loopback connections.');
@@ -67,9 +67,68 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
   let configWritten = false;
   const sockets = new Set();
   let controller;
+  let connectionSequence = 0;
   const dynamicSchemas = new Map(Object.entries(MCP_SCHEMAS));
-  const statusSnapshot = () => ({ enabled: !!server && !closed, connected: !!controller && !controller.destroyed, configPath, exportRoot: exportRoot || null, host: address?.host || null, port: address?.port || null });
+  const statusSnapshot = () => ({ enabled: !!server && !closed, connected: !!controller && !controller.destroyed, telemetryEnabled: telemetry?.isEnabled?.() === true, configPath, exportRoot: exportRoot || null, host: address?.host || null, port: address?.port || null });
   const reportStatus = () => { try { onStatus?.(statusSnapshot()); } catch { /* status observers are best effort */ } };
+  const report = input => { try { telemetry?.report?.(input); } catch { /* telemetry never affects the local editor */ } };
+  const activeObservers = new Set();
+  const operationEpochs = new Map();
+  const reportTool = (name, args, result, outcome = 'success') => {
+    const normalizedOutcome = outcome === 'failed' ? 'failure' : outcome;
+    const terminal = result?.operation || result;
+    if (name === 'pixelwall_apply') {
+      if (!terminal || !['completed', 'failed', 'cancelled'].includes(terminal.status)) {
+        if (normalizedOutcome !== 'success') report({ operation: 'apply', outcome: normalizedOutcome, dedupeKey: args?.requestKey ? `apply-request:${args.requestKey}` : undefined });
+        return;
+      }
+      const operationId = terminal.operationId || result.operationId;
+      if (operationId && operationEpochs.has(operationId) && operationEpochs.get(operationId) !== telemetry?.getConsentEpoch?.()) { operationEpochs.delete(operationId); return; }
+      if (operationId) operationEpochs.delete(operationId);
+      report({ operation: 'apply', outcome: terminal.status === 'completed' ? 'success' : (terminal.status === 'failed' ? 'failure' : terminal.status), changed: terminal.changed ?? result.changed, ...(operationId ? { dedupeKey: `apply:${operationId}` } : {}) });
+      return;
+    }
+    if (name === 'pixelwall_operation') {
+      if (!['completed', 'failed', 'cancelled'].includes(result?.status)) return;
+      const operationId = result.operationId || result.id;
+      if (!operationId || !operationEpochs.has(operationId) || operationEpochs.get(operationId) !== telemetry?.getConsentEpoch?.()) return;
+      operationEpochs.delete(operationId);
+      report({ operation: 'apply', outcome: result.status === 'completed' ? 'success' : (result.status === 'failed' ? 'failure' : result.status), changed: result.changed, ...(operationId ? { dedupeKey: `apply:${operationId}` } : {}) });
+      return;
+    }
+    if (name === 'pixelwall_cancel') {
+      if (result?.status === 'cancelled') {
+        const operationId = result.operationId || result.id;
+        if (!operationId || !operationEpochs.has(operationId) || operationEpochs.get(operationId) !== telemetry?.getConsentEpoch?.()) return;
+        operationEpochs.delete(operationId);
+        report({ operation: 'apply', outcome: 'cancelled', dedupeKey: `apply:${operationId}` });
+      }
+      return;
+    }
+    const operations = {
+      pixelwall_lua: 'lua', pixelwall_color_profile: 'color_profile', pixelwall_undo: 'undo', pixelwall_redo: 'redo',
+      pixelwall_new_document: 'new_document', pixelwall_open_project: 'open_project', pixelwall_import_project: 'import_project',
+      pixelwall_save: 'save', pixelwall_export: 'export', pixelwall_validate: 'validate',
+      pixelwall_capture_preview: 'capture_preview', pixelwall_preview: 'preview', pixelwall_read_artifact: 'read_artifact',
+      pixelwall_download_artifact: 'download_artifact', pixelwall_remove_artifact: 'remove_artifact', pixelwall_save_artifact: 'save_artifact',
+    };
+    const operation = operations[name]; if (!operation) return;
+    let operationOutcome = normalizedOutcome;
+    if (operation === 'validate' && result?.valid === false) operationOutcome = 'failure';
+    if (operation === 'download_artifact') operationOutcome = result?.status === 'missing' ? 'missing' : result?.status === 'requested' ? 'success' : normalizedOutcome === 'success' ? 'failure' : normalizedOutcome;
+    if (operation === 'read_artifact' && result == null && normalizedOutcome === 'success') operationOutcome = 'missing';
+    if (operation === 'remove_artifact' && result === false && normalizedOutcome === 'success') operationOutcome = 'missing';
+    const input = { operation, outcome: operationOutcome };
+    if (['lua', 'color_profile', 'undo', 'redo'].includes(operation)) input.changed = result?.changed;
+    if (operation === 'preview') input.preview_kind = args?.kind || (args?.compare ? 'comparison' : args?.contactSheet ? 'contact-sheet' : 'frame');
+    if (operation === 'save_artifact') {
+      input.artifact_persistence = normalizedOutcome === 'success' && result?.saved === true ? 'persisted' : 'failed';
+      if (result?.saved === false && normalizedOutcome === 'success') input.outcome = 'failure';
+    }
+    if (operation === 'export') input.artifact_persistence = result?.exportResult?.persistence?.status === 'persisted'
+      ? 'persisted' : result?.exportResult?.persistence?.status === 'failed' ? 'failed' : 'not_requested';
+    report(input);
+  };
   const saveArtifact = async ({ artifactId, filename } = {}) => {
     if (!exportRoot) fail('Choose an export folder in PixelWall first.');
     const rootStat = await fs.lstat(exportRoot); if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) fail('The approved export folder is unavailable.');
@@ -113,7 +172,21 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
           const started = await call('apply', args);
           if (started?.operationId) {
             hooks.onOperation?.(started.operationId);
+            operationEpochs.set(started.operationId, telemetry?.getConsentEpoch?.());
             if (hooks.cancelled?.()) void call('cancel', started.operationId).catch(() => {});
+            // Continue observing a fire-and-forget apply so its terminal
+            // outcome is recorded even when the caller never polls.
+            const observer = { stopped: false };
+            activeObservers.add(observer);
+            void (async () => {
+              let current = started;
+              for (let attempt = 0; attempt < 3000 && !observer.stopped && !['completed', 'failed', 'cancelled'].includes(current?.status); attempt += 1) {
+                await new Promise(resolveDelay => setTimeout(resolveDelay, 100));
+                try { current = await call('operation', started.operationId); } catch { activeObservers.delete(observer); return; }
+              }
+              if (!observer.stopped && ['completed', 'failed', 'cancelled'].includes(current?.status)) reportTool('pixelwall_operation', {}, current);
+              activeObservers.delete(observer);
+            })();
           }
           return started;
         }
@@ -122,6 +195,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
         const started = await call('apply', { ...(args || {}), wait: false });
         const operationId = started?.operationId;
         if (!operationId) return started;
+        operationEpochs.set(operationId, telemetry?.getConsentEpoch?.());
         hooks.onOperation?.(operationId);
         if (hooks.cancelled?.()) { await call('cancel', operationId).catch(() => {}); throw Error('Local PixelWall connection closed.'); }
         let current = started;
@@ -130,7 +204,11 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
           await new Promise(resolveDelay => setTimeout(resolveDelay, 10));
           current = await call('operation', operationId);
         }
-        if (current.status !== 'completed') throw Error(current.error || `PixelWall operation ${current.status}.`);
+        if (current.status !== 'completed') {
+          const error = Error(current.error || `PixelWall operation ${current.status}.`);
+          error.pixelwallOperation = current;
+          throw error;
+        }
         // Keep the completion payload tied to this operation. A later
         // inspect could observe another editor action and misrepresent the
         // result of this request.
@@ -183,9 +261,14 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
       if (!schema) return errorResponse(message.id, -32602, 'Unknown PixelWall tool.');
       try {
         validateInput(schema, message.params?.arguments || {});
-        const result = await invoke(name, message.params?.arguments || {}, hooks);
+        const arguments_ = message.params?.arguments || {};
+        const result = await invoke(name, arguments_, hooks);
+        reportTool(name, arguments_, result);
         return response(message.id, { content: [{ type: 'text', text: JSON.stringify(result ?? null) }], ...(result && typeof result === 'object' && !Array.isArray(result) ? { structuredContent: result } : {}), isError: false });
       } catch (error) {
+        const blocked = error?.name === 'ProExportRequired' || (name === 'pixelwall_export' && /^Pro access is required/i.test(String(error?.message || '')));
+        if (error?.pixelwallOperation) reportTool(name, message.params?.arguments || {}, error.pixelwallOperation);
+        else reportTool(name, message.params?.arguments || {}, null, blocked ? 'blocked' : 'failure');
         return response(message.id, { content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }], isError: true });
       }
     }
@@ -225,7 +308,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
           if (!socket.destroyed) socket.write(JSON.stringify(errorResponse(message.id, -32001, 'Local PixelWall connection is not authorized.')) + '\n');
           continue;
         }
-        if (!controller) { controller = socket; reportStatus(); }
+        if (!controller) { controller = socket; report({ operation: 'connect', outcome: 'success', dedupeKey: `connect:${++connectionSequence}` }); reportStatus(); }
         if (controller !== socket) { socket.destroy(); continue; }
         const name = message.method === 'tools/call' ? message.params?.name : null;
         const dispatch = () => { if (socket.destroyed || controller !== socket) throw Error('Local PixelWall connection closed.'); return handle(message, { onOperation: operationId => operations.add(operationId), cancelled: () => disconnected }); };
@@ -265,6 +348,8 @@ export function createMcpBridge({ webContents, configPath, exportRoot, host = '1
     },
     async stop() {
       closed = true;
+      for (const observer of activeObservers) observer.stopped = true;
+      activeObservers.clear();
       for (const socket of sockets) socket.destroy();
       if (server) await new Promise(resolveStop => server.close(() => resolveStop()));
       server = undefined; address = undefined;

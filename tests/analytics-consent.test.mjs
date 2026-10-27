@@ -127,6 +127,34 @@ test("Essential counts send only fixed categories with no SDK, browser IDs, cook
   assert.equal(calls.imports, 0);
 });
 
+test("the browser helper sends strict automation operation fields, including persistence outcomes", async () => {
+  const { api, calls } = setup();
+  api.captureAnonymousAutomationOperation({ operation: "preview", outcome: "success", preview_kind: "comparison" });
+  api.captureAnonymousAutomationOperation({ operation: "export", outcome: "success", artifact_persistence: "persisted" });
+  api.captureAnonymousAutomationOperation({ operation: "export", outcome: "failure", artifact_persistence: "failed", changed: true });
+  api.captureAnonymousAutomationOperation({ operation: "inspect", outcome: "success", preview_kind: "secret" });
+  await settleSdk();
+  assert.equal(calls.requests.length, 3);
+  assert.deepEqual(JSON.parse(calls.requests[0].body), {
+    event: "automation_operation_completed", page_group: "editor", operation: "preview", outcome: "success", preview_kind: "comparison",
+  });
+  assert.deepEqual(JSON.parse(calls.requests[1].body), {
+    event: "automation_operation_completed", page_group: "editor", operation: "export", outcome: "success", artifact_persistence: "persisted",
+  });
+  assert.deepEqual(JSON.parse(calls.requests[2].body), {
+    event: "automation_operation_completed", page_group: "editor", operation: "export", outcome: "failure", artifact_persistence: "failed",
+  });
+});
+
+test("browser privacy signals and consent refusals block anonymous automation operation counts", async () => {
+  for (const options of [{ privacy: { doNotTrack: "1" } }, { privacy: { globalPrivacyControl: true } }, { stored: { [previousKey]: "required" } }]) {
+    const { api, calls } = setup(options);
+    api.captureAnonymousAutomationOperation({ operation: "export", outcome: "success", artifact_persistence: "persisted" });
+    await settleSdk();
+    assert.equal(calls.requests.length, 0);
+  }
+});
+
 test("anonymous automation edits and sourced exports use fixed editor categories", async () => {
   const { api, calls } = setup();
   api.captureAnonymousAutomationEdit("lua");

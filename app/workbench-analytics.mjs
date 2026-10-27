@@ -18,6 +18,7 @@ const FAMILIES = new Map([
   ['document.resize', 'canvas'], ['document.colorMode', 'palette'],
   ['palette.update', 'palette'], ['palette.remap', 'palette'], ['effect.apply', 'effects'],
   ['animation.tween', 'animation'], ['animation.particles', 'animation'], ['scene.water', 'animation'],
+  ['scene.component', 'scene'],
   ...['add', 'update', 'remove'].map(type => [`slice.${type}`, 'slices']),
   ...['add', 'update', 'remove'].map(type => [`tileset.${type}`, 'tilemap']),
   ['tilemap.paint', 'tilemap'], ['tilemap.edit', 'tilemap'],
@@ -61,7 +62,7 @@ function commandFamilies(commands) {
   visit(commands);
   return families;
 }
-export function createWorkbenchAnalytics({ capture, consented, getDocument, now = () => performance.now(), aggregateEnabled = false, captureAggregateExport = () => {}, captureAggregateCreation = () => {}, captureAggregateAutomationEdit = () => {} }) {
+export function createWorkbenchAnalytics({ capture, consented, getDocument, now = () => performance.now(), aggregateEnabled = false, captureAggregateExport = () => {}, captureAggregateCreation = () => {}, captureAggregateAutomationEdit = () => {}, captureAggregateAutomationOperation = () => {} }) {
   let loaded = false, activated = false, aggregateActivated = false, saveFailed = false, readySource = null;
   const tools = new Set();
   const allowed = () => { try { return consented() === true; } catch { return false; } };
@@ -164,6 +165,16 @@ export function createWorkbenchAnalytics({ capture, consented, getDocument, now 
       if (boundedCount > 0) properties.command_count = boundedCount;
       try { if (aggregateAllowed()) captureAggregateAutomationEdit(operation); } catch { /* reporting cannot affect edits */ }
       emit('automation_edit_completed', properties);
+    },
+    automationOperation({ operation, outcome, preview_kind, artifact_persistence } = {}) {
+      const operations = new Set(['apply', 'lua', 'color_profile', 'undo', 'redo', 'new_document', 'open_project', 'import_project', 'save', 'export', 'validate', 'capture_preview', 'preview', 'read_artifact', 'download_artifact', 'remove_artifact']);
+      const outcomes = new Set(['success', 'failure', 'cancelled', 'blocked', 'missing']);
+      if (!operations.has(operation) || !outcomes.has(outcome)) return;
+      const properties = { operation, outcome };
+      if (['frame', 'contact-sheet', 'comparison'].includes(preview_kind)) properties.preview_kind = preview_kind;
+      if (['persisted', 'failed', 'not_requested'].includes(artifact_persistence)) properties.artifact_persistence = artifact_persistence;
+      try { if (aggregateAllowed()) captureAggregateAutomationOperation(properties); } catch { /* reporting cannot affect the operation */ }
+      emit('automation_operation_completed', properties);
     },
     scripted(changed) {
       if (changed !== true) return;

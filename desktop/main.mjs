@@ -12,6 +12,7 @@ import { createNativeClipboardIpc } from './native-clipboard-ipc.mjs';
 import { createNativeFileIpc } from './native-file-ipc.mjs';
 import { createNativeBindingStore, nativePathsFromArgv } from './native-files.mjs';
 import { createMcpBridge } from './mcp-bridge.mjs';
+import { createAutomationTelemetrySettingsStore, createDesktopAutomationTelemetry } from './automation-telemetry.mjs';
 const desktopFolder = dirname(fileURLToPath(import.meta.url));
 const folder = join(desktopFolder, 'app');
 protocol.registerSchemesAsPrivileged([{ scheme: 'pixelwall', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
@@ -130,13 +131,18 @@ else {
     updateWindow = createUpdateWindow({ BrowserWindow, ipcMain, folder: desktopFolder, getState: updater.getState,
       action: name => name === 'check' ? updater.check({ manual: true }) : updater[name]() });
     const updateSettings = await updater.start();
+    const automationTelemetry = createDesktopAutomationTelemetry({
+      version: app.getVersion(), packaged: app.isPackaged,
+      ...createAutomationTelemetrySettingsStore(join(app.getPath('userData'), 'automation-telemetry.json')),
+    });
+    const telemetrySettings = await automationTelemetry.start();
     const toggleMcp = async enabled => {
       try {
         if (enabled) {
           const picked = await dialog.showOpenDialog(window, { title: 'Choose the local agent export folder', properties: ['openDirectory', 'createDirectory'] });
           if (picked.canceled || !picked.filePaths[0]) { const item = Menu.getApplicationMenu()?.getMenuItemById('pixelwall-local-agent'); if (item) item.checked = false; return; }
           if (mcpBridge) await mcpBridge.stop();
-          mcpBridge = createMcpBridge({ webContents: window.webContents, configPath: join(app.getPath('home'), '.pixelwall', 'mcp.json'), exportRoot: picked.filePaths[0], onStatus: status => window.webContents.send('pixelwall:mcp:changed', status) });
+          mcpBridge = createMcpBridge({ webContents: window.webContents, configPath: join(app.getPath('home'), '.pixelwall', 'mcp.json'), exportRoot: picked.filePaths[0], telemetry: automationTelemetry, onStatus: status => window.webContents.send('pixelwall:mcp:changed', status) });
           await mcpBridge.start();
           void dialog.showMessageBox(window, { type: 'info', title: 'Local agent connection enabled', message: `Agents can control this window while PixelWall is open.\n\nApproved export folder:\n${picked.filePaths[0]}\n\nConfigure your MCP client to run:\nnode pixelwall-mcp.mjs`, buttons: ['OK'] });
         } else if (mcpBridge) await mcpBridge.stop();
@@ -149,6 +155,24 @@ else {
         void dialog.showMessageBox(window, { type: 'warning', title: 'Local agent connection unavailable', message: error.message, buttons: ['OK'] }).catch(() => {});
       }
     };
+    const toggleDesktopTelemetry = async enabled => {
+      try {
+        if (enabled) {
+          const answer = await dialog.showMessageBox(window, {
+            type: 'question', title: 'Share anonymous MCP usage?',
+            message: 'Help improve PixelWall agent support by sharing anonymous desktop MCP operation totals?',
+            detail: 'PixelWall sends only the operation, result, app version, and limited export or preview categories. It never sends artwork, file paths, content, IDs, agent names, or error text. This is separate from allowing a local agent connection and can be turned off here at any time.',
+            buttons: ['Share anonymous usage', 'Keep disabled'], defaultId: 0, cancelId: 1,
+          });
+          if (answer.response !== 0) enabled = false;
+        }
+        const next = await automationTelemetry.setEnabled(enabled);
+        const item = Menu.getApplicationMenu()?.getMenuItemById('pixelwall-desktop-telemetry'); if (item) item.checked = next.enabled;
+      } catch {
+        const item = Menu.getApplicationMenu()?.getMenuItemById('pixelwall-desktop-telemetry'); if (item) item.checked = false;
+        void dialog.showMessageBox(window, { type: 'warning', title: 'Anonymous MCP usage unavailable', message: 'PixelWall could not update this preference.', buttons: ['OK'] }).catch(() => {});
+      }
+    };
     const trustedMcpFrame = event => event.sender === window?.webContents && event.senderFrame === window.webContents.mainFrame && event.senderFrame.url === 'pixelwall://app/editor';
     ipcMain.handle('pixelwall:mcp:status', event => trustedMcpFrame(event) ? (mcpBridge?.status?.() || { enabled: false, connected: false }) : { enabled: false, connected: false });
     ipcMain.handle('pixelwall:mcp:disable', async event => { if (!trustedMcpFrame(event)) throw Error('The local agent connection is restricted to the editor window.'); await toggleMcp(false); return mcpBridge?.status?.() || { enabled: false, connected: false }; });
@@ -159,6 +183,8 @@ else {
       onDocumentation: () => { void shell.openExternal('https://www.pixelwall.dev/guides/offline-and-downloads').catch(() => {}); },
       onAgentGuide: () => { void shell.openExternal('https://www.pixelwall.dev/guides/ai-agents').catch(() => {}); },
       onMcpToggle: toggleMcp, mcpConnected: !!mcpBridge?.connected,
+      desktopTelemetryEnabled: telemetrySettings.enabled,
+      onDesktopTelemetryToggle: enabled => { void toggleDesktopTelemetry(enabled); },
       onEditorAction: (action, selectedWindow) => {
         const focused = selectedWindow ?? BrowserWindow.getFocusedWindow();
         if (focused && focused !== window) {
@@ -174,7 +200,7 @@ else {
         });
       },
     })));
-    app.on('will-quit', () => { updater.dispose(); updateWindow.dispose(); nativeFiles.dispose(); nativeClipboard.dispose(); void mcpBridge?.stop(); });
+    app.on('will-quit', () => { updater.dispose(); automationTelemetry.dispose(); updateWindow.dispose(); nativeFiles.dispose(); nativeClipboard.dispose(); void mcpBridge?.stop(); });
   }).catch((error) => { dialog.showErrorBox('PixelWall could not start', error.message); app.quit(); });
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 }
