@@ -22,17 +22,22 @@ not a claim that 0.6.0 has been published.
    checks. Limits: export options remain interface-specific. Evidence:
    `app/editor-automation.mjs`, `app/command-contract.mjs`, `app/cli.mjs`.
 
-4. **P1 — Compact regional edits.** Partial: bulk commands, image deduplication,
-   and selection registries exist. Rectangle/polygon/RLE transport and
-   multi-color replacement are not yet a complete public contract; full masks
-   remain supported.
+4. **P1 — Compact regional edits.** Implemented: `selection-spec.mjs`
+   supports rectangle, polygon, and RLE encodings; `selection-registry.mjs`
+   provides bounded reusable IDs scoped to the exact document revision; and
+   `selection.replaceColors` applies one-pass multi-color mappings with frame,
+   layer, linked-cel, and offset handling. Full masks remain supported as a
+   compatibility path. Evidence: `app/selection-spec.mjs`,
+   `app/selection-registry.mjs`, `app/editor-automation.mjs`,
+   `tests/selection-acceptance.test.mjs`.
 
 5. **P1 — Operation phases and durable receipts.** Implemented: validation,
    staging, committing, completion/rollback progress, request keys, durable
    receipts, unknown outcomes, and wait APIs. Receipts do not resume edits.
-   Closed MCP EPIPE handling is implemented but needs final assembled transport
-   validation. Evidence: `app/editor-automation.mjs`,
-   `app/operation-receipts.mjs`.
+   Closed MCP EPIPE handling is covered for synchronous throws, write
+   callbacks, asynchronous socket errors, late responses, and owned-operation
+   cancellation. Evidence: `app/editor-automation.mjs`,
+   `app/operation-receipts.mjs`, `tests/mcp-disconnect-errors.test.mjs`.
 
 6. **P1 — Animation diagnostics/review.** Implemented: playback, native and
    enlarged views, baseline comparison, contact sheets, missing-exposure,
@@ -41,21 +46,27 @@ not a claim that 0.6.0 has been published.
    endpoints. Evidence: `app/AnimationReviewPanel.jsx`,
    `app/animation-review.mjs`.
 
-7. **P1 — Art-directed reusable components.** Partial: deterministic editable
-   scene components and named layers exist. Component identity, protected
-   regeneration boundaries, and full art-direction controls remain future work.
-   Evidence: `app/scene-components-panel.jsx`.
+7. **P1 — Art-directed reusable components.** Implemented: deterministic
+   editable components retain a stable component identity and recipe, expose
+   art-direction controls, and regenerate through a guarded committed command
+   that detects manual edits and preserves declared manual layers. Evidence:
+   `app/scene-components.mjs`, `app/editor-core.mjs`,
+   `app/scene-components-panel.jsx`, `tests/animation-review.test.mjs`.
 
-8. **P1/P2 — Anchored looping environmental motion.** Partial: anchored-layer
-   diagnostics and editable baked motion exist. Pinned-region deformation and
-   richer per-component periodic controls remain limited. Evidence:
-   `app/animation-review.mjs`.
+8. **P1/P2 — Anchored looping environmental motion.** Implemented: the baked
+   motion helper supports pinned layers and regions, periodic layer curves,
+   amplitudes, phase offsets, and bounded frame/period validation while
+   preserving the original layer references where appropriate. Evidence:
+   `app/animation-export.mjs`, `app/editor-core.mjs`,
+   `tests/animation-review.test.mjs`.
 
-9. **P2 — Compose water into larger scenes.** Partial: water generation and
-   replacement safeguards exist. Region-scoped compositing, flow fields,
-   adjacent-patch synchronization, and large-scene water composition remain
-   incomplete. Existing generator limits remain enforced. Evidence:
-   `app/water-generator.mjs`, `app/workbench.jsx`.
+9. **P2 — Compose water into larger scenes.** Implemented: bounded water
+   patches carry global origin, field dimensions, flow direction, independent
+   water seed, foam regions, compact masks, and phase offsets; composition is
+   region-scoped, preserves destination dimensions, and supports explicit
+   frame phase maps for adjacent patches. Existing generator limits remain
+   enforced. Evidence: `app/water-generator.mjs`, `app/editor-core.mjs`,
+   `tests/animation-review.test.mjs`, `tests/water-generator.test.mjs`.
 
 10. **P1 — Predictable export/licensing/verification.** Implemented: web and
     CLI plans report selection, frames, durations, dimensions, memory,
@@ -65,14 +76,26 @@ not a claim that 0.6.0 has been published.
     completion. Evidence: `app/workbench.jsx`, `app/cli.mjs`,
     `app/cli-export-plan.mjs`.
 
-11. **P2 — Profile real workloads.** Partial: asynchronous operations expose
-    phase timing and processed counts. No universal performance benchmark or
-    architecture claim is made; fixed-fixture benchmark publication remains.
+11. **P2 — Profile real workloads.** Implemented as a maintained diagnostic
+    profile: fixed fixtures record phase timing, sampled memory, serialization,
+    reopen, export, and cancellation-boundary observations in published JSON.
+    These are not universal performance benchmarks or architecture claims and
+    should be repeated before making performance statements. Evidence:
+    `scripts/profile-workflows.mjs`, `docs/workflow-profile.md`,
+    `docs/benchmarks/workflow-before.json`,
+    `docs/benchmarks/workflow-after.json`.
 
-12. **P2 — Maintained end-to-end example.** Partial: CLI, Lua, project export,
-    checkpoint, artifact, animation review, and water-scene pieces exist. A
-    single maintained reference project plus playback-only HTML review page is
-    not yet a release gate.
+12. **P2 — Maintained end-to-end example.** Implemented: the checked-in
+    reliable riverbank project includes a reproducible build script, named
+    layers, linked static cels, animated canopy, 12-frame clip, bounded Lua
+    pass, playback-only viewer, and verification coverage across desktop MCP
+    and CLI checkpoint/reopen/render flows. Evidence:
+    `public/examples/reliable-workflow/README.md`,
+    `public/examples/reliable-workflow/build-example.mjs`,
+    `public/examples/reliable-workflow/reedpass.lua`,
+    `public/examples/reliable-workflow/viewer.html`,
+    `tests/workflow-example.test.mjs`,
+    `tests/workflow-desktop-cli.test.mjs`.
 
 Before publication: run the full web build/tests, desktop build and native MCP
 smoke, production export/reopen checks, assembled closed-connection tests, and
