@@ -62,7 +62,8 @@ export function validateCommand(command, { index = null, maxCommands = 2000 } = 
   const schema = COMMAND_SCHEMAS[command.type];
   if (!schema) fail(`${prefix}.type is unknown: ${String(command.type)}.`, 'UNKNOWN_COMMAND', `${prefix}.type`);
   for (const key of schema.required) if (!(key in command)) fail(`${prefix}.${key} is required.`, 'MISSING_ARGUMENT', `${prefix}.${key}`);
-  for (const [key, rule] of Object.entries(schema.properties)) if (key in command) checkValue(command[key], rule, `${prefix}.${key}`);
+  for (const key of Object.keys(command)) { if (!schema.properties[key]) fail(`${prefix}.${key} is not supported.`, 'UNKNOWN_ARGUMENT', `${prefix}.${key}`); checkValue(command[key], schema.properties[key], `${prefix}.${key}`); }
+  if (command.type === 'batch') { if (command.commands.length > 1024) fail(`${prefix}.commands exceeds the batch limit.`, 'LIMIT_EXCEEDED', `${prefix}.commands`); command.commands.forEach((nested,nestedIndex)=>validateCommand(nested,{index:`${index == null ? '' : `${index}.`}commands.${nestedIndex}`})); }
   return { valid:true, type:command.type, index, commandCount:1 };
 }
 export function validateCommandManifest(value, { maxCommands = 2000 } = {}) {
@@ -72,6 +73,8 @@ export function validateCommandManifest(value, { maxCommands = 2000 } = {}) {
   commands.forEach((command,index) => validateCommand(command,{index,maxCommands}));
   return { valid:true, commandCount:commands.length, contractVersion:COMMAND_CONTRACT_VERSION };
 }
-export function capabilityReport({ cliVersion='0.1.0', desktopVersion=null, interfaceName='cli' } = {}) {
-  return { format:'pixelwall-capabilities', version:1, contractVersion:COMMAND_CONTRACT_VERSION, interface:interfaceName, cliVersion, desktopVersion, documentFormat:4, limits:{...LIMITS, applyCommands:2000, batchCommands:1024, projectImportBytes:16*1024*1024, projectContainerBytes:64*1024*1024}, commands:COMMAND_SCHEMAS };
+export function capabilityReport({ cliVersion='0.1.0', desktopVersion=null, interfaceName='cli', includeSchemas=false } = {}) {
+  const report={ format:'pixelwall-capabilities', version:1, contractVersion:COMMAND_CONTRACT_VERSION, interface:interfaceName, cliVersion, desktopVersion, documentFormat:4, limits:{...LIMITS, applyCommands:2000, batchCommands:1024, projectImportBytes:16*1024*1024, projectContainerBytes:64*1024*1024}, commandCount:Object.keys(COMMAND_SCHEMAS).length };
+  if(includeSchemas) report.commands=COMMAND_SCHEMAS;
+  return report;
 }
