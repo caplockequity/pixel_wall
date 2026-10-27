@@ -37,6 +37,9 @@ export function generateWaterScene(options = {}) {
   const offset = integer(options.phaseOffset, 0, 'Phase offset', -65535, 65535), phaseOffset = ((offset % frames) + frames) % frames;
   const rippleDensity = options.rippleDensity ?? .5;
   if (typeof rippleDensity !== 'number' || !Number.isFinite(rippleDensity) || rippleDensity < 0 || rippleDensity > 1) throw new RangeError('rippleDensity must be a number from 0 to 1');
+  const flowDirection = options.flowDirection ?? { x: 1, y: 0 };
+  if (!flowDirection || !Number.isFinite(flowDirection.x) || !Number.isFinite(flowDirection.y) || (flowDirection.x === 0 && flowDirection.y === 0)) throw new RangeError('flowDirection must be a nonzero {x,y} vector.');
+  const foamRegions = Array.isArray(options.foamRegions) ? options.foamRegions.map(region => ({ x: integer(region.x, 0, 'foam region x', -65535, 65535), y: integer(region.y, 0, 'foam region y', -65535, 65535), width: integer(region.width, 1, 'foam region width', 1, 256), height: integer(region.height, 1, 'foam region height', 1, 256) })) : [];
   const pal = paletteFor(season, options.palette), count = width * height;
   const blank = () => Array(count).fill(null), bank = blank(), rocks = blank(), grass = blank();
   const depth = new Float64Array(count).fill(Infinity), plane = new Uint8Array(count);
@@ -128,7 +131,8 @@ export function generateWaterScene(options = {}) {
       const gx = Math.floor(x / 7), gy = Math.floor(y / 5), n = noise(gx, gy, waterSeed);
       const row = ((Math.floor(n * 17) + Math.round(Math.sin(phase + n * TAU))) % 5 + 5) % 5;
       if (n < rippleDensity && y % 5 === row && x % 7 < 2 + Math.round((wave + 1) * 1.3)) water[i] = wave > -.3 ? pal.waterLight : pal.waterDeep;
-      if (rippleDensity > 0 && d > -.012 - .012 * (1 + Math.sin(x * .17 + y * .3 + phase)) && Math.sin(x * .35 + y * .41 - phase) > .25) water[i] = pal.foam;
+      const inFoamRegion = foamRegions.some(region => x >= region.x && y >= region.y && x < region.x + region.width && y < region.y + region.height);
+      if (rippleDensity > 0 && (inFoamRegion || d > -.012 - .012 * (1 + Math.sin(x * .17 + y * .3 + phase))) && Math.sin(x * .35 + y * .41 - phase) > .25) water[i] = pal.foam;
       if (scene === 'shoreline' && rippleDensity > 0 && d > -.07 && Math.abs(d + .025 + .018 * Math.sin(phase + x * .05)) < .009) water[i] = pal.foam;
       if (season === 'winter' && scene === 'pond' && d > -.10) {
         water[i] = ((x + Math.floor(y / 4) * 2 + seed) % 17 === 0 || (y - Math.floor(x / 5) + seed) % 19 === 0) ? pal.iceDark : pal.ice;
@@ -149,7 +153,7 @@ export function generateWaterScene(options = {}) {
     format:'pixelwall-document', version:4, id:options.id ?? 'water-scene', name:options.name ?? `${scene[0].toUpperCase() + scene.slice(1)} Water`, width,height,colorMode:'rgba',colorProfile:'sRGB',palette:[...new Set(Object.values(pal))],
     layers:layerIds.map(id=>({id,name:{banks:'Banks',water:'Water (animated)',rocks:'Rocks',grass:'Grass & Reeds'}[id],type:'image',parentId:null,visible:true,locked:false,opacity:1,blendMode:'normal'})),
     frames:outputFrames,images,clips:[{id:'water-loop',name:'Water Loop',frameIds:outputFrames.map(f=>f.id),direction:'forward',loop:true}],slices:[],tilesets:[],
-    metadata:{generator:'water',generatorVersion:1,scene,view,season,seed,waterSeed,rippleDensity,phaseOffset,details,seamless:true,spatiallyTileable:false,paletteRoles:pal},
+    metadata:{generator:'water',generatorVersion:2,scene,view,season,seed,waterSeed,rippleDensity,phaseOffset,details,flowDirection,foamRegions,seamless:true,spatiallyTileable:false,paletteRoles:pal},
   };
 }
 export const WATER_SCENES = Object.freeze([...SCENES]);

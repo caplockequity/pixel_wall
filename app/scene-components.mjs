@@ -52,7 +52,8 @@ export function generateSceneComponent(options = {}) {
   const artDirection = options.artDirection && typeof options.artDirection === 'object' ? structuredClone(options.artDirection) : {};
   const generator = { tree, rock, 'river-bank': bank, bridge, terrain }[kind];
   const layers = (kind === 'tree' ? tree(width, height, pal, seed, artDirection) : generator(width, height, pal, seed)).map(([name, pixels], index) => ({ id: `component-${kind}-${index + 1}`, name, pixels }));
-  return { kind, style, seed, width, height, x, y, componentId, layers, palette: pal, artDirection, recipe: { kind, style, seed, size: { width, height }, position: { x, y }, componentId, palette: structuredClone(options.palette ?? {}), artDirection: structuredClone(artDirection) }, metadata: { generator: 'scene-component', generatorVersion: 2, kind, style, seed, componentId, position: { x, y }, size: { width, height }, paletteRoles: pal, artDirection: structuredClone(artDirection) } };
+  const recipe = { kind, style, seed, size: { width, height }, position: { x, y }, componentId, palette: structuredClone(options.palette ?? {}), artDirection: structuredClone(artDirection) };
+  return { kind, style, seed, width, height, x, y, componentId, layers, palette: pal, artDirection, recipe, metadata: { generator: 'scene-component', generatorVersion: 2, kind, style, seed, componentId, position: { x, y }, size: { width, height }, paletteRoles: pal, artDirection: structuredClone(artDirection), recipe } };
 }
 
 export function sceneComponentRecipe(component) {
