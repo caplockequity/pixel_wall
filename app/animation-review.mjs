@@ -24,7 +24,7 @@ export function diagnoseAnimation(document, options = {}) {
       if (value && !imagePixels(document, value.imageId) && !excluded('missing-image', layer.id)) warnings.push({ code: 'missing-image', severity: 'error', frameId: frame.id, layerId: layer.id, message: `Layer ${layer.name ?? layer.id} references missing image ${value.imageId}.` });
     }
     if (!Number.isSafeInteger(frame.durationMs) || frame.durationMs < 1) warnings.push({ code: 'duration', severity: 'error', frameId: frame.id, message: 'Frame duration must be a positive integer.' });
-    if (Object.values(frame.cels ?? {}).some(item => item && ((item.x ?? 0) < 0 || (item.y ?? 0) < 0)) && !excluded('canvas-edge')) warnings.push({ code: 'canvas-edge', severity: 'warning', frameId: frame.id, message: 'A cel is offset outside the canvas.' });
+    for (const layer of document.layers) { const item = cel(document, frame, layer.id); if (!item) continue; const image = imagePixels(document, item.imageId), outside = image && ((item.x ?? 0) < 0 || (item.y ?? 0) < 0 || (item.x ?? 0) + (image.width ?? 0) > document.width || (item.y ?? 0) + (image.height ?? 0) > document.height); if (outside && !excluded('canvas-edge', layer.id) && !excluded('canvas-edge')) warnings.push({ code: 'canvas-edge', severity: 'warning', frameId: frame.id, layerId: layer.id, message: `Layer ${layer.name ?? layer.id} extends beyond the canvas.` }); }
   }
   for (const layerId of anchored) {
     const first = selected[0] && cel(document, selected[0], layerId); if (!first) continue;
@@ -44,8 +44,17 @@ export function diagnoseAnimation(document, options = {}) {
 }
 
 function shiftedPixels(pixels, width, height, dx, dy, pinnedRegions = []) {
-  const result = Array(width * height).fill(null);
-  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) { const sx = x - dx, sy = y - dy; if (sx >= 0 && sy >= 0 && sx < width && sy < height) result[y * width + x] = pixels[sy * width + sx]; }
+  const result = Array(width * height).fill(null), feather = 2;
+  const inside = (x, y, region) => x >= region.x && y >= region.y && x < region.x + region.width && y < region.y + region.height;
+  const distance = (x, y, region) => Math.max(region.x - x, x - (region.x + region.width - 1), region.y - y, y - (region.y + region.height - 1), 0);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const pinned = pinnedRegions.some(region => inside(x, y, region));
+    const nearest = pinnedRegions.length ? Math.min(...pinnedRegions.map(region => distance(x, y, region))) : Infinity;
+    const factor = pinned ? 0 : Math.min(1, nearest / feather);
+    const sx = x - Math.round(dx * factor), sy = y - Math.round(dy * factor);
+    if (sx >= 0 && sy >= 0 && sx < width && sy < height) result[y * width + x] = pixels[sy * width + sx];
+  }
+  // Restore pinned source pixels exactly once; moving pixels never overwrite them.
   for (const region of pinnedRegions) for (let y = Math.max(0, region.y); y < Math.min(height, region.y + region.height); y++) for (let x = Math.max(0, region.x); x < Math.min(width, region.x + region.width); x++) result[y * width + x] = pixels[y * width + x];
   return result;
 }
@@ -54,9 +63,20 @@ function shiftedPixels(pixels, width, height, dx, dy, pinnedRegions = []) {
 export function bakeAnchoredMotion(document, { frames = document.frames.length, layers = [], pinnedLayers = [], pinnedRegions = {}, amplitudeX = 1, amplitudeY = 0, layerAmplitudes = {}, phaseOffsets = {}, period = frames } = {}) {
   if (!Number.isSafeInteger(frames) || frames < 1 || frames > 64 || !Number.isSafeInteger(period) || period < 1 || period > 64 || frames % period !== 0) throw new RangeError('frames and period must be integers from 1 to 64, with period dividing frames.');
   if (![amplitudeX, amplitudeY].every(value => Number.isFinite(value)) || Object.values(layerAmplitudes).some(value => !Number.isFinite(Number(value.x ?? 0)) || !Number.isFinite(Number(value.y ?? 0)))) throw new RangeError('Motion amplitudes must be finite numbers.');
+  const validLayers = new Set((document.layers ?? []).map(layer => layer.id));
+  for (const id of layers) if (!validLayers.has(id)) throw new RangeError(`Unknown motion layer: ${id}`);
+  // Missing pinned IDs are harmless no-ops for compatibility with optional pin lists.
+  const requestedPinnedLayers = [...pinnedLayers];
+  pinnedLayers = pinnedLayers.filter(id => validLayers.has(id));
+  const normalizedRegions = {};
+  for (const [layerId, regions] of Object.entries(pinnedRegions ?? {})) {
+    if (!validLayers.has(layerId)) throw new RangeError(`Unknown pinned-region layer: ${layerId}`);
+    if (!Array.isArray(regions)) throw new TypeError(`Pinned regions for ${layerId} must be an array.`);
+    normalizedRegions[layerId] = regions.map(region => { if (!region || ![region.x, region.y, region.width, region.height].every(Number.isSafeInteger) || region.width < 1 || region.height < 1) throw new RangeError('Pinned regions require positive integer bounds.'); return { x: region.x, y: region.y, width: region.width, height: region.height }; });
+  }
   const moving = new Set(layers), pinned = new Set(pinnedLayers); const result = structuredClone(document); const source = result.frames[0];
-  result.frames = Array.from({ length: frames }, (_, index) => { const frame = structuredClone(result.frames[index % result.frames.length] ?? source); frame.id = result.frames[index]?.id ?? `motion-frame-${index + 1}`; frame.durationMs = source?.durationMs ?? 100; const phase = (index / period) * Math.PI * 2; for (const layerId of moving) { if (pinned.has(layerId)) continue; const current = frame.cels?.[layerId]; if (!current) continue; const image = result.images?.[current.imageId]; if (!image) continue; const settings = layerAmplitudes[layerId] ?? {}; const offset = Number(phaseOffsets[layerId] ?? settings.phase ?? 0); const dx = Math.round(Math.sin(phase + offset) * Number(settings.x ?? amplitudeX)), dy = Math.round(Math.sin(phase + offset) * Number(settings.y ?? amplitudeY)); if (dx || dy || pinnedRegions[layerId]?.length) { const imageId = `${current.imageId}-motion-${index + 1}`; result.images[imageId] = { ...image, pixels: shiftedPixels(image.pixels, image.width, image.height, dx, dy, pinnedRegions[layerId] ?? []) }; current.imageId = imageId; } } return frame; });
-  result.metadata = { ...(result.metadata ?? {}), animationBake: { kind: 'anchored-motion', frames, period, movingLayers: [...moving], pinnedLayers: [...pinned], pinnedRegions, amplitudeX, amplitudeY, layerAmplitudes, phaseOffsets } };
+  result.frames = Array.from({ length: frames }, (_, index) => { const frame = structuredClone(result.frames[index % result.frames.length] ?? source); frame.id = result.frames[index]?.id ?? `motion-frame-${index + 1}`; frame.durationMs = source?.durationMs ?? 100; const phase = (index / period) * Math.PI * 2; for (const layerId of moving) { if (pinned.has(layerId)) continue; const current = frame.cels?.[layerId]; if (!current) continue; const image = result.images?.[current.imageId]; if (!image) continue; const settings = layerAmplitudes[layerId] ?? {}; const offset = Number(phaseOffsets[layerId] ?? settings.phase ?? 0); const dx = Math.round(Math.sin(phase + offset) * Number(settings.x ?? amplitudeX)), dy = Math.round(Math.sin(phase + offset) * Number(settings.y ?? amplitudeY)); if (dx || dy || normalizedRegions[layerId]?.length) { let imageId = `${current.imageId}-motion-${index + 1}`, suffix = 1; while (result.images[imageId]) imageId = `${current.imageId}-motion-${index + 1}-${suffix++}`; result.images[imageId] = { ...image, pixels: shiftedPixels(image.pixels, image.width, image.height, dx, dy, normalizedRegions[layerId] ?? []) }; current.imageId = imageId; } } return frame; });
+  result.metadata = { ...(result.metadata ?? {}), animationBake: { kind: 'anchored-motion', frames, period, movingLayers: [...moving], pinnedLayers: requestedPinnedLayers, pinnedRegions: normalizedRegions, amplitudeX, amplitudeY, layerAmplitudes, phaseOffsets } };
   return result;
 }
 

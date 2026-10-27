@@ -1,5 +1,6 @@
 import { readFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -16,7 +17,7 @@ assert.equal(doc.clips.find(c => c.id === 'riverbank-loop')?.frameIds.length, 12
 const staticIds = ['ground','river','bank','trunk'].map(id => doc.frames.map(f => f.cels[id]?.imageId));
 for (const ids of staticIds) assert.equal(new Set(ids).size, 1, 'static layers must stay linked');
 const canopyOffsets = doc.frames.map(f => `${f.cels.canopy.x},${f.cels.canopy.y}`); assert.ok(new Set(canopyOffsets).size > 1, 'canopy should move');
-const framesDir = join(fixture, 'build/verified-frames'); await mkdir(framesDir, {recursive:true});
+const framesDir = process.env.PIXELWALL_VERIFY_DIR ?? join(tmpdir(), 'pixelwall-reliable-workflow-frames'); await mkdir(framesDir, {recursive:true});
 for (let i=0;i<doc.frames.length;i++) {
   const expected = renderFrame(doc, doc.frames[i].id); const out = join(framesDir, `frame-${String(i+1).padStart(2,'0')}.png`);
   await run(process.execPath, [join(root, '../app/cli.mjs'), 'render', projectPath, '--frame', String(i), '--out', out], {cwd:join(root,'..')});
