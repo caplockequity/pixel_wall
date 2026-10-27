@@ -88,7 +88,9 @@
     "riverLuaDetail": "https://www.pixelwall.dev/examples/agent-river-detail.lua",
     "sceneComponentsCommands": "https://www.pixelwall.dev/examples/scene-components-commands.json",
     "sceneComponentsProject": "https://www.pixelwall.dev/examples/scene-components-woodland.pixelwall",
-    "sceneComponentsPreview": "https://www.pixelwall.dev/examples/scene-components-woodland.png"
+    "sceneComponentsPreview": "https://www.pixelwall.dev/examples/scene-components-woodland.png",
+    "willowmereGuide": "https://www.pixelwall.dev/guides/willowmere",
+    "willowmerePackage": "https://www.pixelwall.dev/examples/willowmere/Willowmere-guide.zip"
   },
   "largeEditGuide": "https://www.pixelwall.dev/guides/large-agent-edits"
 }

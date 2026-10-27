@@ -1,0 +1,4 @@
+import fs from 'node:fs';import {spawnSync} from 'node:child_process';
+export function cli(args){let r=spawnSync(process.execPath,['tools/cli/pixelwall.mjs',...args],{encoding:'utf8',maxBuffer:16*1024*1024});if(r.error)throw r.error;if(r.status!==0)throw Error(r.stderr||r.stdout||"CLI exited before completion");return r.stdout;}
+export function applyFile(project,manifest,out){let cmds=JSON.parse(fs.readFileSync(manifest));let tmp='source/.bounded-batch-'+process.pid+'.json';let current=project;try{for(let i=0;i<cmds.length;i+=160){fs.writeFileSync(tmp,JSON.stringify(cmds.slice(i,i+160)));cli(['apply',current,'--commands',tmp,'--out',out]);current=out;}}finally{fs.rmSync(tmp,{force:true});}}
+if(process.argv[1]?.endsWith('/build-cli.mjs')){const [base,manifest,out]=process.argv.slice(2);applyFile(base,manifest,out);}

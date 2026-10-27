@@ -308,6 +308,293 @@
     ]
   },
   {
+    "slug": "guides/willowmere",
+    "lastModified": "2026-10-27",
+    "title": "Build Willowmere: an end-to-end pixel-art world",
+    "description": "Create an editable animated world in PixelWall: two environments, layered characters, a small Lua lesson, reproducible CLI commands, exports, and an interactive viewer.",
+    "eyebrow": "END-TO-END PROJECT",
+    "intro": "Follow Willowmere, The Lantern River, from a small riverbank to two animated environments and a pair of expressive characters. Download the editable projects, rebuild the pixels with the CLI, and see how the exported frames become an interactive scene.",
+    "sections": [
+      {
+        "heading": "The finished world",
+        "paragraphs": [
+          "Willowmere is a woodland route held together by a winding river, warm lanterns, and a shared 32-color palette. The top-down valley and side-view Lantern Ford use the same visual language. Mira, the river courier, and the mosslight reedling bring that setting down to character scale.",
+          "This project used an external AI coding agent to author supported PixelWall commands and pixel buffers, followed by visual review and revisions. PixelWall supplied the editable layers, cels, palettes, timeline, and rendered exports. PixelWall contains no AI model, and no externally generated image was imported as artwork."
+        ],
+        "media": {
+          "src": "/showcase/willowmere/hero-overworld.png",
+          "alt": "A top-down pixel-art valley with a winding teal river, woodland paths, a warm mill and bridge, village buildings, and a waterfall.",
+          "caption": "Willowmere overworld. The editable source is 512 × 384 pixels; this preview is enlarged for viewing."
+        },
+        "items": [
+          "Overworld: 512 × 384 pixels, 14 layers, 12 frames at 100 ms per frame.",
+          "Lantern Ford: 768 × 256 pixels, 12 layers, 12 frames at 100 ms per frame.",
+          "Mira: 32 × 48 pixels, three painted layers, 20 poses across Idle, Walk, and Jump.",
+          "Mosslight reedling: 40 × 32 pixels, three painted layers, 14 poses across Idle and Walk."
+        ],
+        "links": [
+          {
+            "href": "/showcase/willowmere/viewer/index.html",
+            "label": "Explore the animated Willowmere viewer"
+          },
+          {
+            "href": "/examples/willowmere/Willowmere-guide.zip",
+            "label": "Download the public project and reproduction package"
+          },
+          {
+            "href": "/examples/willowmere/README.md",
+            "label": "Read the package instructions and contents"
+          }
+        ]
+      },
+      {
+        "heading": "1. Open the files and set up the CLI",
+        "paragraphs": [
+          "For an immediate look, download the native projects below and choose Open project or image in PixelWall. Inspect the layers and named animation clips, then save an independent copy before experimenting. The original workflow was tested with desktop 0.5.0; the downloads page supplies the current release.",
+          "To reproduce the artwork, extract the public package into a new working folder. Install Node.js 22.13 or newer, download the official CLI ZIP, and extract its contents into tools/cli inside that folder. The CLI bundle includes its dependencies; no npm install is needed. Run every command below from the extracted package root. Use a folder with enough free disk space for the generated projects and PNGs."
+        ],
+        "code": "node --version\nnode tools/cli/pixelwall.mjs help\nnode tools/cli/pixelwall.mjs inspect projects/overworld.pixelwall\nmkdir -p reproduced\nnode tools/cli/pixelwall.mjs render projects/sideview.pixelwall --frame 11 --scale 2 --out reproduced/ford-preview.png",
+        "links": [
+          {
+            "href": "/downloads",
+            "label": "Get PixelWall for desktop"
+          },
+          {
+            "href": "/downloads/pixelwall-cli.zip",
+            "label": "Download the official standalone CLI"
+          },
+          {
+            "href": "/examples/willowmere/projects/overworld.pixelwall",
+            "label": "Download the editable overworld"
+          },
+          {
+            "href": "/examples/willowmere/projects/sideview.pixelwall",
+            "label": "Download editable Lantern Ford"
+          },
+          {
+            "href": "/examples/willowmere/projects/courier.pixelwall",
+            "label": "Download editable Mira"
+          },
+          {
+            "href": "/examples/willowmere/projects/reedling.pixelwall",
+            "label": "Download the editable reedling"
+          }
+        ]
+      },
+      {
+        "heading": "2. Start with a tiny animated riverbank",
+        "paragraphs": [
+          "The starter exercise is a 128 × 96 RGBA scene. It teaches the same construction method as the larger world: broad shapes for the ground and river, named layers for separate visual roles, linked cels for static artwork, and a few deliberately animated details.",
+          "Create a blank project, apply the saved command batch once, then run the small Lua detail. The finished document should contain nine named layers and twelve 100 ms frames. Open it and play the Riverbank • 1.2s clip. The banks and roots stay fixed, the crown moves gently, and pale streaks travel across the teal water."
+        ],
+        "code": "mkdir -p reproduced/tutorial\nnode tools/cli/pixelwall.mjs new --width 128 --height 96 --name Riverbank --out reproduced/tutorial/empty.pixelwall\nnode tools/cli/pixelwall.mjs apply reproduced/tutorial/empty.pixelwall --commands tutorial/riverbank-commands.json --out reproduced/tutorial/riverbank.pixelwall\nnode tools/cli/pixelwall.mjs script reproduced/tutorial/riverbank.pixelwall --script tutorial/reeds.lua --timeout 10000 --out reproduced/tutorial/finished.pixelwall\nnode tools/cli/pixelwall.mjs render reproduced/tutorial/finished.pixelwall --frame 11 --scale 4 --out reproduced/tutorial/frame11.png",
+        "media": {
+          "src": "/showcase/willowmere/tutorial-preview.png",
+          "alt": "A small pixel-art riverbank with teal water, pale ripples, a mossy tree, grasses, and a reed clump.",
+          "caption": "The starter exercise uses a 128 × 96 canvas and a twelve-frame timeline."
+        },
+        "links": [
+          {
+            "href": "/examples/willowmere/tutorial/README.md",
+            "label": "Read the starter exercise and expected result"
+          },
+          {
+            "href": "/examples/willowmere/tutorial/riverbank-finished.pixelwall",
+            "label": "Open the finished starter project"
+          }
+        ]
+      },
+      {
+        "heading": "3. Use Lua for a small detail",
+        "paragraphs": [
+          "The reeds.lua script draws a detached 16 × 16 reed clump and attaches it to all twelve frames. It does not loop over the whole canvas or use file or network access. Broad rectangles, polygons, ellipses, and lines are a better fit for large areas; small pixel loops are useful for a tightly bounded detail.",
+          "A cel holds a layer’s image at a particular frame. Adding a detail only to frame zero will make it disappear later unless you deliberately expose or link it across the timeline. An early version of this exercise missed an exposure; the final supplied exercise corrects it and was rebuilt independently.",
+          "Try a small revision: in tutorial/riverbank-build.mjs, change Math.round(Math.sin(f*Math.PI/6)) to Math.round(2*Math.sin(f*Math.PI/6)). Run node tutorial/riverbank-build.mjs to regenerate the commands, then repeat the lesson into a new output folder. Compare the original one-pixel sway with the windier two-pixel version."
+        ],
+        "links": [
+          {
+            "href": "/guides/scripting",
+            "label": "Explore Lua and JSON scripting"
+          },
+          {
+            "href": "/guides/large-agent-edits",
+            "label": "Learn bounded editing and operation recovery"
+          }
+        ]
+      },
+      {
+        "heading": "4. Compose the world before adding detail",
+        "steps": [
+          {
+            "title": "Give the scene a readable route",
+            "text": "Use the river and paths to guide the eye between the mill, bridge, waterfall, ruin, orchard, village, and landing. Establish those large shapes before decorating the banks."
+          },
+          {
+            "title": "Assign colors a job",
+            "text": "Deep blue-green defines outlines and shadow, teal separates water from land, cream and pale green pick out foam and light, and coral and brass give the characters and lanterns warm accents. The saved 32-color palette travels with the projects."
+          },
+          {
+            "title": "Separate structure from motion",
+            "text": "Keep buildings, banks, trunks, and the bridge anchored. Put ripples and tree crowns on layers that can change without moving their surroundings. Link unchanged cels instead of repainting every frame."
+          },
+          {
+            "title": "Review at native size",
+            "text": "Check the route, focal points, and silhouettes at 1×, then enlarge with nearest-neighbor scaling to inspect pixel edges. Add texture only where it improves readability."
+          }
+        ],
+        "media": {
+          "src": "/showcase/willowmere/hero-sideview.png",
+          "alt": "A wide side-view pixel-art landscape with a lantern-lit mill, wooden bridge, water, mossy banks, and distant trees.",
+          "caption": "Lantern Ford uses a 768 × 256 canvas. The environment is a layered pixel-art scene; gameplay is added separately."
+        }
+      },
+      {
+        "heading": "5. Rebuild the two environments",
+        "paragraphs": [
+          "The package retains the exact command manifests for blockout, completion, detail, polish, and animation. The helper applies them in bounded batches of up to 160 commands. Each stage writes a separate native project, so you can inspect a result and keep a checkpoint before moving on.",
+          "Run the overworld sequence below once in a fresh output folder. The side-view sequence follows the same stages with sideview manifests and a 768 × 256 starting document; the package README lists it in full. A failed batch rolls back that batch, while earlier successful batches remain committed."
+        ],
+        "code": "mkdir -p reproduced/overworld\nnode tools/cli/pixelwall.mjs new --width 512 --height 384 --name Willowmere --out reproduced/overworld/empty.pixelwall\nnode source/build-cli.mjs reproduced/overworld/empty.pixelwall source/overworld-02-blockout.json reproduced/overworld/blockout.pixelwall\nnode source/build-cli.mjs reproduced/overworld/blockout.pixelwall source/overworld-03-complete.json reproduced/overworld/complete.pixelwall\nnode source/build-cli.mjs reproduced/overworld/complete.pixelwall source/overworld-04-detail.json reproduced/overworld/detail.pixelwall\nnode source/build-cli.mjs reproduced/overworld/detail.pixelwall source/overworld-05-polish.json reproduced/overworld/polished.pixelwall\nnode source/build-cli.mjs reproduced/overworld/polished.pixelwall source/overworld-animation.json reproduced/overworld/finished.pixelwall\nnode tools/cli/pixelwall.mjs render reproduced/overworld/finished.pixelwall --frame 11 --out reproduced/overworld/frame11.png",
+        "links": [
+          {
+            "href": "/examples/willowmere/README.md",
+            "label": "Get the complete Lantern Ford reproduction sequence"
+          }
+        ]
+      },
+      {
+        "heading": "6. Redesign characters around clear silhouettes",
+        "paragraphs": [
+          "The first small character drafts did not read clearly enough. The revision enlarged the canvases and rebuilt the poses around recognizable faces, accessories, and weight. This was an art-direction choice, not a PixelWall size limit.",
+          "Mira has a stepped hood, visible face, coral scarf, stitched satchel, brass lantern, and distinct airborne poses. The reedling has a curling teal tail, moss mantle, and antler lantern. Both projects separate the artwork into Body • silhouette and weight; Cloth, leather & lantern; and Face & small highlights.",
+          "The three layers contain painted pixels you can edit independently. Try changing a scarf or lantern accent while leaving the body silhouette untouched, then check every pose for consistent placement. The character manifests are already generated and included. Build from a new empty project when replaying them."
+        ],
+        "code": "mkdir -p reproduced/characters\nnode tools/cli/pixelwall.mjs new --width 32 --height 48 --name Mira --out reproduced/characters/courier-empty.pixelwall\nnode source/build-cli.mjs reproduced/characters/courier-empty.pixelwall source/character/courier-v2.json reproduced/characters/courier.pixelwall\nnode tools/cli/pixelwall.mjs render reproduced/characters/courier.pixelwall --frame 16 --scale 4 --out reproduced/characters/mira-jump.png\nnode tools/cli/pixelwall.mjs new --width 40 --height 32 --name Reedling --out reproduced/characters/reedling-empty.pixelwall\nnode source/build-cli.mjs reproduced/characters/reedling-empty.pixelwall source/character/reedling-v2.json reproduced/characters/reedling.pixelwall",
+        "media": {
+          "src": "/showcase/willowmere/character-comparison.png",
+          "alt": "Comparison of the earlier small courier sprite and the larger redesigned Mira with a readable hood, face, scarf, satchel, and lantern.",
+          "caption": "The character revision prioritized silhouette, facial readability, and distinct animation poses."
+        }
+      },
+      {
+        "heading": "7. Give each motion its own clip",
+        "paragraphs": [
+          "The environment loops use twelve 100 ms frames, or 1.2 seconds. Their motion comes from changing ripple images and restrained one-pixel crown offsets. Static structures stay fixed across the timeline.",
+          "The frame numbers below are zero-based, matching the CLI. In a timeline that displays frames starting at 1, add one. Idle poses last 180 ms; walk and jump poses last 100 ms. Use the named clips to preview each action rather than treating the complete pose collection as one continuous movement."
+        ],
+        "items": [
+          "Mira: Idle 0–5, Walk 6–13, Jump 14–19. Idle and Walk loop; Jump is a one-shot clip.",
+          "Reedling: Idle 0–5 and Walk 6–13. Both clips loop.",
+          "Check silhouettes at native size, foot placement, transparent margins, and the transition from the last loop frame back to the first. Different frame data alone does not prove that motion feels good."
+        ],
+        "media": {
+          "src": "/showcase/willowmere/character-contact-reedling.png",
+          "alt": "Fourteen mosslight reedling poses showing its curling tail, moss mantle, lantern antlers, and idle and walk motion.",
+          "caption": "The reedling’s fourteen poses, shown together to compare silhouette and movement."
+        },
+        "links": [
+          {
+            "href": "/showcase/willowmere/viewer/index.html",
+            "label": "Watch the environment and character clips"
+          },
+          {
+            "href": "/showcase/willowmere/overworld-showcase.mp4",
+            "label": "Watch the 12-second artwork loop — encoded PNG frames, not an editor recording"
+          }
+        ]
+      },
+      {
+        "heading": "8. Continue in the desktop editor with an agent",
+        "paragraphs": [
+          "The CLI rebuild works without a running editor. For live desktop editing, open PixelWall, enable Help → Allow local agent connection, and choose an approved export folder. Configure your agent with the official pixelwall-mcp.mjs launcher from the CLI bundle, following the desktop MCP guide. The connection controls the opted-in local window; it is not a hosted service.",
+          "Have the agent inspect the current project and revision before applying a bounded edit. Use expectedRevision so an intervening human edit cannot silently be overwritten. For long operations, retain the operation ID and poll until completion; staged progress is not a committed edit.",
+          "After visual review, export a native project checkpoint under a new filename. Ask the desktop artifact tool to save it to the approved folder, verify the delivered file, then inspect and render it with the CLI. Editing, library saving, export generation, and a verified disk checkpoint are separate outcomes."
+        ],
+        "links": [
+          {
+            "href": "/guides/desktop-mcp",
+            "label": "Connect and operate the local desktop MCP launcher"
+          },
+          {
+            "href": "/guides/review-artifacts",
+            "label": "Review previews and deliver verified artifacts"
+          },
+          {
+            "href": "/guides/command-api",
+            "label": "Use revision checks and command batches"
+          }
+        ]
+      },
+      {
+        "heading": "9. Export frames and build a viewer",
+        "paragraphs": [
+          "Keep the native .pixelwall files as the editable source of truth. Individual frame PNGs retain transparency and are enough to reproduce the viewer. The command below exports all twenty Mira poses to a new folder; use ranges 0,13 for the reedling and 0,11 for either environment.",
+          "GIF, sprite-sheet, atlas, and game-package generation require Pro. This handoff’s GIFs and sheets were generated with desktop Pro. Standalone CLI premium export was blocked because the test did not have a portable Pro license. No license was copied or bypassed.",
+          "The public viewer loads PixelWall PNG exports. Its JavaScript supplies keyboard movement, jumping, camera follow, parallax, and a 24-second tour. These are viewer features, not PixelWall gameplay or collision tools. The download includes the viewer source and frames so you can inspect that boundary or build your own presentation. It is a demonstration, not a finished game."
+        ],
+        "code": "node tools/cli/pixelwall.mjs export projects/courier.pixelwall --format png --frame-range 0,19 --out-dir reproduced/mira-frames\nnode tools/cli/pixelwall.mjs inspect projects/courier.pixelwall",
+        "links": [
+          {
+            "href": "/showcase/willowmere/viewer/index.html",
+            "label": "Open the viewer with playback and reduced-motion controls"
+          },
+          {
+            "href": "/guides/export-formats",
+            "label": "Choose an export format and understand licensing"
+          }
+        ]
+      },
+      {
+        "heading": "10. Verify the handoff and keep the failures visible",
+        "paragraphs": [
+          "In the original workflow, all 58 environment and character frames matched as decoded RGBA pixels after CLI reopening of their desktop checkpoints: 12 overworld, 12 side-view, 20 courier, and 14 reedling frames. Layer names, frame timings, clips, linked-cel counts, and the saved palette also agreed. Matching decoded pixels is more useful than requiring identical PNG compression bytes.",
+          "The existing desktop library reached its storage budget. Large library saves remained FAIL, and large desktop imports remained BLOCKED. Successful file exports, checksums, and CLI reopening did not turn those library tests into passes. The final character checkpoints were authored in the live editor and exported as files; a desktop reimport of those final characters is not claimed.",
+          "A fresh-folder reproduction of the overworld and starter exercise passed in the original handoff. The public package supplies the other final manifests as well. Keep your input files, render the last frame as well as the first, inspect every clip, and verify your own output before replacing a valued project. Hard-reload recovery of an unsaved environment was not tested.",
+          "There is still room for art direction: more varied distant firs, richer cliff planes, a moving mill wheel, and less rigid canopy motion would improve the scene. The supplied video is an encoded artwork loop. Authentic workflow screenshots were captured during the original test, but no editor screen recording was made."
+        ],
+        "links": [
+          {
+            "href": "/examples/willowmere/VALIDATION.md",
+            "label": "Read the public validation summary and limitations"
+          }
+        ]
+      },
+      {
+        "heading": "Workflow accounting",
+        "paragraphs": [
+          "The original four-agent workflow recorded 43,010,776 AI-agent tokens through October 27, 2026 at 17:57:51 UTC: 42,816,590 input and 194,186 output. The input total already includes 42,144,640 cached tokens; output already includes 48,653 reasoning tokens. Do not add these component counts again.",
+          "Those counters cover creative work, tests, retries, and revisions together. They exclude the original final response, subsequent packaging, and this guide’s publication work. They are agent-token accounting, not tokens consumed by PixelWall, an isolated art-generation cost, or a dollar estimate."
+        ]
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Do I need an AI agent or Pro to follow the guide?",
+        "answer": "No agent is required to open and edit the supplied projects or run the saved CLI commands. Editing, Lua, native project files, and individual PNG exports are free. Creating GIFs, sprite sheets, atlases, or game packages requires Pro."
+      },
+      {
+        "question": "Can I edit the characters one layer at a time?",
+        "answer": "Yes. Mira and the reedling each have three painted layers, with named Idle and Walk clips; Mira also has Jump. Open the native .pixelwall project to keep that structure. A flattened PNG does not preserve the editable layers."
+      },
+      {
+        "question": "Does the viewer demonstrate a complete PixelWall game engine?",
+        "answer": "No. PixelWall creates and exports the artwork and animation frames. The separate viewer implements movement, jumping, camera follow, and parallax. It has no collision-aware gameplay or height-aware terrain."
+      },
+      {
+        "question": "Why does a saved export not fix the library-save failure?",
+        "answer": "The local document library and exported project files are different storage paths. The library reached its budget in this test. A verified file checkpoint preserved the artwork, but the original library operation still failed."
+      }
+    ],
+    "related": [
+      "guides/getting-started",
+      "guides/large-agent-edits",
+      "guides/desktop-mcp",
+      "guides/command-line",
+      "guides/export-formats",
+      "guides/ai-agents"
+    ]
+  },
+  {
     "slug": "guides/getting-started",
     "title": "Draw and save your first PixelWall sprite",
     "description": "Make your first pixel-art sprite in PixelWall. Learn the canvas, drawing tools, layers, PNG export, and editable project backups in five short steps.",
@@ -1364,6 +1651,7 @@
       }
     ],
     "related": [
+      "guides/willowmere",
       "guides/scripting",
       "guides/command-api",
       "guides/offline-and-downloads"
@@ -1667,6 +1955,7 @@
       }
     ],
     "related": [
+      "guides/willowmere",
       "guides/large-agent-edits",
       "guides/command-line",
       "guides/command-api",
@@ -1796,6 +2085,7 @@
       }
     ],
     "related": [
+      "guides/willowmere",
       "guides/command-api",
       "guides/command-line",
       "tileset-maker",
@@ -1976,6 +2266,7 @@
       }
     ],
     "related": [
+      "guides/willowmere",
       "guides/ai-agents",
       "guides/command-api",
       "guides/scripting",
@@ -2005,8 +2296,14 @@
           "capturePreview retains a session baseline for before/after review. Generated exports can be listed and read in bounded chunks, then saved through the approved folder. The browser still cannot report whether a later native download completed."
         ],
         "links": [
-          {"href": "/guides/command-api", "label": "Read the shared command API"},
-          {"href": "/guides/review-artifacts", "label": "Review previews and generated files"}
+          {
+            "href": "/guides/command-api",
+            "label": "Read the shared command API"
+          },
+          {
+            "href": "/guides/review-artifacts",
+            "label": "Review previews and generated files"
+          }
         ]
       },
       {
@@ -2025,7 +2322,13 @@
         ]
       }
     ],
-    "related": ["guides/ai-agents", "guides/command-api", "guides/review-artifacts", "guides/command-line"]
+    "related": [
+      "guides/willowmere",
+      "guides/ai-agents",
+      "guides/command-api",
+      "guides/review-artifacts",
+      "guides/command-line"
+    ]
   },
   {
     "slug": "guides/scene-components",

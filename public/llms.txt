@@ -4,6 +4,7 @@ PixelWall is a pixel-art editor for browsers and desktop. Official site: https:/
 
 ## Agent integration
 
+- End-to-end Willowmere world, characters, and reproducible package: https://www.pixelwall.dev/guides/willowmere
 - Agent guide: https://www.pixelwall.dev/guides/ai-agents
 - Large edits, recovery, Lua, and export handoff: https://www.pixelwall.dev/guides/large-agent-edits
 - Browser command API: https://www.pixelwall.dev/guides/command-api
