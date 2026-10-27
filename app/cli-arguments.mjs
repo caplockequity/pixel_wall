@@ -2,7 +2,7 @@
 import { validateExportScale } from './export-scale.mjs';
 import { MAX_ORDERED_SCALES } from './export-transform.mjs';
 const SCOPED = new Set(['layer', 'ignore-layer', 'all-layers', 'split-layers', 'split-tags', 'play-subtags', 'split-slices', 'split-grid', 'clip', 'tag', 'frame-tag', 'frame-range', 'frame', 'slice', 'grid']);
-const BOOLEAN = new Set(['help', 'include-reference-layers', 'trim', 'trim-sprite', 'ignore-empty', 'all-layers', 'split-layers', 'split-tags', 'play-subtags', 'split-slices', 'split-grid', 'power-of-two', 'power-of-two-size', 'ordered-inputs']);
+const BOOLEAN = new Set(['help', 'verify', 'schemas', 'include-reference-layers', 'trim', 'trim-sprite', 'ignore-empty', 'all-layers', 'split-layers', 'split-tags', 'play-subtags', 'split-slices', 'split-grid', 'power-of-two', 'power-of-two-size', 'ordered-inputs']);
 const REPEAT = new Set(['layer', 'ignore-layer']);
 const fail = message => { throw Error(message); };
 
@@ -31,7 +31,7 @@ export function parseCliArguments(argv) {
     events.push({ key, value: parsed });
   }
   const orderedInputs = args['ordered-inputs'] === true;
-  if (orderedInputs && args._[0] !== 'export' && args._[0] !== 'help' && !args.help) fail('--ordered-inputs is available for export only.');
+  if (orderedInputs && !['export','plan','help'].includes(args._[0]) && !args.help) fail('--ordered-inputs is available for export or plan only.');
   if (!orderedInputs) return { args, orderedInputs: false, inputs: args._.slice(1).map(filename => ({ filename, options: {} })) };
   const state = {}, inputs = [];
   let commandSeen = false, orderedScaleCount = 0;

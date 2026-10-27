@@ -300,15 +300,15 @@ export function planExport(inputs, globalOptions = {}, rendering = {}) {
 }
 
 /** Read-only export preflight. It never writes files or checks an entitlement implicitly. */
-export function describeExportPlan(inputs, options = {}, { entitlement = 'unknown', existing = [] } = {}) {
-  const plan = planExport(inputs, options);
+export function describeExportPlan(inputs, options = {}, { entitlement = 'unknown', existing = [], plan: prepared } = {}) {
+  const plan = prepared ?? planExport(inputs, options);
   const expected = options.expectedFrameCount ?? options['expected-frame-count'];
   if (expected !== undefined && (Number(expected) !== plan.entries.length)) fail(`Expected ${expected} frames, but the export selects ${plan.entries.length}.`);
   const names = plan.entries.map(entry => entry.name);
   const conflicts = names.filter(name => existing.includes(name));
   const paid=['gif','sheet','atlas','zip'].includes(options.format); const requiredEntitlement=paid?'pro':'free';
   const entitlementOk=requiredEntitlement==='free'||entitlement==='pro'||entitlement==='valid-pro';
-  return { format:'pixelwall-export-plan', version:1, documentIds:inputs.map(input=>input.document?.id), selectedFrames:plan.entries.length, selectedNames:names, dimensions:{width:plan.entries[0]?.width??0,height:plan.entries[0]?.height??0}, durationMs:plan.entries.reduce((sum,entry)=>sum+entry.durationMs,0), jobs:plan.jobs.map(job=>({id:job.id,frameCount:job.entries.length,layer:job.layerPath||null,clip:job.tag?.name||null})), requiredEntitlement, entitlement, conflicts, canWrite:conflicts.length===0&&entitlementOk };
+  return { format:'pixelwall-export-plan', version:1, documentIds:inputs.map(input=>input.document?.id), selectedFrames:plan.entries.length, selectedNames:names, dimensions:{width:plan.entries[0]?.width??0,height:plan.entries[0]?.height??0}, durationMs:plan.entries.reduce((sum,entry)=>sum+entry.durationMs,0), jobs:plan.jobs.map(job=>({id:job.id,inputIndex:job.inputIndex,documentId:job.document.id,frameCount:job.entries.length,frameIds:job.entries.map(entry=>entry.sourceFrameId),durationsMs:job.entries.map(entry=>entry.durationMs),dimensions:job.entries.map(entry=>({width:entry.width,height:entry.height})),layerIds:job.layerIds,layer:job.layerPath||null,clipId:job.tag?.id??null,clip:job.tag?.name||null,includeReferenceLayers:job.options.includeReferences})), requiredEntitlement, entitlement, conflicts, canWrite:conflicts.length===0&&entitlementOk };
 }
 
 /** Rebuild metadata after packing so cropping, padding, source IDs and per-input tags remain unambiguous. */

@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 const invoke = (method, payload) => ipcRenderer.invoke(`pixelwall:native:${method}`, payload);
 contextBridge.exposeInMainWorld('pixelwallNativeFiles', Object.freeze({
   open: () => invoke('open'),
+  openTemporary: () => invoke('openTemporary'),
   reopen: payload => invoke('reopen', payload),
   ready: () => invoke('ready'),
   bindOpen: payload => invoke('bindOpen', payload),

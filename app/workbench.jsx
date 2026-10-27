@@ -41,6 +41,7 @@ import { captureCommands, preflightCommands, throwIfCancelled } from "./command-
 import { renderPreview, renderPreviewContactSheet, renderPreviewComparison } from "./preview-render.mjs";
 import SceneComponentsPanel from "./scene-components-panel.jsx";
 import PreviewPanel from "./PreviewPanel.jsx";
+import AnimationReviewPanel from "./AnimationReviewPanel.jsx";
 import ArtifactLibrary from "./ArtifactLibrary.jsx";
 import { validateExtension, parsePalette } from "./editor-extensions.mjs";
 import { useProAccess, ProDialog } from "./pro-access";
@@ -56,6 +57,7 @@ import { encodeClipboardImage, decodeClipboardImage } from "./native-clipboard-p
 import { renderScaledExportFrame } from "./export-render.mjs";
 import { validateExportScale, scaleExportSlices } from "./export-scale.mjs";
 import { createDocumentPlayback, exportFrameTraversal } from "./frame-traversal.mjs";
+import { diagnoseAnimation, compareAnimationWrap } from "./animation-review.mjs";
 import { transferPixelColors } from "./color-transfer.mjs";
 import { documentProfile, isSRGB } from "./color-management.mjs";
 import { loadBrowserColorManager } from "./color-runtime.mjs";
@@ -422,6 +424,9 @@ export default function Workbench() {
     [notice, setNotice] = useState(""),
     [previewResult, setPreviewResult] = useState(null),
     [previewBaseline, setPreviewBaseline] = useState(null),
+    [storageStats, setStorageStats] = useState(null),
+    [storageBudgetInput, setStorageBudgetInput] = useState(""),
+    [temporaryProjects, setTemporaryProjects] = useState([]),
     [agentConnection, setAgentConnection] = useState(null),
     [saveStatus, setSaveStatus] = useState("Opening your workspace…"),
     [documents, setDocuments] = useState([]),
@@ -459,6 +464,7 @@ export default function Workbench() {
       width: 64,
       height: 64,
       colorMode: "rgba",
+      mode: "library",
     }),
     [resizeOptions, setResizeOptions] = useState({
       width: 64,
@@ -540,6 +546,10 @@ export default function Workbench() {
     activeRef = useRef({ frameId: "", layerId: "" }),
     operationRef = useRef(null),
     previewBaselineRef = useRef(null),
+    checkpointDeliveryRef = useRef(null),
+    temporaryDocumentsRef = useRef(new Map()),
+    documentModeRef = useRef("library"),
+    libraryStateRef = useRef({status:"unavailable", revision:null, error:null}),
     restoringRef = useRef(false),
     pathRef = useRef([]),
     canvasRef = useRef(null),
@@ -710,7 +720,7 @@ export default function Workbench() {
           ...command,
         });
       historyRef.current.commit(next, label);
-      setSaveStatus("Unsaved changes");
+      if (typeof libraryStateRef !== "undefined") libraryStateRef.current = {status:"dirty", revision:storedRevisionRef.current ?? null, error:libraryStateRef.current.error}; setSaveStatus("Unsaved changes");
       docRef.current = next;
       revisionRef.current++;
       documentRevisionsRef.current.set(docRef.current.id, (documentRevisionsRef.current.get(docRef.current.id) || 0) + 1);
@@ -738,7 +748,7 @@ export default function Workbench() {
       documentRevisionsRef.current.set(docRef.current.id, (documentRevisionsRef.current.get(docRef.current.id) || 0) + 1);
       reconcile(h.present);
       setDoc(h.present);
-      setSaveStatus("Unsaved changes");
+      if (typeof libraryStateRef !== "undefined") libraryStateRef.current = {status:"dirty", revision:storedRevisionRef.current ?? null, error:libraryStateRef.current.error}; setSaveStatus("Unsaved changes");
       const context = h.lastContext;
       if (context !== undefined) restoreUiContext(context);
       else setSelection(null);
@@ -761,7 +771,7 @@ export default function Workbench() {
       documentRevisionsRef.current.set(docRef.current.id, (documentRevisionsRef.current.get(docRef.current.id) || 0) + 1);
       reconcile(h.present);
       setDoc(h.present);
-      setSaveStatus("Unsaved changes");
+      if (typeof libraryStateRef !== "undefined") libraryStateRef.current = {status:"dirty", revision:storedRevisionRef.current ?? null, error:libraryStateRef.current.error}; setSaveStatus("Unsaved changes");
       const context = h.lastContext;
       if (context !== undefined) restoreUiContext(context);
       else setSelection(null);
@@ -777,7 +787,9 @@ export default function Workbench() {
     const captured = docRef.current,
       store = storeRef.current;
     if (!captured || !store) return null;
+    if (documentModeRef.current !== "library") return {saved:false, skipped:true, mode:documentModeRef.current, reason:"The active document is file-backed or temporary; use its file save or a verified checkpoint."};
     setSaveStatus("Saving…");
+    libraryStateRef.current = {status:"saving", revision:storedRevisionRef.current ?? null, error:null};
     const task = async () => {
       const expected = savedRevisionsRef.current.get(captured.id);
       const result = await store.saveDocument(captured, {
@@ -788,6 +800,7 @@ export default function Workbench() {
       savedDocumentsRef.current.set(captured.id, captured);
       if (docRef.current?.id === captured.id) {
         storedRevisionRef.current = result.revision;
+        libraryStateRef.current = {status:"saved", revision:result.revision, error:null};
         if (docRef.current === captured) setSaveStatus("Saved on this device");
       }
       setDocuments(await store.listDocuments());
@@ -802,15 +815,18 @@ export default function Workbench() {
     } catch (error) {
       analyticsRef.current.saveResult(error);
       setSaveStatus("Save needs attention");
+      libraryStateRef.current = {status:"failed", revision:storedRevisionRef.current ?? null, error:{code:error?.code, message:error?.message}};
       report(error);
       throw error;
     }
   }, [report]);
   const activate = useCallback(
-    async (next, storedRevision, {allowLua = false, allowNative = false, allowRecovery = false} = {}) => {
+    async (next, storedRevision, {allowLua = false, allowNative = false, allowRecovery = false, mode = "library"} = {}) => {
       setPlaying(false);
       if (docRef.current && docRef.current.id !== next.id) historyCacheRef.current.park({history:historyRef.current, document:savedDocumentsRef.current.get(docRef.current.id), storedRevision:savedRevisionsRef.current.get(docRef.current.id)});
       install(next, { resetHistory: true, storedRevision, allowLua, allowNative, allowRecovery });
+      if (typeof documentModeRef !== "undefined") documentModeRef.current = mode;
+      if (typeof checkpointDeliveryRef !== "undefined") checkpointDeliveryRef.current = null;
       luaRangeRef.current = {type:0, colors:[], sliceIds:[]};
       const layerId =
         next.layers.find((l) => l.type !== "group")?.id ||
@@ -847,6 +863,7 @@ export default function Workbench() {
   );
   const newDocument = useCallback(
     async (options = {}) => {
+      const requestedMode = options.mode === "temporary" ? "temporary" : "library";
       automationRef.current?.desktop.assertEditable();
       if (nativeSessionRef.current?.busy) throw Error("Finish the current file operation first.");
       if (luaAbortRef.current) throw Error("Wait for the Lua script to finish or cancel it.");
@@ -856,9 +873,15 @@ export default function Workbench() {
         );
       try {
         setBusy(true);
-        await save();
-        const next = createDocument({ ...options, id: crypto.randomUUID() });
-        await activate(next);
+        if (requestedMode === "library") {
+          const saved = await save();
+          if (!saved || saved.saved === false) throw Error("Save a checkpoint or bound file before opening another document.");
+        } else if (docRef.current) {
+          if (temporaryDocumentsRef.current.size >= 8 && !temporaryDocumentsRef.current.has(docRef.current.id)) throw Error("At most eight retained documents are supported; restore or checkpoint one before opening another.");
+          temporaryDocumentsRef.current.set(docRef.current.id, {document:docRef.current, revision:revisionRef.current, storedRevision:storedRevisionRef.current, mode:documentModeRef.current, checkpoint:checkpointDeliveryRef.current ?? null});
+        }
+        const next = createDocument({ ...options, mode:undefined, id: crypto.randomUUID() });
+        await activate(next, undefined, {mode:requestedMode});
         analyticsRef.current.project("new", "completed");
         setModal(null);
         return next;
@@ -882,7 +905,7 @@ export default function Workbench() {
       // the replacement semantics for the new blank document.
       const generated = applyCommand(next, { type: "scene.water", ...options });
       const saved = await save();
-      if (docRef.current && !saved) throw Error("Save the current project before generating a water scene.");
+      if (docRef.current && (!saved || saved.saved === false)) throw Error("Save a checkpoint or bound file before generating a water scene.");
       await activate(generated);
       analyticsRef.current.project("new", "completed");
       analyticsRef.current.committed({ type: "scene.water" }, true);
@@ -955,6 +978,7 @@ export default function Workbench() {
           loaded?.revision,
         );
         setSaveStatus(loaded ? "Saved on this device" : "Ready");
+        libraryStateRef.current = loaded ? {status:"saved", revision:loaded.revision, error:null} : {status:"available", revision:null, error:null};
         analyticsRef.current.loaded(loaded
           ? migrations.some((result) => result.status === "imported") ? "legacy_migration" : "library"
           : "new");
@@ -971,6 +995,7 @@ export default function Workbench() {
         createDocument({ name: "Untitled", width: 64, height: 64 }),
       );
       setSaveStatus("Portable backups only");
+      libraryStateRef.current = {status:"unavailable", revision:null, error:{message:error.message}};
       analyticsRef.current.loaded("storage_unavailable");
       analyticsRef.current.saveResult(error);
     });
@@ -1522,7 +1547,7 @@ export default function Workbench() {
       if (command) {
         const next = applyCommand(op.base, command);
         historyRef.current.commit(next, op.tool);
-        setSaveStatus("Unsaved changes");
+        if (typeof libraryStateRef !== "undefined") libraryStateRef.current = {status:"dirty", revision:storedRevisionRef.current ?? null, error:libraryStateRef.current.error}; setSaveStatus("Unsaved changes");
         docRef.current = next;
         revisionRef.current++;
         documentRevisionsRef.current.set(docRef.current.id, (documentRevisionsRef.current.get(docRef.current.id) || 0) + 1);
@@ -2044,8 +2069,14 @@ export default function Workbench() {
           pixels: pixelsFromRgba(image.rgba),
         });
       }
-      await save();
-      await activate({ ...next, id: crypto.randomUUID() });
+      if (kind === "temporary") {
+        if (docRef.current) { if (temporaryDocumentsRef.current.size >= 8 && !temporaryDocumentsRef.current.has(docRef.current.id)) throw Error("At most eight retained documents are supported; restore or checkpoint one before opening another."); temporaryDocumentsRef.current.set(docRef.current.id, {document:docRef.current, revision:revisionRef.current, storedRevision:storedRevisionRef.current, mode:documentModeRef.current, checkpoint:checkpointDeliveryRef.current ?? null}); }
+        await activate({ ...next, id: crypto.randomUUID() }, undefined, {mode:"temporary"});
+      } else {
+        const saved = await save();
+        if (!saved || saved.saved === false) throw Error("Save a checkpoint or bound file before opening another project.");
+        await activate({ ...next, id: crypto.randomUUID() });
+      }
       analyticsRef.current.imported(kind, importFormat, files.length, warnings.length);
       setImportWarnings(warnings);
       setNotice(
@@ -2078,6 +2109,28 @@ export default function Workbench() {
       : {clip,playSubtags:false,legacyDirection:false}).map(index => source.frames[index].id);
     return { ids, loop: clip?.loop !== false };
   }
+  function createExportPlan(options = {}, source = docRef.current) {
+    if (!source) throw Error("Open a project first.");
+    const format = options.format || "png", native = ["project", "aseprite"].includes(format), scale = native ? 1 : validateExportScale(options.scale ?? 1);
+    if (!["png","bmp","tga","project","aseprite","gif","sheet","zip"].includes(format)) throw Error("Unsupported export format.");
+    const clip = source.clips?.find(c => c.id === (options.clipId || clipId));
+    if (options.clipId && !clip) throw Error("The export clip no longer exists.");
+    const traversal = exportFrameIds(options, source), fid = options.frameId || activeRef.current.frameId;
+    const frameIds = ["project", "aseprite"].includes(format) ? source.frames.map(frame => frame.id) : format === "gif" || format === "sheet" || format === "zip" ? traversal.ids : [fid];
+    if (!frameIds.every(id => source.frames.some(frame => frame.id === id))) throw Error("The export frame no longer exists.");
+    if (options.expectedFrameCount !== undefined && options.expectedFrameCount !== frameIds.length) throw Error("The export frame count changed. Reinspect the document and plan again.");
+    const selected = options.layers === "active" ? [activeRef.current.layerId] : options.layers === "selected" ? targetLayers() : options.layerIds;
+    if (selected?.some(id => !source.layers.some(layer => layer.id === id))) throw Error("An export layer no longer exists.");
+    const chosen = selected?.length ? new Set(selected) : null;
+    if (chosen) for (let pass=0;pass<source.layers.length;pass++) for (const layer of source.layers) if(chosen.has(layer.parentId))chosen.add(layer.id);
+    const byId = new Map(source.layers.map(layer=>[layer.id,layer]));
+    const visible = layer => { for(let item=layer;item;item=byId.get(item.parentId))if(!item.visible)return false; return true; };
+    const layerIds = native ? source.layers.map(layer=>layer.id) : source.layers.filter(layer=>layer.type !== "group" && (chosen ? chosen.has(layer.id) : visible(layer)) && (options.includeReferenceLayers || layer.type !== "reference")).map(layer=>layer.id);
+    const requiredEntitlement = PAID_FORMATS.has(format) ? "pro" : "free", canExport = requiredEntitlement === "free" || access.pro === true;
+    const filename = stem(source.name) + "." + (format === "project" ? "pixelwall" : format === "sheet" ? "png" : format);
+    const width = Math.max(1, Math.trunc(source.width * scale)), height = Math.max(1, Math.trunc(source.height * scale));
+    return {documentId:source.id, revision:revisionRef.current, format, scale, frameId:fid, frameIds, frameCount:frameIds.length, durations:frameIds.map(id => source.frames.find(frame => frame.id === id)?.durationMs ?? 0), loop:traversal.loop, width, height, layerIds, includeReferenceLayers:native || options.includeReferenceLayers === true, requiredEntitlement, entitlement:access.pro === true ? "pro" : "free", canExport, freeAlternative:requiredEntitlement === "pro" ? "Export PNG frames individually." : null, filenames:format === "sheet" ? [filename,stem(source.name)+".json"] : [filename], delivery:{status:"not_requested",conflicts:"checked-by-native-delivery",browserCompletionObservable:false}, memoryBudgetBytes:["gif","sheet","zip"].includes(format) ? width * height * frameIds.length * 4 : width * height * 4, files:format === "sheet" ? 2 : 1};
+  }
   async function exportArtwork(options = {}, source = "ui") {
     const attempt = analyticsRef.current.exportStarted(options.format || "png", source);
     try {
@@ -2092,6 +2145,7 @@ export default function Workbench() {
   async function generateArtwork(options = {}) {
     const source = docRef.current;
     if (!source) throw Error("Open a project first.");
+    const sourceRevision = revisionRef.current;
     let current = source;
     const chosen =
       options.layers === "active"
@@ -2131,14 +2185,15 @@ export default function Workbench() {
       };
     const format = options.format || "png",
       scale = ["project", "aseprite"].includes(format) ? 1 : validateExportScale(options.scale ?? 1);
-    const fid = options.frameId || activeRef.current.frameId;
-    const {ids, loop} = exportFrameIds(options, source);
+    const plan = createExportPlan(options, source);
+    const fid = plan.frameId, ids = plan.frameIds, loop = plan.loop;
     const width = Math.max(1, Math.trunc(current.width * scale)), height = Math.max(1, Math.trunc(current.height * scale));
     if (PAID_FORMATS.has(format) && !(await access.requestAccess())) {
       const error = Error("Pro access is required for this export.");
       error.name = "ProExportRequired";
       throw error;
     }
+    if (docRef.current !== source || revisionRef.current !== sourceRevision) throw Error("The project changed while export access was being checked. Plan the export again.");
     const rendering = {colorManager:!["project", "aseprite"].includes(format) && !isSRGB(documentProfile(current)) ? colorManager || await loadBrowserColorManager() : colorManager, intent:renderingIntent};
     let bytes,
       companion,
@@ -2227,6 +2282,7 @@ export default function Workbench() {
         mime = "application/zip";
       }
     } else throw Error("Unsupported export format.");
+    if (docRef.current !== source || revisionRef.current !== sourceRevision) throw Error("The project changed while the export was being prepared. No artifact was published.");
     const filename = `${stem(current.name)}.${suffix}`;
     const exportResult = await downloads.publishFiles([
       { blob: new Blob([bytes], { type: mime }), filename },
@@ -2268,8 +2324,17 @@ export default function Workbench() {
     operationRef.current = lock;
     let next = before;
     let processed = 0;
+    const phaseStarted = performance.now(), phaseTimings = {};
+    const announcePhase = phase => {
+      phaseTimings[phase] = { startedAtMs: Math.round(performance.now() - phaseStarted) };
+      onProgress?.({status:"running", phase, commandsProcessed:processed, commandsTotal:list.length, revision:capturedRevision, phaseTimings:structuredClone(phaseTimings)});
+    };
+    const finishPhase = phase => { if (phaseTimings[phase]) phaseTimings[phase].durationMs = Math.max(0, Math.round(performance.now() - phaseStarted - phaseTimings[phase].startedAtMs)); };
     try {
+      announcePhase("validation");
       await deferred();
+      finishPhase("validation");
+      announcePhase("staging");
       let yieldedAt = performance.now();
       for (let index = 0; index < list.length; index++) {
         throwIfCancelled(signal);
@@ -2286,8 +2351,10 @@ export default function Workbench() {
       if (docRef.current !== before || revisionRef.current !== capturedRevision || operationRef.current !== lock)
         throw Error("The project changed while the edit was running. No partial edits were committed.");
       throwIfCancelled(signal);
+      finishPhase("staging");
+      announcePhase("committing");
       historyRef.current.commit(next, label);
-      setSaveStatus("Unsaved changes");
+      if (typeof libraryStateRef !== "undefined") libraryStateRef.current = {status:"dirty", revision:storedRevisionRef.current ?? null, error:libraryStateRef.current.error}; setSaveStatus("Unsaved changes");
       docRef.current = next;
       revisionRef.current++;
       documentRevisionsRef.current.set(docRef.current.id, (documentRevisionsRef.current.get(docRef.current.id) || 0) + 1);
@@ -2296,9 +2363,13 @@ export default function Workbench() {
       setDoc(next);
       setHistoryVersion((v) => v + 1);
       setHistoryState({canUndo:historyRef.current?.canUndo || false, canRedo:historyRef.current?.canRedo || false});
-      onProgress?.({status:"committed", commandsProcessed:list.length, commandsTotal:list.length, revision:revisionRef.current});
+      finishPhase("committing");
+      announcePhase("completed");
+      finishPhase("completed");
+      onProgress?.({status:"committed", phase:"completed", commandsProcessed:list.length, commandsTotal:list.length, revision:revisionRef.current, phaseTimings:structuredClone(phaseTimings)});
       return next;
     } catch (error) {
+      onProgress?.({status:"failed", phase:Object.keys(phaseTimings).at(-1), commandsProcessed:processed, commandsTotal:list.length, revision:revisionRef.current, phaseTimings:structuredClone(phaseTimings), error:error instanceof Error ? error.message : String(error)});
       setNotice(`Command edit failed after ${processed}/${list.length} commands · ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     } finally {
@@ -2312,18 +2383,36 @@ export default function Workbench() {
         loaded: !!docRef.current && !!historyRef.current,
         id: docRef.current?.id,
         revision: revisionRef.current,
-        canSave: !!storeRef.current,
+        canSave: !!storeRef.current || documentModeRef.current === "file" || (checkpointDeliveryRef.current?.documentId === docRef.current?.id && checkpointDeliveryRef.current?.revision === revisionRef.current),
         busy: busyRef.current || !!luaAbortRef.current || !!nativeSessionRef.current?.busy || !!operationRef.current || restoringRef.current,
       }),
       saveForClose: async () => {
-        const result = await save();
-        if (!result) return null;
+        const retained = [...temporaryDocumentsRef.current.values()];
+        const durableCheckpoint = entry => entry?.checkpoint?.status === "verified" && entry.checkpoint.documentId === entry.document.id && entry.checkpoint.revision === entry.revision;
+        const dirtyLibrary = entry => entry.mode === "library" && !historyValuesEqual(entry.document, savedDocumentsRef.current.get(entry.document.id));
+        if (retained.some(entry => (entry.mode === "library" && dirtyLibrary(entry) && !durableCheckpoint(entry)) || (entry.mode === "temporary" && !durableCheckpoint(entry)) || (entry.mode === "file" && !nativeSessionRef.current))) {
+          return {saved:false, reason:"Retained documents have unsaved changes; save them or create verified checkpoints before closing."};
+        }
+        let result;
+        try { result = await save(); }
+        catch (error) {
+          if (error?.code !== "BUDGET_EXCEEDED" && !/storage budget/i.test(error?.message || "")) throw error;
+          result = {saved:false, reason:"The local library is full; file-backed documents can still be saved to their bound files."};
+        }
+        const currentCheckpoint = checkpointDeliveryRef.current?.documentId === docRef.current?.id && checkpointDeliveryRef.current?.revision === revisionRef.current && checkpointDeliveryRef.current.status === "verified";
         const nativeDocuments = nativeSessionRef.current ? await nativeSessionRef.current.saveAll() : [];
+        const fileSaved = (document, revision) => nativeDocuments.some(entry => entry.id === document.id && entry.revision === revision);
+        if (retained.some(entry => entry.mode === "file" && !durableCheckpoint(entry) && !fileSaved(entry.document, entry.revision))) return {saved:false, reason:"A retained file-backed document was not saved. Restore it and save a verified checkpoint before closing."};
+        if (documentModeRef.current === "file" && fileSaved(docRef.current, revisionRef.current)) result = {saved:true, document:docRef.current, revision:revisionRef.current, mode:"file"};
+        if ((!result || result.saved === false) && currentCheckpoint) result = {saved:true, document:docRef.current, revision:revisionRef.current, checkpoint:checkpointDeliveryRef.current, mode:documentModeRef.current};
+        if (!result && !nativeSessionRef.current) return null;
         return {...result, nativeDocuments};
       },
       nativeRead: async (id = docRef.current?.id) => {
+        const retained = temporaryDocumentsRef.current.get(id);
         const loaded = id === docRef.current?.id
           ? {document:docRef.current, storedRevision:storedRevisionRef.current}
+          : retained ? {document:retained.document, storedRevision:retained.storedRevision}
           : await storeRef.current?.loadDocument(id);
         if (!loaded) return null;
         return {...loaded, storedRevision:loaded.storedRevision ?? loaded.revision, revision:documentRevisionsRef.current.get(id) || 0};
@@ -2348,13 +2437,29 @@ export default function Workbench() {
         return {document:next, storedRevision:result.revision, revision:0};
       },
       nativeActivate: async (captured) => {
-        await activate(captured.document, captured.storedRevision, {allowNative:true});
+        await activate(captured.document, captured.storedRevision, {allowNative:true, mode:"library"});
         setSaveStatus("Saved on this device");
       },
+      activateTemporary: async ({document}) => {
+        if (docRef.current) { if (temporaryDocumentsRef.current.size >= 8 && !temporaryDocumentsRef.current.has(docRef.current.id)) throw Error("At most eight retained documents are supported; restore or checkpoint one before opening another."); temporaryDocumentsRef.current.set(docRef.current.id, { document:docRef.current, revision:revisionRef.current, storedRevision:storedRevisionRef.current, mode:documentModeRef.current, checkpoint:checkpointDeliveryRef.current ?? downloads.getLastResult?.() ?? null }); }
+        const next = {...document, id:crypto.randomUUID()};
+        await activate(next, undefined, {allowNative:true, mode:"temporary"});
+        setSaveStatus("Temporary document · checkpoint before closing");
+      },
+      activateFileBacked: async ({document}) => {
+        const previousDocumentId = docRef.current?.id;
+        if (docRef.current) { if (temporaryDocumentsRef.current.size >= 8 && !temporaryDocumentsRef.current.has(docRef.current.id)) throw Error("At most eight retained documents are supported; restore or checkpoint one before opening another."); temporaryDocumentsRef.current.set(docRef.current.id, { document:docRef.current, revision:revisionRef.current, storedRevision:storedRevisionRef.current, mode:documentModeRef.current, checkpoint:checkpointDeliveryRef.current ?? downloads.getLastResult?.() ?? null }); }
+        const next = {...document, id:crypto.randomUUID()};
+        await activate(next, 0, {allowNative:true, mode:"file"});
+        setSaveStatus("File-backed document · saved to its bound file");
+        return {document:next, revision:0, previousDocumentId};
+      },
+      rollbackFileBacked: async ({captured} = {}) => { if (captured?.previousDocumentId) await hostRef.current?.restoreTemporary?.({documentId:captured.previousDocumentId}); },
       nativeFlushRecovery: async () => {
         automationRef.current?.desktop.assertEditable();
         if (luaAbortRef.current || operationRef.current || restoringRef.current) throw Error("Finish the current edit or script before opening a file.");
-        if (!await save()) throw Error("Device storage is unavailable. Save a portable copy before opening another file.");
+        const saved = await save();
+        if (!saved || saved.saved === false) throw Error("Device storage is unavailable. Save a verified portable copy before opening another file.");
       },
       nativeImported: (file, warnings) => {
         analyticsRef.current.imported("document", file.format, 1, warnings.length);
@@ -2395,6 +2500,89 @@ export default function Workbench() {
         const entries = await storeRef.current?.listDocuments() ?? [];
         return {activeDocumentId:docRef.current?.id, projects:entries};
       },
+      storageStatus: async ({documentId, revision} = {}) => {
+        const current = docRef.current;
+        if (!current) return {status:"unavailable", reason:"No active document."};
+        if (documentId !== undefined && documentId !== current.id) throw Error("The document changed. Inspect it again before reading storage status.");
+        if (revision !== undefined && revision !== revisionRef.current) throw Error("The document revision changed. Inspect it again before reading storage status.");
+        if (!storeRef.current) return {status:"unavailable", reason:"The local library is unavailable."};
+        return {documentId:current.id, revision:revisionRef.current, ...(await storeRef.current.stats()), saveEstimate:await storeRef.current.estimateSave(current)};
+      },
+      storageStats: async () => storeRef.current?.stats() ?? {status:"unavailable", reason:"The local library is unavailable."},
+      setStorageBudget: async ({bytes} = {}) => { if (!storeRef.current) throw Error("The local library is unavailable."); const result = await storeRef.current.setBudget(bytes); setStorageStats(result); return result; },
+      persistence: async () => {
+        const libraryState = libraryStateRef.current;
+        const editStatus = saveStatus === "Unsaved changes" ? "dirty" : "committed";
+        const checkpoint = checkpointDeliveryRef.current?.documentId === docRef.current?.id && checkpointDeliveryRef.current?.revision === revisionRef.current ? checkpointDeliveryRef.current : null;
+        return {documentId:docRef.current?.id, revision:revisionRef.current, mode:documentModeRef.current, edit:{status:editStatus, revision:revisionRef.current}, library:storeRef.current ? {status:libraryState.status, revision:libraryState.revision, error:libraryState.error, message:saveStatus, ...(await storeRef.current.stats())} : {status:"unavailable", message:saveStatus}, checkpoint};
+      },
+      estimateSave: async ({documentId, revision} = {}) => {
+        const current = docRef.current;
+        if (!current) throw Error("Open a project first.");
+        if (documentId !== undefined && documentId !== current.id) throw Error("The document changed. Inspect it again before estimating storage.");
+        if (revision !== undefined && revision !== revisionRef.current) throw Error("The document revision changed. Inspect it again before estimating storage.");
+        if (!storeRef.current) return {status:"unavailable", reason:"The local library is unavailable."};
+        return {documentId:current.id, revision:revisionRef.current, ...(await storeRef.current.estimateSave(current))};
+      },
+      checkpoint: async ({expectedDocumentId, expectedRevision, download = false} = {}) => {
+        const captured = docRef.current, sourceRevision = revisionRef.current;
+        if (!captured) throw Error("Open a project first.");
+        if (expectedDocumentId !== undefined && expectedDocumentId !== captured.id) throw Error("The checkpoint document does not match the active document.");
+        if (expectedRevision !== undefined && expectedRevision !== sourceRevision) throw Error("The checkpoint revision does not match the active document.");
+        const result = await exportArtwork({format:"project", download}, "checkpoint");
+        if (docRef.current !== captured || revisionRef.current !== sourceRevision) throw Error("The project changed while the checkpoint was being prepared.");
+        const generated = result.exportResult?.generated?.files?.[0], persistence = result.exportResult?.persistence;
+        return {documentId:captured.id, revision:sourceRevision, filename:result.filename, bytes:result.bytes, mime:result.mime, artifactId:generated?.artifactId, sha256:generated?.sha256, expiresAt:generated?.expiresAt, persistence: persistence || {status:"failed", error:{code:"NOT_PERSISTED", message:"The backup was generated but not retained in the artifact library."}}, library: storeRef.current ? await storeRef.current.stats() : {status:"unavailable"}};
+      },
+      checkpointDelivered: async delivery => {
+        const current = docRef.current;
+        if (!current || delivery?.documentId !== current.id || delivery?.revision !== revisionRef.current) {
+          throw Error("The delivered checkpoint is stale or belongs to another document.");
+        }
+        if (!delivery?.sha256 || !Number.isSafeInteger(delivery.bytes) || delivery.bytes < 1) throw Error("Checkpoint delivery metadata is incomplete.");
+        checkpointDeliveryRef.current = {...delivery, status:"verified"};
+        setSaveStatus("Verified checkpoint saved to the approved folder");
+        return {recorded:true, documentId:current.id, revision:revisionRef.current, library:storeRef.current ? await storeRef.current.stats() : {status:"unavailable"}, delivery:{...delivery}};
+      },
+      animationReview: async ({expectedDocumentId, expectedRevision, clipId, frameIds, anchoredLayers, anchoredRegions, exclusions, expectedFrameCount, compareCount} = {}) => {
+        const current = docRef.current;
+        if (!current) throw Error("Open a project first.");
+        if (expectedDocumentId !== undefined && expectedDocumentId !== current.id) throw Error("The document changed. Inspect it again before reviewing animation.");
+        if (expectedRevision !== undefined && expectedRevision !== revisionRef.current) throw Error("The document revision changed. Inspect it again before reviewing animation.");
+        const review = diagnoseAnimation(current, {clipId, frameIds, anchoredLayers, anchoredRegions, exclusions, expectedFrameCount, renderFrame:(document, frameId) => renderFrame(document, frameId)});
+        const ids = review.frameIds;
+        const wrap = ids.length > 1 ? compareAnimationWrap(current, {frameIds:ids, compareCount:compareCount ?? 2, renderFrame:(document, frameId) => renderFrame(document, frameId)}) : {pairs:[], compareCount:0, identicalEndpoints:false};
+        return {documentId:current.id, revision:revisionRef.current, ...review, wrap};
+      },
+      openTemporary: async ({bytes, name} = {}) => {
+        if (!Array.isArray(bytes) || !bytes.length || bytes.length > 64 * 1024 * 1024 || bytes.some(value => !Number.isInteger(value) || value < 0 || value > 255)) throw Error("Provide project bytes as an array of at most 64 MiB.");
+        if (busyRef.current || luaAbortRef.current || nativeSessionRef.current?.busy || operationRef.current || restoringRef.current) throw Error("Finish the current operation before opening a temporary document.");
+        const previous = docRef.current;
+        if (previous) { if (temporaryDocumentsRef.current.size >= 8 && !temporaryDocumentsRef.current.has(previous.id)) throw Error("At most eight retained documents are supported; restore or checkpoint one before opening another."); temporaryDocumentsRef.current.set(previous.id, { document: previous, revision: revisionRef.current, storedRevision:storedRevisionRef.current, mode: documentModeRef.current, checkpoint: checkpointDeliveryRef.current ?? downloads.getLastResult?.() ?? null }); }
+        const raw = decodeProjectContainer(new Uint8Array(bytes));
+        const next = raw.format === "pixelwall-document" && raw.version === 4 ? normalizeDocument(raw) : migrateLegacy(parseProject(JSON.stringify(raw)));
+        next.id = crypto.randomUUID();
+        if (name !== undefined) { if (typeof name !== "string" || !name.trim() || name.length > 240) throw Error("Temporary project name must contain 1–240 characters."); next.name = name.trim(); }
+        await activate(next, undefined, {mode:"temporary"});
+        setSaveStatus("Temporary document · checkpoint before closing");
+        return {documentId:next.id, revision:revisionRef.current, persistence:{mode:"temporary", library:"not_saved"}};
+      },
+      temporaryProjects: () => [...temporaryDocumentsRef.current.entries()].map(([key, entry]) => ({ documentId:key, name:entry.document.name, revision:entry.revision, mode:entry.mode ?? "temporary", checkpoint:entry.checkpoint })),
+      restoreTemporary: async ({documentId} = {}) => {
+        const entry = temporaryDocumentsRef.current.get(documentId);
+        if (!entry) throw Error("Temporary document is no longer retained.");
+        const current = docRef.current;
+        if (current && current.id !== documentId) { if (temporaryDocumentsRef.current.size >= 8 && !temporaryDocumentsRef.current.has(current.id) && !temporaryDocumentsRef.current.has(documentId)) throw Error("At most eight retained documents are supported; restore or checkpoint one before opening another."); temporaryDocumentsRef.current.set(current.id, {document:current, revision:revisionRef.current, storedRevision:storedRevisionRef.current, mode:documentModeRef.current, checkpoint:checkpointDeliveryRef.current ?? downloads.getLastResult?.() ?? null}); }
+        await activate(entry.document, entry.mode === "library" ? entry.storedRevision : entry.revision, {mode:entry.mode ?? "temporary"});
+        checkpointDeliveryRef.current = entry.checkpoint?.status === "verified" ? entry.checkpoint : null;
+        temporaryDocumentsRef.current.delete(documentId);
+        setSaveStatus("Temporary document restored · checkpoint before closing");
+        return {documentId, revision:revisionRef.current, persistence:{mode:"temporary", library:"not_saved", checkpoint:entry.checkpoint}};
+      },
+      openTemporaryProject: async options => {
+        const result = await hostRef.current.restoreTemporary(options);
+        return result;
+      },
       openProject: async ({documentId} = {}) => {
         if (typeof documentId !== "string" || !documentId || documentId.length > 200) throw Error("Choose a project ID from the project list.");
         if (busyRef.current || luaAbortRef.current || nativeSessionRef.current?.busy || operationRef.current || restoringRef.current) throw Error("Finish the current operation before opening a project.");
@@ -2404,7 +2592,8 @@ export default function Workbench() {
         const before = docRef.current, revision = revisionRef.current;
         const saved = await store.loadDocument(documentId);
         if (!saved) throw Error("Project not found in the local library.");
-        if (!await save()) throw Error("Save the current project before opening another project.");
+        const currentSave = await save();
+        if (!currentSave || currentSave.saved === false) throw Error("Save a checkpoint or bound file before opening another project.");
         if (docRef.current !== before || revisionRef.current !== revision) throw Error("The current project changed. Retry opening the project after finishing the edit.");
         await activate(saved.document, saved.revision);
         setClosedDocuments(ids => ids.filter(value => value !== documentId));
@@ -2421,7 +2610,8 @@ export default function Workbench() {
         }
         const store = storeRef.current;
         const before = docRef.current, revision = revisionRef.current;
-        if (!store || !await save()) throw Error("Save the current project before importing another project.");
+        const currentSave = await save();
+        if (!store || !currentSave || currentSave.saved === false) throw Error("Save a checkpoint or bound file before importing another project.");
         const stored = await store.saveDocument(next, {label:"Agent import"});
         if (docRef.current !== before || revisionRef.current !== revision) throw Error("The current project changed. The imported project was saved in the library; open it after finishing the edit.");
         await activate(next, stored.revision);
@@ -2498,6 +2688,9 @@ export default function Workbench() {
         const result = await exportArtwork(options, "automation");
         analyticsRef.current.automation("export");
         return result;
+      },
+      exportPlan: async ({format = "png", clipId: requestedClipId, frameId, layerIds, layers, includeReferenceLayers = false, scale = 1, expectedFrameCount} = {}) => {
+        return createExportPlan({format, clipId:requestedClipId, frameId, layerIds, layers, includeReferenceLayers, scale, expectedFrameCount});
       },
       exportResult: () => downloads.getLastResult(),
       undo: () => {
@@ -2607,8 +2800,9 @@ export default function Workbench() {
     const changed = !historyValuesEqual(before, next);
     historyRef.current.commit(next, label, context);
     install(next, {allowLua});
+    if (changed && typeof checkpointDeliveryRef !== "undefined") checkpointDeliveryRef.current = null;
     if (context) restoreUiContext(context.afterContext);
-    setSaveStatus("Unsaved changes");
+    if (typeof libraryStateRef !== "undefined") libraryStateRef.current = {status:"dirty", revision:storedRevisionRef.current ?? null, error:libraryStateRef.current.error}; setSaveStatus("Unsaved changes");
     return changed;
   }
   function guardScriptInteraction(event) {
@@ -2712,11 +2906,14 @@ export default function Workbench() {
       await saveQueueRef.current.catch(() => {});
       if (controller.signal.aborted) throw Error("Lua script cancelled. No edits were committed.");
       if (docRef.current !== before || revisionRef.current !== revision || !historyValuesEqual(beforeContext, uiContextRef.current)) throw Error("The project or selection changed while Lua was running. Run the script again.");
-      if (!storeRef.current) throw Error("Device storage is unavailable. Save a backup before running Lua.");
+      const libraryMode = typeof documentModeRef === "undefined" || documentModeRef.current === "library";
+      if (libraryMode && !storeRef.current) throw Error("Device storage is unavailable. Save a backup before running Lua.");
       const afterContext = editorUiContext(result.document, {selection:result.selection, range:result.range, active:result.active, fgColor:hex(result.fgColor), bgColor:hex(result.bgColor)});
       luaSavingRef.current = true;
       setLuaSaving(true);
-      const saved = await storeRef.current.saveDocuments(result.documents.map(document => ({document, settings:{expectedRevision:document.id === before.id ? savedRevisionsRef.current.get(document.id) : 0, label:"Lua script"}})), {settings:packageRun ? packageRunSettings(packageRun,result.plugin) : []});
+      const saved = libraryMode
+        ? await storeRef.current.saveDocuments(result.documents.map(document => ({document, settings:{expectedRevision:document.id === before.id ? savedRevisionsRef.current.get(document.id) : 0, label:"Lua script"}})), {settings:packageRun ? packageRunSettings(packageRun,result.plugin) : []})
+        : result.documents.map(document => ({document, revision:0, savedAt:null, imagesWritten:0}));
       for (const entry of saved) { savedRevisionsRef.current.set(entry.document.id, entry.revision); savedDocumentsRef.current.set(entry.document.id, entry.document); }
       const originalAfterContext = result.document.id === before.id ? afterContext : editorUiContext(edited, beforeContext);
       const changed = commitSnapshot(edited, "Lua script", before, revision, {allowLua:true, context:{beforeContext, afterContext:originalAfterContext}});
@@ -2728,12 +2925,13 @@ export default function Workbench() {
           history.commit(entry.document, "Lua script", {beforeContext:editorUiContext(seed, {fgColor:beforeContext.fgColor, bgColor:beforeContext.bgColor}), afterContext:entry.document.id === result.document.id ? afterContext : editorUiContext(entry.document, {fgColor:afterContext.fgColor, bgColor:afterContext.bgColor})});
           historyCacheRef.current.park({history, document:entry.document, storedRevision:entry.revision});
         }
+        if (!libraryMode) temporaryDocumentsRef.current.set(entry.document.id, {document:entry.document, revision:0, storedRevision:undefined, mode:"temporary", checkpoint:checkpointDeliveryRef.current ?? null});
       }
       storedRevisionRef.current = saved.find(entry => entry.document.id === before.id).revision;
-      setDocuments(await storeRef.current.listDocuments());
+      if (libraryMode) setDocuments(await storeRef.current.listDocuments());
       if (result.document.id !== before.id) {
         const loaded = saved.find(entry => entry.document.id === result.document.id);
-        await activate(loaded.document, loaded.revision, {allowLua:true});
+        await activate(loaded.document, loaded.revision, {allowLua:true, mode:typeof documentModeRef === "undefined" ? "library" : documentModeRef.current});
       }
       const changedDocument = !historyValuesEqual(edited, before) || result.created.length > 0;
       analyticsRef.current.scripted(changed || changedDocument);
@@ -2872,6 +3070,8 @@ export default function Workbench() {
       </nav>
       <nav className="wb-document-actions" aria-label="Document actions">
         <button title="Browse and restore earlier saved versions of this project" onClick={showRecovery}>Recovery</button>
+        <button title="Open an editable file without adding it to the local library" onClick={() => chooseImport("temporary")}>Open temporary</button>
+        <button title="Open an editable file as its bound durable source without using the local library" disabled={!nativeSessionRef.current || busy} onClick={() => void nativeSessionRef.current?.openFileBacked().catch(report)}>Open file-backed</button>
         <button
           onClick={() => run({ type: "layer.duplicate" }, "Duplicate layer")}
         >
@@ -2892,6 +3092,7 @@ export default function Workbench() {
         <button onClick={() => setModal("components")}>Scene components</button>
         <button onClick={() => {setPreviewResult(null);setModal("preview");}}>Review artwork</button>
         <button onClick={() => setModal("artifacts")}>Generated files</button>
+        <button onClick={() => { void storeRef.current?.stats().then(setStorageStats).catch(report); setModal("storage"); }}>Storage</button>
       </nav>
       <section className="wb-options" aria-label="Tool options">
         <strong>{TOOLS.find((t) => t[0] === tool)?.[1]}</strong>
@@ -4350,6 +4551,7 @@ export default function Workbench() {
                 <option value="grayscale">Grayscale</option>
               </select>
             </Field>
+            <Field label="Storage mode"><select value={newOptions.mode} onChange={e => setNewOptions({...newOptions, mode:e.target.value})}><option value="library">Save in local library</option><option value="temporary">Temporary document (checkpoint required)</option></select></Field>
             <button className="wb-primary" type="submit">
               Create project
             </button>
@@ -4357,8 +4559,10 @@ export default function Workbench() {
         </Modal>
       )}
       {modal === "components" && <Modal title="Scene components" onClose={() => setModal(null)} wide>
-        <SceneComponentsPanel disabled={busy || !!operationRef.current} onStamp={command => {
+        <SceneComponentsPanel document={doc} disabled={busy || !!operationRef.current} onStamp={command => {
           if (run(command, "Stamp scene component")) setNotice("Component added as editable layers. Undo restores the previous scene.");
+        }} onReplace={command => {
+          if (run(command, "Regenerate scene component")) setNotice("Component regeneration committed. Protected manual layers were preserved.");
         }} />
       </Modal>}
       {modal === "preview" && <Modal title="Review artwork" onClose={() => setModal(null)} wide>
@@ -4369,10 +4573,25 @@ export default function Workbench() {
           {previewResult.kind === "comparison" ? <>{["before", "after"].map(name => <figure key={name}><figcaption>{name === "before" ? "Before" : "After"}</figcaption><img src={previewResult[name].dataUrl} alt={`${name} artwork preview`} /></figure>)}<figure><figcaption>Changed pixels</figcaption><img src={previewResult.dataUrl} alt="Changed pixels in red" /></figure></>
             : <figure><img src={previewResult.dataUrl} alt={previewResult.kind === "contact-sheet" ? "Animation contact sheet" : "Artwork preview"} /></figure>}
         </div>}
+        <AnimationReviewPanel key={`animation-${doc.id}`} document={doc} baseline={previewBaseline?.id === doc.id ? previewBaseline : null} disabled={busy || !!operationRef.current} onBake={options => run({type:"animation.environment", ...options}, "Bake periodic motion")} />
       </Modal>}
       {modal === "artifacts" && <Modal title="Generated files" onClose={() => setModal(null)} wide>
         <p>Generated copies stay on this device for up to 24 hours, subject to the 128 MiB / 64-file limit. Download a copy to keep it.</p>
         <ArtifactLibrary listArtifacts={downloads.artifacts} onDownload={downloads.downloadArtifact} onRemove={downloads.removeArtifact} onReleaseUrl={downloads.releaseArtifactUrl} refreshKey={downloads.lastResult?.id} />
+      </Modal>}
+      {modal === "storage" && <Modal title="Local storage" onClose={() => setModal(null)}>
+        <p>Library saves, recovery history, and temporary export artifacts are separate. PixelWall never deletes saved projects automatically.</p>
+        {storageStats && storageStats.status !== "unavailable" ? <dl className="wb-storage-stats">
+          <div><dt>Library used</dt><dd>{storageStats.usedBytes.toLocaleString()} / {storageStats.budgetBytes.toLocaleString()} bytes</dd></div>
+          <div><dt>Artwork and heads</dt><dd>{storageStats.artworkBytes.toLocaleString()} bytes</dd></div>
+          <div><dt>Recovery history</dt><dd>{storageStats.recoveryBytes.toLocaleString()} bytes</dd></div>
+          <div><dt>Projects / revisions</dt><dd>{storageStats.documentCount} / {storageStats.revisionCount}</dd></div>
+          <div><dt>Available</dt><dd>{storageStats.availableBytes.toLocaleString()} bytes</dd></div>
+        </dl> : <p role="status">Local library statistics are unavailable.</p>}
+        <p>When the library is full, export a verified .pixelwall checkpoint or open a file temporarily. Existing library projects remain intact.</p>
+        {storageStats && storageStats.status !== "unavailable" && <form onSubmit={event => { event.preventDefault(); void hostRef.current?.setStorageBudget?.({bytes:Math.trunc(Number(storageBudgetInput) * 1024 * 1024)}).catch(report); }}><label>Library budget (MiB) <input type="number" min="16" max="1024" step="1" value={storageBudgetInput || Math.round(storageStats.budgetBytes / (1024 * 1024))} onChange={event => setStorageBudgetInput(event.target.value)} /></label><button type="submit">Apply budget</button></form>}
+        <button type="button" onClick={() => setTemporaryProjects(hostRef.current?.temporaryProjects?.() ?? [])}>Refresh retained documents</button>
+        {temporaryProjects.length > 0 && <ul aria-label="Retained documents">{temporaryProjects.map(entry => <li key={entry.documentId}>{entry.name || entry.documentId} · {entry.mode} <button type="button" onClick={() => void hostRef.current?.openTemporaryProject?.({documentId:entry.documentId}).then(() => setTemporaryProjects(hostRef.current.temporaryProjects())).catch(report)}>Restore</button></li>)}</ul>}
       </Modal>}
       {modal === "water" && (
         <Modal title="Generate water scene" wide onClose={() => setModal(null)}>

@@ -38,6 +38,15 @@ test('failed document budget validation also rolls back pending preference updat
  await assert.rejects(store.saveDocuments([{document:{...makeDoc(),notes:'x'.repeat(6000)}}],{settings:[{key:'preferences',expectedRevision:captured.revision,value:{runs:1}}]}),{code:'BUDGET_EXCEEDED'});
  assert.deepEqual(await store.getSetting('preferences'),{runs:0});assert.equal((await store.getSettingsSnapshot(['preferences']))[0].revision,captured.revision);store.close();
 });
+test('storage stats and save estimate expose budget pressure without mutating the library', async () => {
+ const store = await open({budgetBytes:5000}); const before = await store.stats();
+ assert.deepEqual({usedBytes:before.usedBytes,documentCount:before.documentCount,revisionCount:before.revisionCount},{usedBytes:0,documentCount:0,revisionCount:0});
+ const estimate = await store.estimateSave({...makeDoc(),notes:'x'.repeat(6000)});
+ assert.equal(estimate.wouldFit,false); assert.ok(estimate.requiredBytes > 0); assert.equal((await store.stats()).documentCount,0);
+ await store.saveDocument(makeDoc()); const after = await store.stats();
+ assert.equal(after.documentCount,1); assert.equal(after.revisionCount,1); assert.equal(after.usedBytes,after.artworkBytes + after.recoveryBytes); assert.equal(after.availableBytes,Math.max(0,after.budgetBytes-after.usedBytes));
+ store.close();
+});
 test('multi-document script saves commit together and conflicts roll every document back', async () => {
  const store=await open(),first=makeDoc('first'),second=makeDoc('second');
  const saved=await store.saveDocuments([{document:first,settings:{expectedRevision:0}},{document:second,settings:{expectedRevision:0}}]);
@@ -98,4 +107,19 @@ test('structural changes, cancel, and bounded history preserve correct document 
  history.begin(); history.update({ ...added, name: 'cancelled' }); assert.deepEqual(history.cancel(), added);
  for (let i = 0; i < 10; i++) history.commit({ ...history.present, name: `Rename ${i}` });
  assert.equal(history.stats.undo, 2); assert.equal(history.undo().name, 'Rename 8'); assert.equal(history.undo().name, 'Rename 7');
+});
+test('compressed image records round-trip, deduplicate linked cels, and expose encoded versus logical usage', async () => {
+ const store = await open(); const a = makeDoc('compressed', 64); a.images.pixels.pixels.fill(0x11223344); a.images.pixels.buffer = new Uint16Array([1,2,3]).buffer; a.images.pixels.optional = undefined; a.images.pixels.literal = {$type:'Uint32Array', bytes:[1,2,3]};
+ await store.saveDocument(a); const b = {...a, id:'linked', frames:[...a.frames, {id:'second', cels:{ink:{imageId:'pixels'}}}]}; await store.saveDocument(b);
+ assert.deepEqual((await store.loadDocument('compressed')).document, a); const stats = await store.stats(); assert.ok(stats.logicalArtworkBytes >= stats.artworkBytes); assert.equal(stats.documentCount, 2); store.close();
+});
+test('configured storage budget persists across reopen and protects saved work', async () => {
+ const indexedDB = new IDBFactory(), name = `budget-${crypto.randomUUID()}`; const first = await openStore({indexedDB, name}); await first.saveDocument(makeDoc('protected')); const changed = await first.setBudget(16 * 1024 * 1024); assert.equal(changed.budgetBytes, 16 * 1024 * 1024); await assert.rejects(first.setBudget(1024), {code:'INVALID_SETTINGS'}); first.close();
+ const second = await openStore({indexedDB, name}); assert.equal((await second.stats()).budgetBytes, 16 * 1024 * 1024); assert.equal((await second.loadDocument('protected')).document.id, 'protected'); second.close();
+});
+test('compressed image records reject a stream that expands beyond its declared bound', async () => {
+ const indexedDB = new IDBFactory(), name = `malformed-${crypto.randomUUID()}`, store = await openStore({indexedDB, name}); await store.saveDocument(makeDoc('bomb'));
+ const db = await new Promise((resolve, reject) => { const request = indexedDB.open(name); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+ const head = await new Promise((resolve, reject) => { const tx = db.transaction('documents'); const request = tx.objectStore('documents').get('bomb'); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+ const key = Object.values(head.imageRefs)[0]; const tx = db.transaction(['images','imageInfo'],'readwrite'); tx.objectStore('images').put({key,bytes:1,logicalBytes:1,codec:'zlib-v1',data:new Uint8Array([120,156,99,0,0,0,1,0,1])}); tx.objectStore('imageInfo').put({key,bytes:1,logicalBytes:1}); await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);}); db.close(); await assert.rejects(store.loadDocument('bomb'), {code:'CORRUPT_RECORD'}); store.close();
 });

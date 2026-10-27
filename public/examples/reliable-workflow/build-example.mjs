@@ -6,7 +6,7 @@ import { encodeProjectContainer } from '../../../app/project-format.mjs';
 import { writePng } from '../../../app/formats.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const out = join(root, 'build');
+const out = process.env.PIXELWALL_EXAMPLE_OUT || join(root, 'build');
 await mkdir(join(out, 'frames'), { recursive: true });
 let doc = createDocument({ id: 'reliable-riverbank', name: 'Reliable Riverbank', width: 96, height: 64 });
 const add = (id, name) => { doc = applyCommand(doc, { type: 'layer.add', layer: { id, name, type: 'image' } }); };

@@ -35,6 +35,7 @@
       "native-clipboard-ipc.mjs",
       "mcp-bridge.mjs",
       "mcp-catalog.mjs",
+      "mcp-schemas.mjs",
       "automation-telemetry.mjs",
       "clipboard-payload.mjs",
       "app/**/*",

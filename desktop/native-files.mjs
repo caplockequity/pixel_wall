@@ -157,6 +157,20 @@ export function createNativeFileService({ dialog, owner, fs = nodeFs, now = Date
       if (choice.canceled || !choice.filePaths?.length) return { status: 'cancelled', files: [], errors: [] };
       return this.openPaths(choice.filePaths);
     },
+    async openTemporary() {
+      await assertReady();
+      const choice = await show('showOpenDialog', { title: 'Open temporary artwork', properties: ['openFile', 'multiSelections'], filters });
+      if (choice.canceled || !choice.filePaths?.length) return { status: 'cancelled', files: [], errors: [] };
+      const files = [], errors = [];
+      for (const selected of choice.filePaths.slice(0, 32)) {
+        try {
+          const path = await canonical(selected), format = nativeFormat(selected), read = await readNativeFile(path, { fs });
+          validateBytes(read.bytes, format);
+          files.push({ name: basename(selected), format, bytes: new Uint8Array(read.bytes), temporary: true });
+        } catch (error) { errors.push({ name: basename(String(selected)), reason: errorReason(error) }); }
+      }
+      return { status: errors.length && !files.length ? 'error' : 'opened', files, errors };
+    },
     async reopen({ documentId } = {}) {
       await assertReady();
       const binding = bindings.get(documentId);

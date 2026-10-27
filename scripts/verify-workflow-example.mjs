@@ -1,4 +1,4 @@
-import { readFile, mkdir } from 'node:fs/promises';
+import { readFile, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +17,13 @@ assert.equal(doc.clips.find(c => c.id === 'riverbank-loop')?.frameIds.length, 12
 const staticIds = ['ground','river','bank','trunk'].map(id => doc.frames.map(f => f.cels[id]?.imageId));
 for (const ids of staticIds) assert.equal(new Set(ids).size, 1, 'static layers must stay linked');
 const canopyOffsets = doc.frames.map(f => `${f.cels.canopy.x},${f.cels.canopy.y}`); assert.ok(new Set(canopyOffsets).size > 1, 'canopy should move');
-const verifyRoot = process.env.PIXELWALL_VERIFY_DIR ?? join(tmpdir(), 'pixelwall-reliable-workflow-frames'); await mkdir(verifyRoot, {recursive:true});
+const verifyBase=process.env.PIXELWALL_VERIFY_DIR ?? (process.platform==='darwin'?'/Volumes/DevStorage/Builds/pixelwall/workflow-reliability':tmpdir());
+await mkdir(verifyBase,{recursive:true});const verifyRoot=await mkdtemp(join(verifyBase,'workflow-example-'));
+try {
+const generated=join(verifyRoot,'generated');
+await run(process.execPath,[join(fixture,'build-example.mjs')],{env:{...process.env,PIXELWALL_EXAMPLE_OUT:generated}});
+const reproduced=normalizeDocument(decodeProjectContainer(await readFile(join(generated,'reliable-riverbank.pixelwall'))));
+assert.deepEqual(reproduced,doc,'the published source must reproduce the editable project');
 const luaProject = join(verifyRoot, 'reliable-riverbank-reed.pixelwall');
 await run(process.execPath, [join(root, '../app/cli.mjs'), 'script', projectPath, '--script', join(fixture, 'reedpass.lua'), '--out', luaProject, '--timeout', '3000'], {cwd:join(root,'..')});
 const luaDoc = normalizeDocument(decodeProjectContainer(await readFile(luaProject)));
@@ -35,3 +41,5 @@ const after = renderFrame(recolored, firstFrameId); let changed=0;
 for(let p=0;p<before.length;p+=4){const x=(p/4)%doc.width; if(x<35||x>=39) assert.deepEqual([...after.slice(p,p+4)],[...before.slice(p,p+4)]); else if(before[p]!==after[p]||before[p+1]!==after[p+1]||before[p+2]!==after[p+2]) changed++;}
 assert.ok(changed>0, 'late recolor should affect selected pixels');
 console.log(JSON.stringify({project:projectPath,frames:12,cliRendered:12,lateRecolorChangedPixels:changed,checkpoint:'reopen-and-render manually in desktop/MCP'}));
+
+} finally {await rm(verifyRoot,{recursive:true,force:true});}

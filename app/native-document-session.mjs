@@ -80,6 +80,39 @@ export function createNativeDocumentSession(bridge, host) {
       return nativeDocuments;
     }),
     open: () => exclusive(async () => accept(await bridge.open())),
+    openTemporary: () => exclusive(async () => {
+      const result = await bridge.openTemporary();
+      const files = [...(result?.files || [])], problems = [...(result?.errors || []).map(item => `${item.name}: ${item.reason}`)];
+      for (const file of files) {
+        try {
+          const decoded = await host.decode(file);
+          await host.activateTemporary?.({ document: decoded.document, source: file });
+          host.imported?.(file, decoded.warnings || []);
+        } catch (error) { problems.push(`${file.name}: ${error.message}`); }
+      }
+      if (problems.length) throw Error(problems.join('\n'));
+      return {status:files.length ? 'opened' : result?.status || 'cancelled', temporary:true};
+    }),
+    openFileBacked: () => exclusive(async () => {
+      const result = await bridge.open();
+      const files = [...(result?.files || [])], problems = [...(result?.errors || []).map(item => `${item.name}: ${item.reason}`)];
+      for (const file of files) {
+        let bound = false;
+        let captured;
+        try {
+          if (!file.token) throw Error('The file request is incomplete.');
+          const decoded = await host.decode(file);
+          captured = await host.activateFileBacked?.({ document:decoded.document, source:file });
+          if (!captured?.document?.id) throw Error('The file-backed document could not be activated.');
+          const bind = await bridge.bindOpen({token:file.token, documentId:captured.document.id, revision:captured.revision ?? 0});
+          if (bind?.status !== 'bound') throw Error('The file-backed document could not be linked.');
+          bound = true; host.imported?.(file, decoded.warnings || []);
+        } catch (error) { await Promise.resolve(host.rollbackFileBacked?.({captured, source:file, error})).catch(() => {}); problems.push(`${file.name}: ${error.message}`); }
+        finally { if (file.token && !bound) await bridge.cancelOpen({token:file.token}).catch(() => {}); }
+      }
+      if (problems.length) throw Error(problems.join('\n'));
+      return {status:files.length ? 'opened' : result?.status || 'cancelled', fileBacked:true};
+    }),
     acceptOpen: async result => {
       queued++;
       try {

@@ -1,7 +1,7 @@
 import { createNativeFileService } from './native-files.mjs';
 import { randomUUID } from 'node:crypto';
 
-export const NATIVE_METHODS = ['open', 'reopen', 'ready', 'bindOpen', 'cancelOpen', 'ackOpen', 'list', 'info', 'chooseSave', 'writeSave', 'cancelSave'];
+export const NATIVE_METHODS = ['open', 'openTemporary', 'reopen', 'ready', 'bindOpen', 'cancelOpen', 'ackOpen', 'list', 'info', 'chooseSave', 'writeSave', 'cancelSave'];
 export function trustedNativeSender(event, owner) {
   if (!owner || owner.isDestroyed() || event.sender !== owner.webContents || event.senderFrame !== owner.webContents.mainFrame) return false;
   try {
@@ -63,7 +63,7 @@ export function createNativeFileIpc({ ipcMain, dialog, createService = createNat
       if (delivery.payload.files.some(file => file.token)) return { status: 'busy', reason: 'Finish or cancel every file import before acknowledging it.' };
       entry.deliveries.delete(payload.deliveryId); return { status: 'acknowledged' };
     }
-    if (method === 'open' || method === 'reopen') {
+    if (method === 'open' || method === 'openTemporary' || method === 'reopen') {
       const generation = entry.generation; entry.opening++;
       try {
         const result = retain(entry, await entry.service[method](payload), generation);

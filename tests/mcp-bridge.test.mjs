@@ -7,6 +7,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { connect } from 'node:net';
 import { createMcpBridge, MCP_TOOLS } from '../desktop/mcp-bridge.mjs';
 import { MCP_SCHEMAS } from '../desktop/mcp-catalog.mjs';
+import { createDocument } from '../app/editor-core.mjs';
+import { encodeProjectContainer } from '../desktop/project-container.mjs';
 
 const taskRoot = '/Volumes/DevStorage/Builds/pixelwall/studio-050/mcp-tests';
 
@@ -86,6 +88,25 @@ test('save_artifact writes verified bytes only beneath the approved root', async
   assert.equal((await tampered.handle({ id: 2, token: tampered.token, method: 'tools/call', params: { name: 'pixelwall_save_artifact', arguments: { artifactId: 'a1', filename: 'tampered.png' } } })).result.isError, true);
   await assert.rejects(access(join(root, 'tampered.png')));
   await access(join(root, 'sprite.png')); await rm(root, { recursive: true, force: true });
+});
+
+test('checkpoint persists the guarded artifact and verifies the written project', async () => {
+  const root = await mkdtemp('/Volumes/DevStorage/Builds/pixelwall/studio-050/checkpoint-');
+  const bytes = encodeProjectContainer(createDocument({ id: 'checkpoint-doc', name: 'Checkpoint fixture', width: 4, height: 4 }));
+  const crypto = await import('node:crypto');
+  const metadata = { artifactId: 'checkpoint-artifact', name: 'Checkpoint fixture.pixelwall', bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex') };
+  const prepared = { documentId: 'checkpoint-doc', revision: 7, filename: metadata.name, bytes: bytes.length, artifactId: metadata.artifactId, sha256: metadata.sha256, persistence: { status: 'persisted' } };
+  const bridge = createMcpBridge({ configPath: join(root, 'mcp.json'), exportRoot: root, webContents: { executeJavaScript: async source => {
+    if (source.includes('api["checkpoint"]')) return prepared;
+    if (source.includes('api["artifacts"]')) return [metadata];
+    if (source.includes('api["readArtifact"]')) return { bytes: Array.from(bytes), offset: 0, length: bytes.length, done: true, metadata };
+    throw Error('unexpected renderer method');
+  } } });
+  const response = await bridge.handle({ id: 1, token: bridge.token, method: 'tools/call', params: { name: 'pixelwall_checkpoint', arguments: { expectedDocumentId: 'checkpoint-doc', expectedRevision: 7 } } });
+  assert.equal(response.result.structuredContent.disk.status, 'persisted');
+  assert.equal(response.result.structuredContent.reopenVerification.status, 'verified');
+  assert.deepEqual([...await readFile(response.result.structuredContent.disk.path)], [...bytes]);
+  await rm(root, { recursive: true, force: true });
 });
 
 test('dynamic current tool metadata is accepted while unknown names remain guarded', async () => {
