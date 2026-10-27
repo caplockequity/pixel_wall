@@ -82,3 +82,33 @@ test('wrap comparison reports transition changes without requiring identical end
   const result = compareAnimationWrap(doc, { compareCount: 1, renderFrame });
   assert.equal(result.pairs.length, 1); assert.equal(typeof result.pairs[0].changedPixels, 'number');
 });
+
+test('animation diagnostics validates real image bounds, empty cels, groups and references', () => {
+  let doc = createDocument({ width: 4, height: 4 });
+  const layer = doc.layers[0].id;
+  doc = applyCommand(doc, { type: 'draw.rect', layerId: layer, frameId: doc.frames[0].id, x: 0, y: 0, width: 1, height: 1, color: '#fff' });
+  const cel = doc.frames[0].cels[layer]; cel.x = 4;
+  doc.layers.push({ id: 'group', name: 'Group', type: 'group', visible: true });
+  doc.frames[0].cels.empty = { imageId: 'empty-image', x: 0, y: 0, opacity: 1 }; doc.layers.push({ id: 'empty', name: 'Empty', type: 'image', visible: true }); doc.images['empty-image'] = { width: 1, height: 1, pixels: [null] };
+  const report = diagnoseAnimation(doc, { clipId: 'missing', anchoredLayers: ['unknown'] });
+  assert.ok(report.warnings.some(value => value.code === 'canvas-edge'));
+  assert.ok(report.warnings.some(value => value.code === 'empty-exposure'));
+  assert.ok(report.warnings.some(value => value.code === 'clip-reference'));
+  assert.ok(report.warnings.some(value => value.code === 'layer-reference'));
+  assert.equal(report.warnings.some(value => value.layerId === 'group' && value.code === 'missing-exposure'), false);
+});
+
+test('anchored motion rejects NaN, oversized work and out-of-image pins and keeps pinned source pixels unique', () => {
+  let doc = createDocument({ width: 8, height: 8 });
+  const layer = doc.layers[0].id;
+  doc = applyCommand(doc, { type: 'draw.rect', layerId: layer, frameId: doc.frames[0].id, x: 0, y: 0, width: 8, height: 8, color: '#f00', filled: true });
+  assert.throws(() => bakeAnchoredMotion(doc, { layers: [layer], phaseOffsets: { [layer]: NaN } }), /finite/);
+  assert.throws(() => bakeAnchoredMotion(doc, { frames: 64, layers: [layer], pinnedRegions: { [layer]: [{ x: 7, y: 7, width: 2, height: 2 }] } }), /bounds/);
+  const huge = structuredClone(doc), hugeImageId = huge.frames[0].cels[layer].imageId; huge.images[hugeImageId] = { width: 20_000, height: 20_000, pixels: [] };
+  assert.throws(() => bakeAnchoredMotion(huge, { frames: 64, layers: [layer], amplitudeX: 1 }), /16MP|budget/);
+  doc.images[doc.frames[0].cels[layer].imageId].pixels[2 * 8 + 2] = '#00ff00ff';
+  const baked = bakeAnchoredMotion(doc, { frames: 4, period: 4, layers: [layer], amplitudeX: 1, pinnedRegions: { [layer]: [{ x: 2, y: 2, width: 2, height: 2 }] } });
+  const pixels = baked.images[baked.frames[1].cels[layer].imageId].pixels;
+  assert.equal(pixels[2 * 8 + 2], '#00ff00ff'); assert.equal(pixels[2 * 8 + 3], '#ff0000ff');
+  assert.equal(pixels.filter(pixel => pixel === '#00ff00ff').length, 1);
+});
