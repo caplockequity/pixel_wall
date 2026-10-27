@@ -46,6 +46,16 @@ test('scene component replacement is editor-wired and preserves protected manual
   assert.ok(changed.metadata.sceneComponents[0].recipe.artDirection);
 });
 
+test('scene component replacement refuses unreviewed manual paint', () => {
+  let doc = createDocument({ id: 'guard', width: 48, height: 48 });
+  doc = applyCommand(doc, { type: 'scene.component', kind: 'tree', seed: 4, id: 'guard-tree', componentId: 'guard-tree' });
+  const meta = doc.metadata.sceneComponents[0], layerId = 'guard-tree-component-tree-2';
+  const cel = doc.frames[0].cels[layerId], image = doc.images[cel.imageId]; image.pixels[0] = '#ffffff';
+  assert.throws(() => applyCommand(doc, { type: 'scene.component.replace', componentId: meta.componentId, recipe: meta.recipe }), /manually edited/i);
+  const preserved = applyCommand(doc, { type: 'scene.component.replace', componentId: meta.componentId, recipe: meta.recipe, allowModified: true, preserveLayerIds: [layerId] });
+  assert.equal(preserved.images[preserved.frames[0].cels[layerId].imageId].pixels[0], '#ffffff');
+});
+
 test('water patches compose only masked pixels and retain base dimensions', () => {
   const base = generateWaterPatch({ id: 'base', width: 32, height: 24, fieldWidth: 32, fieldHeight: 24, frames: 3, originX: 0, originY: 0 });
   const patch = generateWaterPatch({ id: 'patch', width: 8, height: 8, fieldWidth: 32, fieldHeight: 24, frames: 2, originX: 8, originY: 6 });
