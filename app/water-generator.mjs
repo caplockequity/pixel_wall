@@ -153,3 +153,34 @@ export function generateWaterScene(options = {}) {
   };
 }
 export const WATER_SCENES = Object.freeze([...SCENES]);
+
+/** Generate a bounded water patch for composition into a larger document. */
+export function generateWaterPatch(options = {}) {
+  const x = integer(options.originX, 0, 'originX', -65535, 65535), y = integer(options.originY, 0, 'originY', -65535, 65535);
+  const patch = generateWaterScene({ ...options, width: Math.min(256, options.width ?? 64), height: Math.min(256, options.height ?? options.width ?? 64) });
+  patch.metadata = { ...(patch.metadata ?? {}), generator: 'water-patch', globalOrigin: { x, y }, flowDirection: options.flowDirection ?? null, boundary: options.boundary ?? 'explicit' };
+  return patch;
+}
+
+/** Composite only the named water layer from a patch; all other base pixels survive. */
+export function composeWaterPatch(base, patch, { x = patch?.metadata?.globalOrigin?.x ?? 0, y = patch?.metadata?.globalOrigin?.y ?? 0, mask, layerId = 'water', phaseOffset = 0 } = {}) {
+  if (!base?.images || !Array.isArray(base.frames) || !patch?.images || !Array.isArray(patch.frames)) throw new TypeError('Base and patch PixelWall documents are required.');
+  if (!Number.isSafeInteger(x) || !Number.isSafeInteger(y)) throw new RangeError('Patch origin must be integer coordinates.');
+  const result = structuredClone(base), patchFrames = patch.frames, baseFrames = result.frames;
+  const patchLayer = patch.layers?.find(layer => layer.id === layerId) ?? patch.layers?.find(layer => /water/i.test(layer.name ?? ''));
+  const targetLayer = result.layers?.find(layer => layer.id === layerId) ?? patchLayer;
+  if (!patchLayer || !targetLayer) throw new Error(`Water layer ${layerId} was not found.`);
+  if (!result.layers.some(layer => layer.id === targetLayer.id)) result.layers.push({ ...targetLayer, id: layerId, name: targetLayer.name ?? 'Water patch' });
+  const targetId = result.layers.some(layer => layer.id === layerId) ? layerId : targetLayer.id;
+  const width = patch.width, height = patch.height;
+  const allowed = typeof mask === 'function' ? mask : (mask ? (px, py) => mask[py * width + px] !== false : () => true);
+  for (let frameIndex = 0; frameIndex < baseFrames.length; frameIndex++) {
+    const targetFrame = baseFrames[frameIndex]; const sourceFrame = patchFrames[(frameIndex + phaseOffset + patchFrames.length * 10) % patchFrames.length];
+    const sourceCel = sourceFrame.cels?.[patchLayer.id]; if (!sourceCel) continue; const sourceImage = patch.images[sourceCel.imageId]; if (!sourceImage) continue;
+    const existing = targetFrame.cels?.[targetId]; const pixels = result.images[existing?.imageId]?.pixels ? [...result.images[existing.imageId].pixels] : Array(result.width * result.height).fill(null);
+    for (let py = 0; py < height; py++) for (let px = 0; px < width; px++) { if (!allowed(px, py)) continue; const tx = x + px, ty = y + py; if (tx < 0 || ty < 0 || tx >= result.width || ty >= result.height) continue; const value = sourceImage.pixels[py * width + px]; if (value != null) pixels[ty * result.width + tx] = value; }
+    const imageId = `${targetId}-patch-${frameIndex + 1}`; result.images[imageId] = { width: result.width, height: result.height, pixels }; targetFrame.cels = { ...(targetFrame.cels ?? {}), [targetId]: { imageId, x: 0, y: 0, opacity: 1 } };
+  }
+  result.metadata = { ...(result.metadata ?? {}), waterCompositions: [...(result.metadata?.waterCompositions ?? []), { source: patch.id, layerId: targetId, origin: { x, y }, phaseOffset, boundary: patch.metadata?.boundary ?? 'explicit' }] };
+  return result;
+}
