@@ -1,5 +1,5 @@
 "use client";
-/* eslint react/prop-types: "off" -- panel inputs are validated by the generator. */
+/* eslint react/prop-types: "off", react-hooks/exhaustive-deps: "off" -- panel inputs are validated by the generator; primitive controls are listed explicitly. */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { generateSceneComponent, listSceneComponentPresets, SCENE_COMPONENT_KINDS, SCENE_COMPONENT_STYLES } from "./scene-components.mjs";
 
@@ -27,9 +27,11 @@ export default function SceneComponentsPanel({ onStamp, disabled = false }) {
   const presets = useMemo(() => listSceneComponentPresets(), []);
   const [kind, setKind] = useState("tree"), [style, setStyle] = useState("woodland"), [seed, setSeed] = useState(1);
   const preset = presets.find(value => value.kind === kind);
-  const [width, setWidth] = useState(preset.size.width), [height, setHeight] = useState(preset.size.height), [x, setX] = useState(0), [y, setY] = useState(0);
+  const [width, setWidth] = useState(preset.size.width), [height, setHeight] = useState(preset.size.height), [x, setX] = useState(0), [y, setY] = useState(0), [componentId, setComponentId] = useState("hero-prop");
+  const [crownAspectRatio, setCrownAspectRatio] = useState(1), [asymmetry, setAsymmetry] = useState(0), [trunkBend, setTrunkBend] = useState(0), [rootSpread, setRootSpread] = useState(1), [lightDirection, setLightDirection] = useState("left"), [clusterGap, setClusterGap] = useState(0);
   const changeKind = value => { const next = presets.find(item => item.kind === value); setKind(value); setWidth(next.size.width); setHeight(next.size.height); };
-  const component = useMemo(() => { try { return generateSceneComponent({ kind, style, seed, size: { width, height }, position: { x, y } }); } catch { return null; } }, [kind, style, seed, width, height, x, y]);
+  const artDirection = { crownAspectRatio, asymmetry, trunkBend, rootSpread, lightDirection, clusterGap };
+  const component = useMemo(() => { try { return generateSceneComponent({ kind, style, seed, componentId, size: { width, height }, position: { x, y }, artDirection }); } catch { return null; } }, [kind, style, seed, componentId, width, height, x, y, crownAspectRatio, asymmetry, trunkBend, rootSpread, lightDirection, clusterGap]);
   return <section className="wb-scene-components" aria-label="Scene components">
     <header><h2>Scene components</h2><p>Stamp editable trees, rocks, banks, bridges and terrain.</p></header>
     <div className="wb-scene-component-controls">
@@ -40,8 +42,10 @@ export default function SceneComponentsPanel({ onStamp, disabled = false }) {
       <label>Height<input type="number" min="4" max="128" value={height} disabled={disabled} onChange={event => setHeight(clamp(+event.target.value, 4, 128))} /></label>
       <label>X<input type="number" min="-65535" max="65535" value={x} disabled={disabled} onChange={event => setX(clamp(+event.target.value, -65535, 65535))} /></label>
       <label>Y<input type="number" min="-65535" max="65535" value={y} disabled={disabled} onChange={event => setY(clamp(+event.target.value, -65535, 65535))} /></label>
+      <label>Component ID<input value={componentId} maxLength={120} disabled={disabled} onChange={event => setComponentId(event.target.value)} /></label>
+      {kind === "tree" && <><label>Crown aspect<input type="number" min=".55" max="1.6" step=".05" value={crownAspectRatio} disabled={disabled} onChange={event => setCrownAspectRatio(clamp(+event.target.value, .55, 1.6))} /></label><label>Asymmetry<input type="number" min="-.35" max=".35" step=".05" value={asymmetry} disabled={disabled} onChange={event => setAsymmetry(clamp(+event.target.value, -.35, .35))} /></label><label>Trunk bend<input type="number" min="-.25" max=".25" step=".05" value={trunkBend} disabled={disabled} onChange={event => setTrunkBend(clamp(+event.target.value, -.25, .25))} /></label><label>Root spread<input type="number" min=".5" max="1.5" step=".05" value={rootSpread} disabled={disabled} onChange={event => setRootSpread(clamp(+event.target.value, .5, 1.5))} /></label><label>Light<select value={lightDirection} disabled={disabled} onChange={event => setLightDirection(event.target.value)}><option value="left">Left</option><option value="right">Right</option></select></label><label>Cluster gap<input type="number" min="0" max="8" step="1" value={clusterGap} disabled={disabled} onChange={event => setClusterGap(clamp(+event.target.value, 0, 8))} /></label></>}
     </div>
     {component ? <><Preview component={component} /><p>{component.layers.length} editable layers · {component.width}×{component.height}</p></> : <p role="alert">Choose valid component dimensions.</p>}
-    <button type="button" disabled={disabled || !component} onClick={() => component && onStamp?.({ type: "scene.component", kind, style, seed, position: { x, y }, size: { width, height } })}>Stamp component</button>
+    <button type="button" disabled={disabled || !component} onClick={() => component && onStamp?.({ type: "scene.component", kind, style, seed, componentId, position: { x, y }, size: { width, height }, artDirection })}>Stamp component</button>
   </section>;
 }
