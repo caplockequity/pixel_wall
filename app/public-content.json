@@ -1202,12 +1202,12 @@
       {
         "heading": "A realistic scene workflow",
         "paragraphs": [
-          "Follow the 600 × 350 river tutorial for a complete shape-command scene, bounded Lua detail, progress polling, recovery after a caller timeout, explicit export results, and compact project backups."
+          "Follow the 600 × 350 woodland crossing tutorial for a complete shape-command scene, bounded Lua detail, progress polling, recovery after a caller timeout, explicit export results, and compact project backups."
         ],
         "links": [
           {
             "href": "/guides/large-agent-edits",
-            "label": "Build a river scene with shapes and bounded Lua"
+            "label": "Build a woodland river crossing with shapes and bounded Lua"
           }
         ]
       },
@@ -1623,12 +1623,12 @@
       {
         "heading": "A realistic scene workflow",
         "paragraphs": [
-          "Follow the 600 × 350 river tutorial for a complete shape-command scene, bounded Lua detail, progress polling, recovery after a caller timeout, explicit export results, and compact project backups."
+          "Follow the 600 × 350 woodland crossing tutorial for a complete shape-command scene, bounded Lua detail, progress polling, recovery after a caller timeout, explicit export results, and compact project backups."
         ],
         "links": [
           {
             "href": "/guides/large-agent-edits",
-            "label": "Build a river scene with shapes and bounded Lua"
+            "label": "Build a woodland river crossing with shapes and bounded Lua"
           }
         ]
       },
@@ -1883,26 +1883,26 @@
   {
     "slug": "guides/large-agent-edits",
     "lastModified": "2026-10-26",
-    "title": "Build a river scene with shapes and bounded Lua",
-    "description": "A practical 600 × 350 agent workflow with bulk shapes, small Lua details, progress polling, explicit export handoff, and compact editable backups.",
+    "title": "Build a woodland river crossing with shapes and bounded Lua",
+    "description": "A practical 600 × 350 agent workflow with 576 commands, four editable layers, small Lua details, progress polling, explicit export handoff, and compact project backups.",
     "eyebrow": "AGENT WORKFLOW",
-    "intro": "Use broad shapes for a scene, small pixel loops for details, and explicit checkpoints between batches. This reproducible river example keeps the artwork layered and editable in the web editor, desktop app, and CLI.",
+    "intro": "Use broad shapes for a scene, small pixel loops for details, and explicit checkpoints between batches. This reproducible woodland crossing keeps the artwork layered and editable in the web editor, desktop app, and CLI.",
     "sections": [
       {
         "heading": "Start with shapes for broad areas",
         "paragraphs": [
           "A 600 × 350 canvas contains 210,000 pixels per full-size layer. Filling it one pixel at a time through a scripting API adds unnecessary calls. Use draw.rect, draw.polygon, draw.ellipse, and draw.line for large areas and repeated marks. For a procedural raster, consider one cel.set pixel buffer within the command size limit.",
-          "This original tutorial creates three named layers—Ground, River, and Rocks and ripples—with 40 commands. It is a teaching example, not a performance comparison with another scene. The provided project and PNG let you inspect the result before running anything."
+          "This tutorial creates 576 commands across four full-size raster layers: Meadow and riverbed; River and bank details; Woodland footbridge; and Woodland and flowers. Broad shapes establish the meadow and irregular banks, shaded water carries the river, framed trees leave quiet areas around a simple wooden bridge, and small accents finish the crossing. The provided project and PNG let you inspect the result before running anything."
         ],
         "media": {
           "src": "/examples/agent-river.png",
-          "alt": "A blue pixel-art river curves through green ground with rocks and short ripples.",
-          "caption": "600 × 350 pixels, three named layers, 40 shape and layer commands."
+          "alt": "A quiet blue pixel-art river winds through a woodland meadow beneath a small wooden footbridge, framed by trees, grasses, and flowers.",
+          "caption": "A 600 × 350 woodland crossing built with 576 commands across four named editable raster layers."
         },
         "links": [
           {
             "href": "/examples/agent-river-commands.json",
-            "label": "Download the 40-command river batch"
+            "label": "Download the 576-command woodland crossing batch"
           },
           {
             "href": "/examples/agent-river.pixelwall",
@@ -1920,12 +1920,12 @@
           "Create a new 600 × 350 document first. The example uses the default layer-1 and frame-1 IDs and adds its own named layers, so apply it once to that new document. In Scripts → Commands, paste the downloaded JSON. A browser agent with page execution can use the following equivalent calls.",
           "For a long operation, retain its operationId and poll in separate short calls. commandsProcessed counts staged commands; it does not mean they have committed. Only status completed confirms that the entire batch committed as one undoable edit."
         ],
-        "code": "const api = window.pixelwall;\nawait api.newDocument({width:600, height:350, name:\"River workflow\"});\n// Load the downloaded JSON array into commands.\nconst before = api.inspect();\nconst job = await api.apply({\n  commands, expectedRevision:before.revision,\n  label:\"River base shapes\", wait:false\n});\n// Make this call again later; avoid one long browser-tool wait.\nconst progress = api.operation(job.operationId);\n// {status, commandsProcessed, commandsTotal, revision, ...}\n// Save once the full batch has committed:\nif (progress.status === \"completed\") await api.save();"
+        "code": "const api = window.pixelwall;\nawait api.newDocument({width:600, height:350, name:\"Woodland crossing\"});\n// Load the downloaded JSON array into commands.\nconst before = api.inspect();\nconst job = await api.apply({\n  commands, expectedRevision:before.revision,\n  label:\"River base shapes\", wait:false\n});\n// Make this call again later; avoid one long browser-tool wait.\nconst progress = api.operation(job.operationId);\n// {status, commandsProcessed, commandsTotal, revision, ...}\n// Save once the full batch has committed:\nif (progress.status === \"completed\") await api.save();"
       },
       {
         "heading": "Use Lua for a small, bounded detail",
         "paragraphs": [
-          "The companion script creates a detached 16 × 16 image, draws a few reed stems, and attaches it as a new cel on a named layer. Use small per-pixel loops for custom details; use shapes or bulk image data for large uniform areas. Detached images also let you assemble a detail before attaching it.",
+          "The companion script creates a detached 16 × 16 image, draws a few reed stems, and attaches it as a new cel on a named layer. The four 600 × 350 raster layers total 840,000 pixels, which stays within the Lua input budget while leaving room for this bounded 16 × 16 detail. Use small per-pixel loops for custom details; use shapes or bulk image data for large uniform areas. Detached images also let you assemble a detail before attaching it.",
           "The Lua timeout can be raised to 10,000 ms, but larger limits do not turn an inefficient full-canvas loop into a good workflow. A timed-out or failed script discards its staged result. Inspect the revision after a failure and change the approach before retrying. Successful separate batches remain committed; rollback applies to the failed transaction."
         ],
         "code": "-- Run after agent-river-commands.json on the 600 x 350 tutorial project.\n-- Keep per-pixel work small: this detached 16 x 16 image has only 256 cells.\napp.transaction(\"Add a small reed sprite\", function()\n  local image = Image(16, 16)\n  local green = Color{r=137, g=181, b=89, a=255}\n  for y = 2, 14 do\n    image:drawPixel(7, y, green)\n    if y > 6 then image:drawPixel(11, y, green) end\n    if y > 9 then image:drawPixel(3, y, green) end\n  end\n  local layer = app.sprite:newLayer()\n  layer.name = \"Lua reed detail\"\n  app.sprite:newCel(layer, app.sprite.frames[1], image, Point(180, 180))\nend)\nprint(\"Reed detail added as one undoable edit\")",
@@ -1960,7 +1960,7 @@
           "PixelWall 0.4.1 saves losslessly compressed PWPZ .pixelwall files and still opens legacy JSON project files. Layers, frames, image links, palettes, and project metadata stay editable. File size depends on the artwork; flat pixel scenes can compress especially well. Older PixelWall versions cannot read the new container, so update before opening it.",
           "Use CLI --format json when you need a readable project payload for an older tool. Keep the compact project as your editable backup and use PNGs for finished transparent sprites. A local save and a downloaded backup are separate checkpoints."
         ],
-        "code": "node pixelwall.mjs new --width 600 --height 350 --name \"River workflow\" --out river.pixelwall\nnode pixelwall.mjs apply river.pixelwall --commands agent-river-commands.json --out river.pixelwall\nnode pixelwall.mjs script river.pixelwall --script agent-river-detail.lua --timeout 10000 --out river-detailed.pixelwall\nnode pixelwall.mjs render river-detailed.pixelwall --frame 0 --out river.png\nnode pixelwall.mjs export river-detailed.pixelwall --format json --out river.json"
+        "code": "node pixelwall.mjs new --width 600 --height 350 --name \"Woodland crossing\" --out river.pixelwall\nnode pixelwall.mjs apply river.pixelwall --commands agent-river-commands.json --out river.pixelwall\nnode pixelwall.mjs script river.pixelwall --script agent-river-detail.lua --timeout 10000 --out river-detailed.pixelwall\nnode pixelwall.mjs render river-detailed.pixelwall --frame 0 --out river.png\nnode pixelwall.mjs export river-detailed.pixelwall --format json --out river.json"
       }
     ],
     "related": [
