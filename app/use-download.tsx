@@ -27,12 +27,17 @@ export function useDownload() {
   const disposedRef = useRef(false);
   const artifactUrls = useRef<string[]>([]);
   useEffect(() => () => { currentUrls.current.forEach(url => URL.revokeObjectURL(url)); }, []);
-  useEffect(() => () => {
-    disposedRef.current = true;
-    artifactUrls.current.forEach(url => URL.revokeObjectURL(url));
-    const store = artifactStoreRef.current;
-    if (store) store.close();
-    else artifactStorePromiseRef.current?.then(opened => opened.close()).catch(() => {});
+  useEffect(() => {
+    disposedRef.current = false;
+    return () => {
+      disposedRef.current = true;
+      artifactUrls.current.forEach(url => URL.revokeObjectURL(url));
+      const store = artifactStoreRef.current;
+      if (store) store.close();
+      else artifactStorePromiseRef.current?.then(opened => opened.close()).catch(() => {});
+      artifactStoreRef.current = null;
+      artifactStorePromiseRef.current = null;
+    };
   }, []);
 
   function downloadBlob(blob: Blob, filename: string) {
