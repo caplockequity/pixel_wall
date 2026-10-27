@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCommandManifest, capabilityReport } from '../app/command-contract.mjs';
+import { validateCommandManifest, capabilityReport, COMMAND_SCHEMAS } from '../app/command-contract.mjs';
+import { COMMANDS } from '../app/editor-core.mjs';
 import { createSelectionRegistry } from '../app/selection-registry.mjs';
 
 test('command contract rejects unknown fields and recursively validates batches', () => {
@@ -12,4 +13,12 @@ test('selection registry is scoped to document revision', () => {
   const registry=createSelectionRegistry(); registry.create({documentId:'d',revision:2,id:'trees',selection:{type:'rect',x:0,y:0,width:2,height:2}});
   assert.deepEqual(registry.resolve({documentId:'d',revision:2,id:'trees'}),{type:'rect',x:0,y:0,width:2,height:2});
   assert.throws(()=>registry.resolve({documentId:'d',revision:3,id:'trees'}),/missing/);
+});
+test('every executable catalog command has an explicit schema field mapping', () => {
+  assert.equal(Object.keys(COMMAND_SCHEMAS).length, COMMANDS.length);
+  for (const command of COMMANDS) {
+    const schema=COMMAND_SCHEMAS[command.type];
+    assert.equal(schema.properties.type.const, command.type);
+    for (const field of Object.keys(command.parameters)) assert.ok(Object.hasOwn(schema.properties,field), `${command.type}.${field}`);
+  }
 });
