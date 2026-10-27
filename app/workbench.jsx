@@ -186,6 +186,15 @@ function bounds(mask, w) {
   });
   return r < 0 ? null : { x, y, width: r - x + 1, height: b - y + 1 };
 }
+function hasUncheckpointedWork(current, revision, mode, checkpoint, retained, savedDocuments) {
+  const protectedDocument = (document, documentRevision, documentMode, receipt) =>
+    !document ||
+    (documentMode === "library" && historyValuesEqual(savedDocuments.get(document.id), document)) ||
+    (receipt?.status === "verified" && receipt.documentId === document.id && receipt.revision === documentRevision);
+  if (!protectedDocument(current, revision, mode, checkpoint)) return true;
+  for (const entry of retained.values()) if (!protectedDocument(entry.document, entry.revision, entry.mode ?? "temporary", entry.checkpoint)) return true;
+  return false;
+}
 function rgbaImage(rgba, w, h) {
   const c = document.createElement("canvas");
   c.width = w;
@@ -1024,10 +1033,7 @@ export default function Workbench() {
         void save().catch(() => {});
     };
     const before = (event) => {
-      if (
-        docRef.current &&
-        savedDocumentsRef.current.get(docRef.current.id) !== docRef.current
-      ) {
+      if (hasUncheckpointedWork(docRef.current, revisionRef.current, documentModeRef.current, checkpointDeliveryRef.current, temporaryDocumentsRef.current, savedDocumentsRef.current)) {
         flush();
         event.preventDefault();
         event.returnValue = "";

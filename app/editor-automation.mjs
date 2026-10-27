@@ -532,7 +532,7 @@ export function automationTools(api) {
     {
       name: "pixelwall_new_document",
       description:
-        "Create and activate a new editable PixelWall document. The previous document is saved first.",
+        "Create and activate a new editable PixelWall document. Library mode saves the previous document first; temporary mode retains it for this session and requires a checkpoint for durability.",
       inputSchema: {
         type: "object",
         properties: {
