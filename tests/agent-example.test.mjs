@@ -7,7 +7,7 @@ test('published agent command batch creates the documented three-frame ninja-pan
   const commands = JSON.parse(await readFile(new URL('../public/examples/agent-ninja-panda-commands.json', import.meta.url), 'utf8'));
   let document = createDocument({ name: 'Ninja Panda Idle', width: 24, height: 24 });
   for (const command of commands) document = applyCommand(document, command);
-  assert.equal(commands.length, 63);
+  assert.equal(commands.length, 153);
   assert.deepEqual(document.frames.map(frame => frame.id), ['frame-1', 'idle-2', 'idle-3']);
   assert.deepEqual(document.clips[0].frameIds, ['frame-1', 'idle-2', 'idle-3']);
   assert.equal(document.clips[0].direction, 'pingpong');
