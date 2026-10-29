@@ -10,6 +10,9 @@ const PAGE_GROUPS = new Set([
   "home", "editor", "classic_editor", "downloads", "guides", "workflow",
   "pricing", "support", "about", "privacy", "terms", "other",
 ]);
+// Fixed workflow labels allow acquisition-to-editor attribution without
+// retaining URLs, referrers, query strings, or identifiers.
+const WORKFLOW_PAGES = new Set(["tracing", "tileset", "animation", "sprite_sheet"]);
 const DESTINATIONS = new Set([...PAGE_GROUPS, "browser_download", "cli_download"]);
 const PLACEMENTS = new Set(["header", "footer", "content"]);
 const EXPORT_TYPES = new Set([
@@ -97,12 +100,16 @@ async function readPayload(request) {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     if (typeof parsed.event !== "string" || typeof parsed.page_group !== "string" || !PAGE_GROUPS.has(parsed.page_group)) return null;
     const keys = Object.keys(parsed).sort();
+    const workflowKeys = Object.hasOwn(parsed, "workflow_page") ? ",workflow_page" : "";
+    if (workflowKeys && (typeof parsed.workflow_page !== "string" || !WORKFLOW_PAGES.has(parsed.workflow_page))) return null;
     if (parsed.event === "site_page_viewed") {
-      if (keys.join(",") !== "event,page_group") return null;
+      if (!["event,page_group", "event,page_group,workflow_page"].includes(keys.join(","))) return null;
+      if (workflowKeys && parsed.page_group !== "workflow") return null;
       return { ...parsed, action: "page_view" };
     }
     if (parsed.event === "editor_activated") {
-      if (keys.join(",") !== "event,page_group") return null;
+      if (!["event,page_group", "event,page_group,workflow_page"].includes(keys.join(","))) return null;
+      if (workflowKeys && parsed.page_group !== "editor") return null;
       return { ...parsed, action: "creation" };
     }
     if (parsed.event === "checkout_started") {
@@ -110,9 +117,10 @@ async function readPayload(request) {
       return { ...parsed, action: "checkout_start" };
     }
     if (parsed.event === "site_cta_clicked") {
-      if (keys.join(",") !== "destination,event,page_group,placement"
+      if (!["destination,event,page_group,placement", "destination,event,page_group,placement,workflow_page"].includes(keys.join(","))
         || typeof parsed.destination !== "string" || !DESTINATIONS.has(parsed.destination)
-        || typeof parsed.placement !== "string" || !PLACEMENTS.has(parsed.placement)) return null;
+        || typeof parsed.placement !== "string" || !PLACEMENTS.has(parsed.placement)
+        || (workflowKeys && parsed.page_group !== "workflow")) return null;
       return { ...parsed, action: parsed.destination === "browser_download" || parsed.destination === "cli_download" ? "download_click" : "navigation_click" };
     }
     if (parsed.event === "desktop_download_clicked") {
@@ -124,10 +132,13 @@ async function readPayload(request) {
     }
     if (parsed.event === "export_outcome") {
       if (!(keys.join(",") === "event,export_type,outcome,page_group"
-        || keys.join(",") === "event,export_type,outcome,page_group,source")
+        || keys.join(",") === "event,export_type,outcome,page_group,source"
+        || keys.join(",") === "event,export_type,outcome,page_group,workflow_page"
+        || keys.join(",") === "event,export_type,outcome,page_group,source,workflow_page")
         || typeof parsed.export_type !== "string" || !EXPORT_TYPES.has(parsed.export_type)
         || typeof parsed.outcome !== "string" || !EXPORT_OUTCOMES.has(parsed.outcome)
-        || (Object.hasOwn(parsed, "source") && (typeof parsed.source !== "string" || !EXPORT_SOURCES.has(parsed.source)))) return null;
+        || (Object.hasOwn(parsed, "source") && (typeof parsed.source !== "string" || !EXPORT_SOURCES.has(parsed.source)))
+        || (workflowKeys && parsed.page_group !== "editor")) return null;
       return { ...parsed, action: "export" };
     }
     if (parsed.event === "automation_edit_completed") {
@@ -219,6 +230,7 @@ export async function handleTrafficCountRequest(request, {
       $ip: null,
     },
   };
+  if (Object.hasOwn(payload, "workflow_page")) event.properties.workflow_page = payload.workflow_page;
   if (payload.event === "site_cta_clicked") {
     event.properties.destination = payload.destination;
     event.properties.placement = payload.placement;
