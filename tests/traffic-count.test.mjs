@@ -209,6 +209,27 @@ test("accepts fixed workflow attribution and forwards only the enum", async () =
   assert.equal(Object.hasOwn(fake.calls[0].body.properties, "$current_url"), false);
 });
 
+test("accepts homepage demo interactions with fixed action vocabulary", async () => {
+  const fake = fakeFetch();
+  for (const demo_action of ["opened", "edited", "exported", "export_failed", "full_editor_clicked"]) {
+    assert.equal((await handleTrafficCountRequest(request({
+      event: "homepage_demo_interacted", page_group: "home", demo_action, editor_surface: "homepage_demo",
+    }), { env, fetchImpl: fake.fetchImpl })).status, 204);
+  }
+  assert.deepEqual(fake.calls.map(({ body }) => body.properties), fake.calls.map(({ body }) => ({
+    ...body.properties,
+    demo_action: body.properties.demo_action,
+    editor_surface: "homepage_demo",
+  })));
+  assert.deepEqual(fake.calls.map(({ body }) => body.properties.action), ["homepage_demo", "homepage_demo", "homepage_demo", "homepage_demo", "homepage_demo"]);
+  for (const payload of [
+    { event: "homepage_demo_interacted", page_group: "home", demo_action: "painted", editor_surface: "homepage_demo" },
+    { event: "homepage_demo_interacted", page_group: "editor", demo_action: "edited", editor_surface: "homepage_demo" },
+    { event: "homepage_demo_interacted", page_group: "home", demo_action: "edited", editor_surface: "classic" },
+    { event: "homepage_demo_interacted", page_group: "home", demo_action: "edited", editor_surface: "homepage_demo", artwork: "secret" },
+  ]) assert.equal((await handleTrafficCountRequest(request(payload), { env, fetchImpl: fake.fetchImpl })).status, 400);
+});
+
 test("rejects workflow attribution outside the matching event context or with arbitrary values", async () => {
   const fake = fakeFetch();
   for (const payload of [

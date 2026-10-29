@@ -27,6 +27,33 @@
 .hero-art img { display: block; width: 100%; height: auto; aspect-ratio: 1; image-rendering: pixelated; }
 .hero-art figcaption { padding: 16px; font-size: .85rem; border-top: 2px solid #171628; }
 .hero-art figcaption a { display: block; font-weight: 700; margin-top: 4px; }
+.homepage-demo { min-width: 0; }
+.homepage-demo button { font: inherit; cursor: pointer; color: #171628; }
+.homepage-demo button:disabled { cursor: default; opacity: .55; }
+.homepage-demo button:focus-visible, .homepage-demo a:focus-visible { outline: 3px solid #7059c7; outline-offset: 3px; }
+.demo-invitation { padding: 18px; border-top: 2px solid #171628; }
+.demo-invitation .site-button { width: 100%; }
+.public-site .demo-invitation p { font-size: .85rem; margin: 12px 0 0; text-align: center; }
+.demo-full-editor { border-top: 2px solid #171628; padding: 16px 18px; background: #f8f0df; font-size: .85rem; }
+.public-site .demo-full-editor p { margin: 0 0 5px; }
+.public-site .demo-full-editor p:last-child { margin: 5px 0 0; color: #514b60; font-size: .78rem; }
+.demo-full-editor a { font-weight: 800; }
+.tiny-editor { padding: 16px; }
+.demo-toolbar { display: flex; flex-wrap: wrap; gap: 6px; }
+.demo-toolbar button { min-height: 40px; padding: 6px 11px; background: #f8f0df; border: 1px solid #171628; font-size: .8rem; font-weight: 700; }
+.demo-toolbar button[aria-pressed="true"] { background: #ffe66d; box-shadow: inset 0 -3px #171628; }
+.demo-palette { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); max-width: 336px; gap: 6px; padding: 14px 0; }
+.demo-palette button { width: 100%; aspect-ratio: 1; background: var(--swatch); border: 1px solid #17162880; padding: 0; }
+.demo-palette button[aria-pressed="true"] { outline: 2px solid #171628; outline-offset: 2px; box-shadow: inset 0 0 0 2px #fff; }
+.demo-pixels { width: 100%; aspect-ratio: 1; display: grid; grid-template-rows: repeat(16, 1fr); touch-action: none; user-select: none; border: 2px solid #171628; background: repeating-conic-gradient(#e9e3d6 0% 25%, #fffaf0 0% 50%) 0 0 / 12.5% 12.5%; }
+.demo-pixels > div { display: grid; grid-template-columns: repeat(16, 1fr); min-height: 0; }
+.demo-pixels button { width: 100%; height: 100%; min-width: 0; padding: 0; border: 0; border-radius: 0; box-shadow: inset -1px -1px #ffffff18; }
+.demo-pixels button:focus-visible { position: relative; z-index: 1; outline: 2px solid #fff; outline-offset: -2px; box-shadow: inset 0 0 0 4px #171628; }
+.demo-export { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
+.demo-export > span { font-size: .7rem; color: #514b60; }
+.public-site .demo-status { font-size: .8rem; line-height: 1.5; margin: 13px 0 0; }
+.public-site .demo-help { font-size: .72rem; line-height: 1.5; color: #514b60; margin: 10px 0 0; }
+.demo-download { display: inline-block; font-size: .8rem; font-weight: 700; margin-top: 8px; }
 .feature-strip { background: #171628; color: #f8f0df; padding: 20px; display: flex; justify-content: center; flex-wrap: wrap; gap: 16px 48px; font-family: var(--font-geist-mono), monospace; font-size: .75rem; letter-spacing: .07em; }
 .home-section { padding-block: 64px; }
 .section-heading { margin-bottom: 32px; }

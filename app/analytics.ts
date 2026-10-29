@@ -42,7 +42,11 @@ type ExportProperties = {
 };
 
 export type AnalyticsEventMap = {
-  site_page_viewed: { page_group: string };
+  homepage_demo_interacted: {
+    demo_action: "opened" | "edited" | "exported" | "export_failed" | "full_editor_clicked";
+    editor_surface: "homepage_demo";
+  };
+  site_page_viewed: { page_group: string; homepage_demo_available?: boolean };
   site_cta_clicked: { destination: string; placement: string };
   desktop_download_clicked: { platform: string; version: string; package_type: string };
   editor_activated: CommonProductProperties & { activation_type: string };
@@ -177,7 +181,8 @@ const COMMON_PRODUCT_PROPERTY_KEYS = [
 ] as const;
 
 export const EVENT_PROPERTY_ALLOWLIST = {
-  site_page_viewed: ["page_group"],
+  homepage_demo_interacted: ["demo_action", "editor_surface"],
+  site_page_viewed: ["page_group", "homepage_demo_available"],
   site_cta_clicked: ["destination", "placement"],
   desktop_download_clicked: ["platform", "version", "package_type"],
   editor_activated: [...COMMON_PRODUCT_PROPERTY_KEYS, "activation_type"],
@@ -464,6 +469,8 @@ const STRING_VALUES: Record<string, readonly string[]> = Object.fromEntries(Obje
   layout: "horizontal vertical grid packed",
   choice: "usage enhanced",
   billing_mode: "live test unknown",
+  demo_action: "opened edited exported export_failed full_editor_clicked",
+  editor_surface: "homepage_demo",
 }).map(([key, values]) => [key, values.split(" ")]));
 
 function isApprovedString(event: AnalyticsEventName, key: string, value: string) {
@@ -672,6 +679,18 @@ export function captureAnonymousExportOutcome(format: string, outcome: "success"
     ...(source === undefined ? {} : { source }),
     ...workflowContext(),
   });
+}
+
+/** Track only fixed, non-identifying interactions with the homepage demo. */
+export function captureHomepageDemoEvent(
+  action: AnalyticsEventMap["homepage_demo_interacted"]["demo_action"],
+) {
+  if (typeof window === "undefined") return;
+  if (analyticsPageGroup(window.location.pathname ?? "/") !== "home") return;
+  if (!["opened", "edited", "exported", "export_failed", "full_editor_clicked"].includes(action)) return;
+  captureAnalyticsEvent("homepage_demo_interacted", { demo_action: action, editor_surface: "homepage_demo" });
+  if (!isAnonymousTrafficEnabled()) return;
+  sendAnonymousCount({ event: "homepage_demo_interacted", page_group: "home", demo_action: action, editor_surface: "homepage_demo" });
 }
 
 export function captureAnonymousAutomationEdit(

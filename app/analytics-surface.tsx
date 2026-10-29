@@ -33,7 +33,11 @@ export function AnalyticsSurface() {
       }
       if (!pathname || lastPage.current === pathname) return;
       lastPage.current = pathname;
-      captureAnalyticsEvent("site_page_viewed", { page_group: sitePageGroup(pathname) });
+      const pageGroup = sitePageGroup(pathname);
+      captureAnalyticsEvent("site_page_viewed", {
+        page_group: pageGroup,
+        ...(pageGroup === "home" ? { homepage_demo_available: true } : {}),
+      });
     }
     captureCurrentPage();
     window.addEventListener(ANALYTICS_CONSENT_CHANGED_EVENT, captureCurrentPage);

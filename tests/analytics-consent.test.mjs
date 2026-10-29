@@ -204,6 +204,56 @@ test("Essential counts send only fixed categories with no SDK, browser IDs, cook
   assert.equal(calls.imports, 0);
 });
 
+test("homepage demo reports fixed interactions only on home", async () => {
+  const actions = ["opened", "edited", "exported", "export_failed", "full_editor_clicked"];
+  const essential = setup();
+  essential.window.location.pathname = "/";
+  for (const action of actions) essential.api.captureHomepageDemoEvent(action);
+  essential.api.captureHomepageDemoEvent("painted");
+  await settleSdk();
+  assert.equal(essential.calls.imports, 0);
+  assert.equal(essential.calls.events.length, 0);
+  assert.deepEqual(essential.calls.requests.map(request => JSON.parse(request.body)), actions.map(demo_action => ({
+    event: "homepage_demo_interacted", page_group: "home", demo_action, editor_surface: "homepage_demo",
+  })));
+  assert.equal(essential.storage.size, 0);
+
+  const usage = setup({ stored: { [preferenceKey]: "usage" } });
+  usage.window.location.pathname = "/";
+  for (const action of actions) usage.api.captureHomepageDemoEvent(action);
+  await settleSdk();
+  assert.deepEqual(usage.calls.requests.map(request => JSON.parse(request.body)), actions.map(demo_action => ({
+    event: "homepage_demo_interacted", page_group: "home", demo_action, editor_surface: "homepage_demo",
+  })));
+  assert.deepEqual(usage.calls.events.map(event => event.event), actions.map(() => "homepage_demo_interacted"));
+  assert.ok(usage.calls.events.every(event => event.properties.page_group === "home"));
+
+  const nonHome = setup({ stored: { [preferenceKey]: "usage" } });
+  for (const pathname of ["/editor", "/guides/getting-started", "/tileset-maker"]) {
+    nonHome.window.location.pathname = pathname;
+    for (const action of actions) nonHome.api.captureHomepageDemoEvent(action);
+  }
+  await settleSdk();
+  assert.equal(nonHome.calls.requests.length, 0);
+  assert.equal(nonHome.calls.events.length, 0);
+
+  for (const options of [
+    { privacy: { doNotTrack: "1" } },
+    { privacy: { globalPrivacyControl: true } },
+    { stored: { [previousKey]: "required" } },
+    { configured: false },
+    { origin: "https://preview.vercel.app" },
+    { standalone: true },
+  ]) {
+    const blocked = setup(options);
+    blocked.window.location.pathname = "/";
+    blocked.api.captureHomepageDemoEvent("opened");
+    await settleSdk();
+    assert.equal(blocked.calls.requests.length, 0);
+    assert.equal(blocked.calls.events.length, 0);
+  }
+});
+
 test("the browser helper sends strict automation operation fields, including persistence outcomes", async () => {
   const { api, calls } = setup();
   api.captureAnonymousAutomationOperation({ operation: "preview", outcome: "success", preview_kind: "comparison" });
@@ -328,6 +378,22 @@ test("consented pages populate standard Web Analytics and existing product chart
   assert.equal(JSON.stringify(result).includes("private"), false);
   api.setAnalyticsLevel("required");
   assert.equal(sdk.config.before_send({ event: "$pageview", properties: {} }), null);
+});
+
+test("homepage demo availability stays a fixed optional page property", async () => {
+  const { api, sdk, calls } = setup({ stored: { [preferenceKey]: "usage" } });
+  api.captureAnalyticsEvent("site_page_viewed", { page_group: "home", homepage_demo_available: true });
+  await settleSdk();
+  const event = calls.events.find(item => item.event === "site_page_viewed");
+  assert.equal(event.properties.homepage_demo_available, true);
+  api.captureAnalyticsEvent("site_page_viewed", { page_group: "editor", homepage_demo_available: true });
+  await settleSdk();
+  const editorEvent = calls.events.filter(item => item.event === "site_page_viewed").at(-1);
+  assert.equal(editorEvent.properties.homepage_demo_available, true, "property sanitization is generic; surface controls its use");
+  assert.equal(JSON.stringify(event).includes("artwork"), false);
+  const invalid = sdk.config.before_send({ event: "site_page_viewed", properties: { page_group: "home", homepage_demo_available: "yes" } });
+  assert.ok(invalid);
+  assert.equal(invalid.properties.homepage_demo_available, undefined);
 });
 
 test("required-only and undecided visitors never download analytics or backfill pre-consent events", async () => {
