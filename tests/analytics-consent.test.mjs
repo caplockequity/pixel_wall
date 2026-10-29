@@ -98,6 +98,83 @@ const common = { token: "test-project", $process_person_profile: false, $geoip_d
 const edited = { tool: "pencil", edit_type: "stroke", input_method: "pointer", linked_edges: false };
 const settleSdk = () => new Promise((resolve) => setImmediate(resolve));
 
+test("workflow landing to edit/export attribution covers both editors without new storage", async () => {
+  for (const [landing, editor, workflow] of [
+    ['/pixel-art-tracing', '/editor/classic', 'tracing'],
+    ['/tileset-maker', '/editor', 'tileset'],
+  ]) {
+    const { api, calls, window, storage } = setup({ stored: { [preferenceKey]: 'usage' }, referrer: 'https://google.com/search?q=private-artwork' });
+    window.location.pathname = landing;
+    api.captureAnonymousPageView(landing);
+    api.captureAnalyticsEvent('site_page_viewed', { page_group: 'workflow' });
+    await settleSdk();
+    api.captureAnonymousSiteEvent('site_cta_clicked', { destination: editor.endsWith('classic') ? 'classic_editor' : 'editor', placement: 'content' });
+    window.location.pathname = editor;
+    api.captureAnalyticsEvent('editor_loaded', { project_source: 'new' });
+    api.captureAnonymousPageView(editor);
+    api.captureAnonymousCreation();
+    api.captureAnalyticsEvent('editor_activated', { activation_type: 'drawing' });
+    api.captureAnonymousExportOutcome('png', 'success');
+    api.captureAnalyticsEvent('export_completed', { export_type: 'png' });
+    assert.equal(calls.events.length, 5);
+    for (const event of calls.events) assert.equal(event.properties.workflow_page, workflow);
+    for (const request of calls.requests) {
+      assert.equal(JSON.parse(request.body).workflow_page, workflow);
+      assert.equal(request.credentials, 'omit');
+      assert.equal(request.referrerPolicy, 'no-referrer');
+    }
+    assert.deepEqual([...storage.keys()], [preferenceKey], 'workflow attribution adds no persistent storage');
+    assert.equal(JSON.stringify([...calls.events, ...calls.requests]).includes('private-artwork'), false);
+    window.location.pathname = '/';
+    api.captureAnonymousPageView('/');
+    window.location.pathname = editor;
+    api.captureAnonymousCreation();
+    assert.equal(JSON.parse(calls.requests.at(-1).body).workflow_page, undefined);
+  }
+});
+
+test("a direct workflow handoff adds only its category to anonymous editor outcomes", () => {
+  const { api, calls, storage, window } = setup({ referrer: 'https://www.pixelwall.dev/pixel-art-tracing?secret=artwork#private' });
+  window.location.pathname = '/editor/classic';
+  api.captureAnonymousCreation();
+  api.captureAnonymousExportOutcome('frame_png', 'success');
+  assert.equal(calls.referrerReads, 1);
+  assert.equal(calls.imports, 0);
+  assert.equal(storage.size, 0);
+  assert.equal(calls.requests.length, 2);
+  for (const request of calls.requests) {
+    assert.equal(JSON.parse(request.body).workflow_page, 'tracing');
+    assert.equal(JSON.stringify(request).includes('secret'), false);
+  }
+});
+
+test("queued events keep their original workflow and do not inherit later navigation", async () => {
+  const { api, calls, window, deliverImport } = setup({ stored: { [preferenceKey]: 'usage' }, deferImport: true });
+  api.captureAnalyticsEvent('editor_loaded', { project_source: 'new' });
+  window.location.pathname = '/pixel-art-tracing';
+  api.captureAnalyticsEvent('site_page_viewed', { page_group: 'workflow' });
+  window.location.pathname = '/tileset-maker';
+  api.captureAnalyticsEvent('site_page_viewed', { page_group: 'workflow' });
+  window.location.pathname = '/editor';
+  deliverImport();
+  await settleSdk();
+  assert.deepEqual(calls.events.map(event => event.properties.workflow_page), [undefined, 'tracing', 'tracing', 'tileset', 'tileset']);
+});
+
+test("blocked and refused telemetry never inspect workflow referrers or emit events", async () => {
+  for (const options of [{ privacy: { doNotTrack: '1' } }, { privacy: { globalPrivacyControl: true } }, { stored: { [previousKey]: 'required' } }, { configured: false }]) {
+    const { api, calls } = setup({ ...options, referrer: 'https://www.pixelwall.dev/tileset-maker?secret=1' });
+    api.captureAnonymousPageView('/editor');
+    api.captureAnonymousCreation();
+    api.captureAnonymousExportOutcome('png', 'success');
+    api.captureAnalyticsEvent('editor_activated', { activation_type: 'drawing' });
+    await settleSdk();
+    assert.equal(calls.referrerReads, 0);
+    assert.equal(calls.requests.length, 0);
+    assert.equal(calls.events.length, 0);
+  }
+});
+
 test("Essential counts send only fixed categories with no SDK, browser IDs, cookies or referrer", async () => {
   const { api, calls, storage } = setup({ referrer: "https://private.example/account" });
   api.captureAnonymousPageView("/guides/ai-agents");

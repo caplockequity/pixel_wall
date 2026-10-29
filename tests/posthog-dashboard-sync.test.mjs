@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { syncDashboards, parseArguments } from "../scripts/sync-posthog-dashboards.mjs";
+import productionManifest from "../docs/analytics/posthog-dashboards.json" with { type: "json" };
 
 const personalKey = "phx_private_test_personal_key_never_print";
 const captureToken = "phc_public_test_capture_token";
@@ -43,6 +44,28 @@ function mockServer({ dashboard = null, insight = null, projectToken = captureTo
   return { calls, output, logs, dashboards, insights, run: (options = {}) => syncDashboards({ manifest, project: "42", key: personalKey, projectToken: captureToken, fetchImpl, sleep: async () => {}, log: (message) => logs.push(message), onProgress: async (artifact) => output.push(artifact), ...options }) };
 }
 const writes = (server) => server.calls.filter((call) => call.method !== "GET" && !call.url.includes("/query/"));
+
+test("workflow attribution charts count landing pages and successful exports with matching fixed categories", () => {
+  const acquisition = productionManifest.dashboards.find((dashboard) => dashboard.key === "public-acquisition");
+  const product = productionManifest.dashboards.find((dashboard) => dashboard.key === "product-signals");
+  assert.ok(acquisition && product);
+  const pageViews = acquisition.insights.find((insight) => insight.key === "workflow-pageviews").query.source;
+  const pageSeries = pageViews.series[0];
+  assert.deepEqual(pageViews.properties.find((property) => property.key === "workflow_page").value, ["tracing", "tileset", "animation", "sprite_sheet"]);
+  assert.deepEqual(pageSeries.properties, [{ type: "event", key: "page_group", operator: "exact", value: ["workflow"] }]);
+  const aggregate = acquisition.insights.find((insight) => insight.key === "aggregate-workflow-actions").query.source;
+  assert.deepEqual(aggregate.properties.find((property) => property.key === "workflow_page").value, ["tracing", "tileset", "animation", "sprite_sheet"]);
+  const aggregatePage = aggregate.series.find((series) => series.custom_name === "Page views");
+  const aggregateExport = aggregate.series.find((series) => series.custom_name === "Successful generated exports");
+  assert.ok(aggregatePage.properties.some((property) => property.key === "page_group" && property.value[0] === "workflow"));
+  assert.ok(aggregateExport.properties.some((property) => property.key === "outcome" && property.value[0] === "success"));
+  for (const key of ["optional-tracing-editor-export-funnel", "optional-tileset-editor-export-funnel"]) {
+    const funnel = product.insights.find((insight) => insight.key === key).query.source;
+    const workflow = key.includes("tracing") ? "tracing" : "tileset";
+    assert.ok(funnel.series[0].properties.some((property) => property.key === "page_group" && property.value[0] === "workflow"));
+    for (const step of funnel.series) assert.ok(step.properties.some((property) => property.key === "workflow_page" && property.value[0] === workflow));
+  }
+});
 
 test("project identity must match the site's capture token before any inventory, queries, or writes", async () => {
   const server = mockServer({ projectToken: "phc_some_other_project" });

@@ -10,7 +10,8 @@
     "Resolve each dashboard ID, then POST/PATCH insight bodies with name, description, tags, query, and dashboards=[resolved_id]. Never send the local key field to the API.",
     "Use existing account defaults for visibility. Do not enable public dashboard sharing or email subscriptions.",
     "Validate query nodes through the authenticated query endpoint, inspect rendered insights, and record resulting dashboard URLs. Empty results at cutover are expected; do not fabricate historic events.",
-    "Set cutover_date to the actual production release date after verification."
+    "Set cutover_date to the actual production release date after verification.",
+    "Workflow attribution begins with the production release carrying workflow_page. Do not backfill earlier events. workflow_page is a fixed enum (tracing, tileset, animation, sprite_sheet), not a URL or referrer."
   ],
   "sources": [
     "https://posthog.com/docs/api/insights",
@@ -129,6 +130,28 @@
           ]
         },
         {
+          "key": "workflow-pageviews",
+          "name": "Workflow page views by workflow",
+          "description": "Consenting-browser page views for the fixed tracing, tileset, animation, and sprite-sheet workflow categories. This is a directional page-view count, not a unique-visitor or conversion measure; coverage starts with the workflow attribution release and has no historical backfill.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": { "date_from": "-30d" },
+              "interval": "day",
+              "properties": [
+                { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+                { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+                { "type": "event", "key": "workflow_page", "operator": "exact", "value": ["tracing", "tileset", "animation", "sprite_sheet"] }
+              ],
+              "series": [{ "kind": "EventsNode", "event": "site_page_viewed", "custom_name": "Workflow page views", "math": "total", "properties": [{ "type": "event", "key": "page_group", "operator": "exact", "value": ["workflow"] }] }],
+              "trendsFilter": { "display": "ActionsLineGraph" },
+              "breakdownFilter": { "breakdown": "workflow_page", "breakdown_type": "event", "breakdown_limit": 4 }
+            }
+          },
+          "tags": ["pixelwall", "analytics-v2", "workflow-attribution", "optional-analytics"]
+        },
+        {
           "key": "aggregate-traffic",
           "name": "Aggregate traffic counts by page area",
           "description": "Server-side daily counts from the Essential-only aggregate measurement path, split by fixed page group. Each event uses a fresh identifier and is not a unique visitor, session, or people count; do not compare it directly with consenting-browser DAU or interpret it as Search Console clicks.",
@@ -220,6 +243,33 @@
             }
           },
           "tags": ["pixelwall", "analytics-v2", "aggregate-traffic"]
+        },
+        {
+          "key": "aggregate-workflow-actions",
+          "name": "Aggregate workflow actions by workflow",
+          "description": "Anonymous aggregate action totals split by the fixed workflow_page enum. These are unrelated page-view, first-edit, and successful generated-export actions, not linked journeys, unique visitors, or conversion rates. Coverage begins with the workflow attribution release and has no historical backfill.",
+          "query": {
+            "kind": "InsightVizNode",
+            "source": {
+              "kind": "TrendsQuery",
+              "dateRange": { "date_from": "-30d" },
+              "interval": "day",
+              "properties": [
+                { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+                { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+                { "type": "event", "key": "measurement_mode", "operator": "exact", "value": ["aggregate"] },
+                { "type": "event", "key": "workflow_page", "operator": "exact", "value": ["tracing", "tileset", "animation", "sprite_sheet"] }
+              ],
+              "series": [
+                { "kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Page views", "math": "total", "properties": [{ "type": "event", "key": "action", "operator": "exact", "value": ["page_view"] }, { "type": "event", "key": "page_group", "operator": "exact", "value": ["workflow"] }] },
+                { "kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "First edits", "math": "total", "properties": [{ "type": "event", "key": "action", "operator": "exact", "value": ["creation"] }] },
+                { "kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Successful generated exports", "math": "total", "properties": [{ "type": "event", "key": "action", "operator": "exact", "value": ["export"] }, { "type": "event", "key": "outcome", "operator": "exact", "value": ["success"] }] }
+              ],
+              "trendsFilter": { "display": "ActionsLineGraph" },
+              "breakdownFilter": { "breakdown": "workflow_page", "breakdown_type": "event", "breakdown_limit": 4 }
+            }
+          },
+          "tags": ["pixelwall", "analytics-v2", "aggregate-traffic", "workflow-attribution"]
         },
         {
           "key": "aggregate-navigation",
@@ -645,6 +695,46 @@
             "funnelsFilter": {"funnelOrderType": "ordered", "funnelVizType": "steps", "funnelWindowInterval": 1, "funnelWindowIntervalUnit": "day"}
           }},
           "tags": ["pixelwall", "analytics-v2", "product-signals", "optional-analytics"]
+        },
+        {
+          "key": "optional-tracing-editor-export-funnel",
+          "name": "Tracing page → editor → export",
+          "description": "A one-day ordered funnel for consenting, pseudonymous browsers whose fixed workflow_page is tracing. It measures page view, editor load, meaningful activation, and generated export; it does not prove causation, a saved file, or a unique person. Coverage begins with the workflow attribution release and has no historical backfill.",
+          "query": {"kind": "InsightVizNode", "source": {
+            "kind": "FunnelsQuery", "dateRange": {"date_from": "-30d"},
+            "properties": [
+              {"type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"]},
+              {"type": "event", "key": "environment", "operator": "exact", "value": ["production"]}
+            ],
+            "series": [
+              {"kind": "EventsNode", "event": "site_page_viewed", "custom_name": "Tracing page viewed", "properties": [{"type": "event", "key": "page_group", "operator": "exact", "value": ["workflow"]}, {"type": "event", "key": "workflow_page", "operator": "exact", "value": ["tracing"]}]},
+              {"kind": "EventsNode", "event": "editor_loaded", "custom_name": "Editor loaded from tracing", "properties": [{"type": "event", "key": "workflow_page", "operator": "exact", "value": ["tracing"]}]},
+              {"kind": "EventsNode", "event": "editor_activated", "custom_name": "Meaningful edit", "properties": [{"type": "event", "key": "workflow_page", "operator": "exact", "value": ["tracing"]}]},
+              {"kind": "EventsNode", "event": "export_completed", "custom_name": "Export generated", "properties": [{"type": "event", "key": "workflow_page", "operator": "exact", "value": ["tracing"]}]}
+            ],
+            "funnelsFilter": {"funnelOrderType": "ordered", "funnelVizType": "steps", "funnelWindowInterval": 1, "funnelWindowIntervalUnit": "day"}
+          }},
+          "tags": ["pixelwall", "analytics-v2", "product-signals", "workflow-attribution", "optional-analytics"]
+        },
+        {
+          "key": "optional-tileset-editor-export-funnel",
+          "name": "Tileset page → editor → export",
+          "description": "A one-day ordered funnel for consenting, pseudonymous browsers whose fixed workflow_page is tileset. It measures page view, editor load, meaningful activation, and generated export; it does not prove causation, a saved file, or a unique person. Coverage begins with the workflow attribution release and has no historical backfill.",
+          "query": {"kind": "InsightVizNode", "source": {
+            "kind": "FunnelsQuery", "dateRange": {"date_from": "-30d"},
+            "properties": [
+              {"type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"]},
+              {"type": "event", "key": "environment", "operator": "exact", "value": ["production"]}
+            ],
+            "series": [
+              {"kind": "EventsNode", "event": "site_page_viewed", "custom_name": "Tileset page viewed", "properties": [{"type": "event", "key": "page_group", "operator": "exact", "value": ["workflow"]}, {"type": "event", "key": "workflow_page", "operator": "exact", "value": ["tileset"]}]},
+              {"kind": "EventsNode", "event": "editor_loaded", "custom_name": "Editor loaded from tileset", "properties": [{"type": "event", "key": "workflow_page", "operator": "exact", "value": ["tileset"]}]},
+              {"kind": "EventsNode", "event": "editor_activated", "custom_name": "Meaningful edit", "properties": [{"type": "event", "key": "workflow_page", "operator": "exact", "value": ["tileset"]}]},
+              {"kind": "EventsNode", "event": "export_completed", "custom_name": "Export generated", "properties": [{"type": "event", "key": "workflow_page", "operator": "exact", "value": ["tileset"]}]}
+            ],
+            "funnelsFilter": {"funnelOrderType": "ordered", "funnelVizType": "steps", "funnelWindowInterval": 1, "funnelWindowIntervalUnit": "day"}
+          }},
+          "tags": ["pixelwall", "analytics-v2", "product-signals", "workflow-attribution", "optional-analytics"]
         },
         {
           "key": "optional-pro-restriction-checkout-funnel",
