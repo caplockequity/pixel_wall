@@ -183,7 +183,8 @@ test("keeps optional analytics private and content-safe", async () => {
     /["'](?:name|project_name|file_name|filename|layer_name|clip_name|slice_name|color|colors|pixels|pixel_data|data_url|reference_url|content)["']/i,
   );
 
-  const captureStart = analyticsSource.indexOf("captureAnalyticsEvent");
+  // Anchor at the exported implementation; helper call sites may appear first.
+  const captureStart = analyticsSource.indexOf("export function captureAnalyticsEvent");
   assert.notEqual(captureStart, -1);
   const captureSource = analyticsSource.slice(captureStart);
   assert.match(captureSource, /sanitizeEventProperties\(\s*event\s*,\s*properties\s*\)/s);

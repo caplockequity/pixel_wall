@@ -1,6 +1,7 @@
 import { pageMetadata, SITE_DESCRIPTION, SITE_URL } from "../site";
 import { StructuredData } from "../structured-data";
 import { findPage } from "../content";
+import { HomepageDemo } from "../homepage-demo";
 
 export const metadata = pageMetadata("Online Pixel Art Editor & Sprite Maker", SITE_DESCRIPTION);
 const workflows = [
@@ -19,12 +20,7 @@ export default function HomePage() {
     ]} />
     <section className="home-hero">
       <div className="hero-copy"><p className="eyebrow">PIXEL ART, RIGHT IN YOUR BROWSER</p><h1>Make pixel art.<br />Build your world.</h1><p className="lede">Draw from a reference. Animate a character. Build the tiles for your next game. PixelWall brings it together in a small browser studio.</p><div className="hero-actions"><a className="site-button" href="/editor">Start drawing — free <span aria-hidden="true">↗</span></a><a className="text-link" href="/guides/getting-started">Your first sprite →</a><a className="text-link" href="/downloads">Download for desktop ↓</a></div><p className="fine-print">No account needed. Free editing and PNG exports.</p></div>
-      <figure className="hero-art"><div className="art-label"><span>DESERT SIGNAL</span><span>16 × 16 PX</span></div>
-        {/* This is the studio's existing starter artwork, exported as a tiny static PNG. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/examples/desert-signal.png" width="16" height="16" alt="Pixel-art sunset over coral, violet, and teal mountains, made on a 16 by 16 canvas" fetchPriority="high" />
-        <figcaption>Small canvas. Room to explore. <a href="/guides/desert-signal">Get this editable example ↗</a></figcaption>
-      </figure>
+      <HomepageDemo />
     </section>
     <div className="feature-strip" aria-label="Studio capabilities"><span>REFERENCE TRACING</span><span>LAYERS &amp; ANIMATION</span><span>SPRITES &amp; TILEMAPS</span><span>LOCAL PROJECTS</span></div>
     <section className="home-section"><div className="section-heading"><p className="eyebrow">YOUR NEXT PROJECT</p><h2>A pixel-art editor<br />that follows your ideas.</h2></div><div className="workflow-grid">{workflows.map((item) => <a className="workflow-card" href={`/${item.slug}`} key={item.slug}><span className="workflow-number">{item.number}</span><h3>{item.title}</h3><p>{item.text}</p><span className="text-link">Explore {findPage(item.slug)?.eyebrow.toLowerCase()} ↗</span></a>)}</div></section>

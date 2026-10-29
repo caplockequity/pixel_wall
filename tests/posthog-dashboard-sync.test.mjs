@@ -67,6 +67,24 @@ test("workflow attribution charts count landing pages and successful exports wit
   }
 });
 
+test("homepage demo charts separate consented journeys from anonymous action totals", () => {
+  const acquisition = productionManifest.dashboards.find((dashboard) => dashboard.key === "public-acquisition");
+  const product = productionManifest.dashboards.find((dashboard) => dashboard.key === "product-signals");
+  const aggregate = acquisition.insights.find((insight) => insight.key === "aggregate-homepage-demo-actions").query.source;
+  assert.equal(aggregate.properties.find((property) => property.key === "action").value[0], "homepage_demo");
+  assert.deepEqual(aggregate.series.map((series) => series.properties.find((property) => property.key === "demo_action").value[0]), ["opened", "edited", "exported", "export_failed", "full_editor_clicked"]);
+  const funnel = product.insights.find((insight) => insight.key === "optional-homepage-demo-funnel").query.source;
+  assert.equal(funnel.series[0].event, "site_page_viewed");
+  assert.deepEqual(funnel.series[0].properties, [
+    { type: "event", key: "page_group", operator: "exact", value: ["home"] },
+    { type: "event", key: "homepage_demo_available", operator: "exact", value: [true] },
+  ]);
+  assert.deepEqual(funnel.series.slice(1).map((series) => series.properties.find((property) => property.key === "demo_action").value[0]), ["opened", "edited", "exported"]);
+  assert.ok(funnel.series.slice(1).every((series) => series.properties.some((property) => property.key === "editor_surface" && property.value[0] === "homepage_demo")));
+  const handoff = product.insights.find((insight) => insight.key === "optional-homepage-demo-full-editor-funnel").query.source;
+  assert.deepEqual(handoff.series.map((series) => series.properties.find((property) => property.key === "demo_action").value[0]), ["opened", "full_editor_clicked"]);
+});
+
 test("project identity must match the site's capture token before any inventory, queries, or writes", async () => {
   const server = mockServer({ projectToken: "phc_some_other_project" });
   await assert.rejects(server.run({ apply: true }), /does not match this site's capture token/);

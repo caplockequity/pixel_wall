@@ -28,6 +28,7 @@ const AUTOMATION_OPERATIONS = new Set(["apply", "lua", "color_profile", "undo", 
 const AUTOMATION_OPERATION_OUTCOMES = new Set(["success", "failure", "cancelled", "blocked", "missing"]);
 const PREVIEW_KINDS = new Set(["frame", "contact-sheet", "comparison"]);
 const ARTIFACT_PERSISTENCE = new Set(["persisted", "failed", "not_requested"]);
+const HOMEPAGE_DEMO_ACTIONS = new Set(["opened", "edited", "exported", "export_failed", "full_editor_clicked"]);
 const EXPORT_SOURCES = new Set(["ui", "automation"]);
 const DOWNLOADS = new Map([
   ["darwin-arm64", "zip"],
@@ -108,6 +109,14 @@ async function readPayload(request) {
       if (!["event,page_group", "event,page_group,workflow_page"].includes(keys.join(","))) return null;
       if (workflowKeys && !WORKFLOW_CONTEXT_PAGE_GROUPS.has(parsed.page_group)) return null;
       return { ...parsed, action: "page_view" };
+    }
+    if (parsed.event === "homepage_demo_interacted") {
+      if (keys.join(",") !== "demo_action,editor_surface,event,page_group"
+        || parsed.page_group !== "home"
+        || parsed.editor_surface !== "homepage_demo"
+        || typeof parsed.demo_action !== "string"
+        || !HOMEPAGE_DEMO_ACTIONS.has(parsed.demo_action)) return null;
+      return { ...parsed, action: "homepage_demo" };
     }
     if (parsed.event === "editor_activated") {
       if (!["event,page_group", "event,page_group,workflow_page"].includes(keys.join(","))) return null;
@@ -247,6 +256,9 @@ export async function handleTrafficCountRequest(request, {
     event.properties.export_type = payload.export_type;
     event.properties.outcome = payload.outcome;
     if (Object.hasOwn(payload, "source")) event.properties.source = payload.source;
+  } else if (payload.event === "homepage_demo_interacted") {
+    event.properties.demo_action = payload.demo_action;
+    event.properties.editor_surface = payload.editor_surface;
   } else if (payload.event === "automation_edit_completed") {
     event.properties.source = "automation";
     event.properties.operation = payload.operation;

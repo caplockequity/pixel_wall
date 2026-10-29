@@ -295,6 +295,29 @@
           "tags": ["pixelwall", "analytics-v2", "aggregate-traffic"]
         },
         {
+          "key": "aggregate-homepage-demo-actions",
+          "name": "Aggregate homepage demo actions",
+          "description": "Anonymous aggregate action totals for the small homepage editor: opened, first edit, generated export, export failure, and full-editor clicks. These are unrelated actions, not unique visitors or a conversion rate; generated exports do not confirm a file was saved. Coverage begins with the homepage demo release and has no historical backfill.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+              { "type": "event", "key": "measurement_mode", "operator": "exact", "value": ["aggregate"] },
+              { "type": "event", "key": "action", "operator": "exact", "value": ["homepage_demo"] }
+            ],
+            "series": [
+              { "kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Demo opened", "math": "total", "properties": [{ "type": "event", "key": "demo_action", "operator": "exact", "value": ["opened"] }] },
+              { "kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Demo edited", "math": "total", "properties": [{ "type": "event", "key": "demo_action", "operator": "exact", "value": ["edited"] }] },
+              { "kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Demo exports", "math": "total", "properties": [{ "type": "event", "key": "demo_action", "operator": "exact", "value": ["exported"] }] },
+              { "kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Demo export failures", "math": "total", "properties": [{ "type": "event", "key": "demo_action", "operator": "exact", "value": ["export_failed"] }] },
+              { "kind": "EventsNode", "event": "site_traffic_counted", "custom_name": "Full editor clicks", "math": "total", "properties": [{ "type": "event", "key": "demo_action", "operator": "exact", "value": ["full_editor_clicked"] }] }
+            ],
+            "trendsFilter": { "display": "ActionsLineGraph" }
+          } },
+          "tags": ["pixelwall", "analytics-v2", "aggregate-traffic", "homepage-demo"]
+        },
+        {
           "key": "aggregate-exports",
           "name": "Aggregate exports by type",
           "description": "Server-side daily export-outcome counts from Essential-only aggregate measurement, split by reviewed export type. Counts are export actions, not unique visitors, sessions, or saved files.",
@@ -695,6 +718,44 @@
             "funnelsFilter": {"funnelOrderType": "ordered", "funnelVizType": "steps", "funnelWindowInterval": 1, "funnelWindowIntervalUnit": "day"}
           }},
           "tags": ["pixelwall", "analytics-v2", "product-signals", "optional-analytics"]
+        },
+        {
+          "key": "optional-homepage-demo-funnel",
+          "name": "Homepage demo → edit → export",
+          "description": "A one-day ordered funnel for consenting, pseudonymous browsers: homepage view, small demo opened, first edit, and generated export. The demo is intentionally limited; use the full editor link for layers, animation, tracing, and other features. Export means generated output and does not prove a saved file. Coverage begins with the homepage demo release and has no historical backfill.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "FunnelsQuery", "dateRange": { "date_from": "-30d" },
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] }
+            ],
+            "series": [
+              { "kind": "EventsNode", "event": "site_page_viewed", "custom_name": "Homepage with demo available", "properties": [{ "type": "event", "key": "page_group", "operator": "exact", "value": ["home"] }, { "type": "event", "key": "homepage_demo_available", "operator": "exact", "value": [true] }] },
+              { "kind": "EventsNode", "event": "homepage_demo_interacted", "custom_name": "Demo opened", "properties": [{ "type": "event", "key": "demo_action", "operator": "exact", "value": ["opened"] }, { "type": "event", "key": "editor_surface", "operator": "exact", "value": ["homepage_demo"] }] },
+              { "kind": "EventsNode", "event": "homepage_demo_interacted", "custom_name": "Meaningful edit", "properties": [{ "type": "event", "key": "demo_action", "operator": "exact", "value": ["edited"] }, { "type": "event", "key": "editor_surface", "operator": "exact", "value": ["homepage_demo"] }] },
+              { "kind": "EventsNode", "event": "homepage_demo_interacted", "custom_name": "Export generated", "properties": [{ "type": "event", "key": "demo_action", "operator": "exact", "value": ["exported"] }, { "type": "event", "key": "editor_surface", "operator": "exact", "value": ["homepage_demo"] }] }
+            ],
+            "funnelsFilter": { "funnelOrderType": "ordered", "funnelVizType": "steps", "funnelWindowInterval": 1, "funnelWindowIntervalUnit": "day" }
+          } },
+          "tags": ["pixelwall", "analytics-v2", "product-signals", "homepage-demo", "optional-analytics"]
+        },
+        {
+          "key": "optional-homepage-demo-full-editor-funnel",
+          "name": "Homepage demo → full editor",
+          "description": "A one-day ordered funnel for consenting, pseudonymous browsers who open the small homepage editor and then choose the full editor. This measures a handoff, not editing or conversion; the demo and full editor remain separate experiences.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "FunnelsQuery", "dateRange": { "date_from": "-30d" },
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] }
+            ],
+            "series": [
+              { "kind": "EventsNode", "event": "homepage_demo_interacted", "custom_name": "Demo opened", "properties": [{ "type": "event", "key": "demo_action", "operator": "exact", "value": ["opened"] }, { "type": "event", "key": "editor_surface", "operator": "exact", "value": ["homepage_demo"] }] },
+              { "kind": "EventsNode", "event": "homepage_demo_interacted", "custom_name": "Full editor clicked", "properties": [{ "type": "event", "key": "demo_action", "operator": "exact", "value": ["full_editor_clicked"] }, { "type": "event", "key": "editor_surface", "operator": "exact", "value": ["homepage_demo"] }] }
+            ],
+            "funnelsFilter": { "funnelOrderType": "ordered", "funnelVizType": "steps", "funnelWindowInterval": 1, "funnelWindowIntervalUnit": "day" }
+          } },
+          "tags": ["pixelwall", "analytics-v2", "product-signals", "homepage-demo", "optional-analytics"]
         },
         {
           "key": "optional-tracing-editor-export-funnel",

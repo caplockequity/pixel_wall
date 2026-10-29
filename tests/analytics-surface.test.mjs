@@ -136,6 +136,20 @@ test("strict effect replay and refocus do not duplicate either page event", () =
   assert.equal(app.calls.length, 2);
 });
 
+test("home optional pageviews identify demo availability without adding it elsewhere", () => {
+  const home = setup({ pathname: "/", status: "granted" });
+  home.mount();
+  assert.deepEqual(plain(home.calls), [
+    { channel: "anonymous", event: "site_traffic_counted", page: "/" },
+    { channel: "optional", event: "site_page_viewed", properties: { page_group: "home", homepage_demo_available: true } },
+  ]);
+  const editor = setup({ pathname: "/editor", status: "granted" });
+  editor.mount();
+  const editorPage = editor.calls.find(call => call.channel === "optional").properties;
+  assert.equal(editorPage.page_group, "editor");
+  assert.equal(editorPage.homepage_demo_available, undefined);
+});
+
 test("upgrading consent preserves the anonymous count and adds one optional pageview", () => {
   const app = setup({ pathname: "/pricing", status: "denied" });
   app.mount();
