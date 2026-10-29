@@ -13,6 +13,8 @@ const PAGE_GROUPS = new Set([
 // Fixed workflow labels allow acquisition-to-editor attribution without
 // retaining URLs, referrers, query strings, or identifiers.
 const WORKFLOW_PAGES = new Set(["tracing", "tileset", "animation", "sprite_sheet"]);
+const WORKFLOW_CONTEXT_PAGE_GROUPS = new Set(["workflow", "editor", "classic_editor"]);
+const WORKFLOW_EDITOR_PAGE_GROUPS = new Set(["editor", "classic_editor"]);
 const DESTINATIONS = new Set([...PAGE_GROUPS, "browser_download", "cli_download"]);
 const PLACEMENTS = new Set(["header", "footer", "content"]);
 const EXPORT_TYPES = new Set([
@@ -104,12 +106,12 @@ async function readPayload(request) {
     if (workflowKeys && (typeof parsed.workflow_page !== "string" || !WORKFLOW_PAGES.has(parsed.workflow_page))) return null;
     if (parsed.event === "site_page_viewed") {
       if (!["event,page_group", "event,page_group,workflow_page"].includes(keys.join(","))) return null;
-      if (workflowKeys && parsed.page_group !== "workflow") return null;
+      if (workflowKeys && !WORKFLOW_CONTEXT_PAGE_GROUPS.has(parsed.page_group)) return null;
       return { ...parsed, action: "page_view" };
     }
     if (parsed.event === "editor_activated") {
       if (!["event,page_group", "event,page_group,workflow_page"].includes(keys.join(","))) return null;
-      if (workflowKeys && parsed.page_group !== "editor") return null;
+      if (workflowKeys && !WORKFLOW_EDITOR_PAGE_GROUPS.has(parsed.page_group)) return null;
       return { ...parsed, action: "creation" };
     }
     if (parsed.event === "checkout_started") {
@@ -120,7 +122,7 @@ async function readPayload(request) {
       if (!["destination,event,page_group,placement", "destination,event,page_group,placement,workflow_page"].includes(keys.join(","))
         || typeof parsed.destination !== "string" || !DESTINATIONS.has(parsed.destination)
         || typeof parsed.placement !== "string" || !PLACEMENTS.has(parsed.placement)
-        || (workflowKeys && parsed.page_group !== "workflow")) return null;
+        || (workflowKeys && !WORKFLOW_CONTEXT_PAGE_GROUPS.has(parsed.page_group))) return null;
       return { ...parsed, action: parsed.destination === "browser_download" || parsed.destination === "cli_download" ? "download_click" : "navigation_click" };
     }
     if (parsed.event === "desktop_download_clicked") {
@@ -138,7 +140,7 @@ async function readPayload(request) {
         || typeof parsed.export_type !== "string" || !EXPORT_TYPES.has(parsed.export_type)
         || typeof parsed.outcome !== "string" || !EXPORT_OUTCOMES.has(parsed.outcome)
         || (Object.hasOwn(parsed, "source") && (typeof parsed.source !== "string" || !EXPORT_SOURCES.has(parsed.source)))
-        || (workflowKeys && parsed.page_group !== "editor")) return null;
+        || (workflowKeys && !WORKFLOW_EDITOR_PAGE_GROUPS.has(parsed.page_group))) return null;
       return { ...parsed, action: "export" };
     }
     if (parsed.event === "automation_edit_completed") {

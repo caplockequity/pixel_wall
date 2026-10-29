@@ -197,11 +197,14 @@ test("accepts fixed workflow attribution and forwards only the enum", async () =
   const fake = fakeFetch();
   for (const payload of [
     { event: "site_page_viewed", page_group: "workflow", workflow_page: "tracing" },
+    { event: "site_page_viewed", page_group: "editor", workflow_page: "tracing" },
+    { event: "site_page_viewed", page_group: "classic_editor", workflow_page: "tracing" },
     { event: "site_cta_clicked", page_group: "workflow", destination: "editor", placement: "content", workflow_page: "tileset" },
     { event: "editor_activated", page_group: "editor", workflow_page: "animation" },
-    { event: "export_outcome", page_group: "editor", export_type: "png", outcome: "success", source: "ui", workflow_page: "sprite_sheet" },
+    { event: "editor_activated", page_group: "classic_editor", workflow_page: "animation" },
+    { event: "export_outcome", page_group: "classic_editor", export_type: "png", outcome: "success", source: "ui", workflow_page: "sprite_sheet" },
   ]) assert.equal((await handleTrafficCountRequest(request(payload), { env, fetchImpl: fake.fetchImpl })).status, 204);
-  assert.deepEqual(fake.calls.map(({ body }) => body.properties.workflow_page), ["tracing", "tileset", "animation", "sprite_sheet"]);
+  assert.deepEqual(fake.calls.map(({ body }) => body.properties.workflow_page), ["tracing", "tracing", "tracing", "tileset", "animation", "animation", "sprite_sheet"]);
   assert.equal(Object.hasOwn(fake.calls[0].body.properties, "referrer"), false);
   assert.equal(Object.hasOwn(fake.calls[0].body.properties, "$current_url"), false);
 });
@@ -211,8 +214,10 @@ test("rejects workflow attribution outside the matching event context or with ar
   for (const payload of [
     { event: "site_page_viewed", page_group: "home", workflow_page: "tracing" },
     { event: "site_cta_clicked", page_group: "home", destination: "editor", placement: "content", workflow_page: "tracing" },
+    { event: "editor_activated", page_group: "workflow", workflow_page: "tracing" },
     { event: "editor_activated", page_group: "guides", workflow_page: "tracing" },
     { event: "export_outcome", page_group: "editor", export_type: "png", outcome: "success", workflow_page: "https://evil.example" },
+    { event: "export_outcome", page_group: "workflow", export_type: "png", outcome: "success", workflow_page: "tracing" },
     { event: "site_page_viewed", page_group: "workflow", workflow_page: "tracing", referrer: "secret" },
     { event: "automation_edit_completed", page_group: "editor", operation: "lua", workflow_page: "tracing" },
   ]) assert.equal((await handleTrafficCountRequest(request(payload), { env, fetchImpl: fake.fetchImpl })).status, 400);

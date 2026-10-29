@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyAcquisition } from "../app/acquisition.mjs";
+import { classifyAcquisition, createWorkflowAttribution, workflowPage, workflowFromReferrer } from "../app/acquisition.mjs";
 
 const origin = "https://www.pixelwall.dev";
 
@@ -25,6 +25,39 @@ test("immediate external referrers become fixed source categories without URL de
     ["data:text/plain,private", "direct_or_unknown"],
   ]) assert.deepEqual(classifyAcquisition(referrer, origin), { referral_source: source });
   assert.deepEqual(classifyAcquisition("https://chatgpt.com/", "invalid"), { referral_source: "direct_or_unknown" });
+});
+
+test("workflow categories accept exact public paths and discard referrer details", () => {
+  assert.equal(workflowPage('/pixel-art-tracing/'), 'tracing');
+  assert.equal(workflowPage('/tileset-maker'), 'tileset');
+  assert.equal(workflowPage('/pixel-art-animation'), 'animation');
+  assert.equal(workflowPage('/sprite-sheet-maker'), 'sprite_sheet');
+  for (const path of ['/private/tracing', '/pixel-art-tracing/private', '/tileset-maker?private=1', {}, undefined]) assert.equal(workflowPage(path), undefined);
+  assert.equal(workflowFromReferrer(`${origin}/pixel-art-tracing?private=secret#artwork`, origin), 'tracing');
+  for (const referrer of ['https://evil.example/tileset-maker', 'https://www.pixelwall.dev.evil.example/tileset-maker', 'https://user:secret@www.pixelwall.dev/tileset-maker', '/tileset-maker', 'invalid']) {
+    assert.equal(workflowFromReferrer(referrer, origin), undefined);
+  }
+});
+
+test("workflow handoffs survive both editor routes but clear on unrelated navigation", () => {
+  const journey = createWorkflowAttribution();
+  assert.deepEqual(journey.update('/pixel-art-tracing'), { workflow_page: 'tracing' });
+  assert.deepEqual(journey.update('/editor/classic'), { workflow_page: 'tracing' });
+  assert.deepEqual(journey.update('/editor'), { workflow_page: 'tracing' });
+  assert.deepEqual(journey.update('/tileset-maker'), { workflow_page: 'tileset' });
+  assert.deepEqual(journey.update('/editor'), { workflow_page: 'tileset' });
+  assert.deepEqual(journey.update('/'), {});
+  assert.deepEqual(journey.update('/editor', () => 'tracing'), {}, 'a stale document referrer cannot revive attribution after another page');
+});
+
+test("a fresh editor document can classify its immediate referrer once without persistent storage", () => {
+  const journey = createWorkflowAttribution();
+  let reads = 0;
+  assert.deepEqual(journey.update('/editor/classic', () => { reads++; return 'tracing'; }), { workflow_page: 'tracing' });
+  assert.deepEqual(journey.update('/editor/classic', () => { reads++; return 'tileset'; }), { workflow_page: 'tracing' });
+  assert.equal(reads, 1);
+  assert.deepEqual(createWorkflowAttribution().update('/editor', () => 'private-user'), {});
+  assert.deepEqual(createWorkflowAttribution().update('/editor'), {}, 'another document has no inherited state');
 });
 
 test("same-origin handoffs expose only page categories and cannot claim earlier acquisition", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { classifyAcquisition } from "./acquisition.mjs";
+import { classifyAcquisition, createWorkflowAttribution, workflowFromReferrer, WORKFLOW_PAGES } from "./acquisition.mjs";
 import { sitePageGroup, webAnalyticsPageProperties } from "./site-analytics-core.mjs";
 import type {
   CaptureResult,
@@ -430,6 +430,7 @@ const CONTEXT_VALUES = {
   editor_variant: ["workbench", "classic", "none"],
   referral_source: REFERRAL_SOURCES,
   entry_page: PAGE_GROUPS,
+  workflow_page: WORKFLOW_PAGES,
 };
 const STRING_VALUES: Record<string, readonly string[]> = Object.fromEntries(Object.entries({
   page_group: PAGE_GROUPS.join(" "),
@@ -479,15 +480,24 @@ export function analyticsPageGroup(pathname: string) {
   return sitePageGroup(pathname);
 }
 
+const workflowAttribution = createWorkflowAttribution();
+function workflowContext(pathname = window.location.pathname ?? "/", referrer?: string) {
+  return workflowAttribution.update(pathname, () => workflowFromReferrer(
+    referrer ?? (typeof document === "undefined" ? "" : document.referrer), window.location.origin,
+  ));
+}
+
 function analyticsContext(pageGroup?: unknown) {
   const page = typeof pageGroup === "string" && PAGE_GROUPS.includes(pageGroup)
     ? pageGroup : analyticsPageGroup(window.location.pathname ?? "/");
+  const referrer = typeof document === "undefined" ? undefined : document.referrer;
   return {
     analytics_schema_version: 2,
     environment: "production",
     page_group: page,
     editor_variant: page === "editor" ? "workbench" : page === "classic_editor" ? "classic" : "none",
-    ...(typeof document === "undefined" ? {} : classifyAcquisition(document.referrer, window.location.origin)),
+    ...(referrer === undefined ? {} : classifyAcquisition(referrer, window.location.origin)),
+    ...workflowContext(window.location.pathname ?? "/", referrer),
   };
 }
 
@@ -529,7 +539,10 @@ function sanitizeBeforeSend(capture: CaptureResult | null): CaptureResult | null
   properties.$geoip_disable = true;
   properties.$is_identified = false;
   const current = analyticsContext();
-  for (const key of ["page_group", "editor_variant", "referral_source", "entry_page"] as const) {
+  // Queued events keep their capture-time workflow, including no attribution.
+  // A later navigation must not relabel an earlier event at the send boundary.
+  delete (current as Record<string, unknown>).workflow_page;
+  for (const key of ["page_group", "editor_variant", "referral_source", "entry_page", "workflow_page"] as const) {
     const value = source[key];
     if (typeof value === "string" && CONTEXT_VALUES[key].includes(value)) (current as Record<string, unknown>)[key] = value;
   }
@@ -620,7 +633,8 @@ export function captureAnonymousSiteEvent<E extends AnonymousSiteEvent>(event: E
   if (!isAnonymousTrafficEnabled()) return;
   if (!["site_page_viewed", "site_cta_clicked", "desktop_download_clicked"].includes(event)) return;
   const safe = sanitizeEventProperties(event, properties);
-  const payload = { event, page_group: analyticsPageGroup(window.location.pathname ?? "/"), ...safe };
+  const payload = { event, page_group: analyticsPageGroup(window.location.pathname ?? "/"), ...safe,
+    ...(event === "site_page_viewed" || event === "site_cta_clicked" ? workflowContext() : {}) };
   sendAnonymousCount(payload);
 }
 
@@ -643,7 +657,8 @@ function sendAnonymousCount(payload: Record<string, AnalyticsPrimitive>) {
 }
 
 export function captureAnonymousPageView(pathname: string) {
-  captureAnonymousSiteEvent("site_page_viewed", { page_group: sitePageGroup(pathname) });
+  if (!isAnonymousTrafficEnabled()) return;
+  sendAnonymousCount({ event: "site_page_viewed", page_group: sitePageGroup(pathname), ...workflowContext(pathname) });
 }
 
 export function captureAnonymousExportOutcome(format: string, outcome: "success" | "failure" | "blocked", source: "ui" | "automation" = "ui") {
@@ -655,6 +670,7 @@ export function captureAnonymousExportOutcome(format: string, outcome: "success"
     export_type: STRING_VALUES.export_type.includes(format) ? format : "other",
     outcome,
     ...(source === undefined ? {} : { source }),
+    ...workflowContext(),
   });
 }
 
@@ -694,7 +710,7 @@ export function captureAnonymousAutomationOperation(input: {
 
 export function captureAnonymousCreation() {
   if (!isAnonymousTrafficEnabled()) return;
-  sendAnonymousCount({ event: "editor_activated", page_group: analyticsPageGroup(window.location.pathname ?? "/") });
+  sendAnonymousCount({ event: "editor_activated", page_group: analyticsPageGroup(window.location.pathname ?? "/"), ...workflowContext() });
 }
 
 export function captureAnonymousCheckoutStart(billingMode: string) {
