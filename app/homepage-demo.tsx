@@ -22,7 +22,7 @@ export function HomepageDemo() {
     {Editor ? <Editor /> : <>
       {/* Shared starter artwork; editing code loads only after the visitor clicks. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/examples/desert-signal.png" width="16" height="16" alt="Pixel-art sunset over coral, violet, and teal mountains, ready for you to edit" fetchPriority="high" />
+      <img src="/examples/desert-signal.png" width="16" height="16" alt="Pixel-art cactus silhouetted against a golden desert sunset and warm sand dunes, ready for you to edit" fetchPriority="high" />
       <div className="demo-invitation">
         <button className="site-button small" type="button" onClick={openDemo} disabled={loading}>{loading ? "Opening…" : failed ? "Try loading the editor again" : "Try the tiny editor"}<span aria-hidden="true">✎</span></button>
         <p>Change a few pixels. Make it yours.</p>

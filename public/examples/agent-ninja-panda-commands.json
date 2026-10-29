@@ -29,11 +29,121 @@
     "type": "draw.ellipse",
     "frameId": "frame-1",
     "layerId": "layer-1",
-    "x": 3,
-    "y": 1,
-    "width": 6,
+    "x": 6,
+    "y": 19,
+    "width": 5,
+    "height": 4,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 13,
+    "y": 19,
+    "width": 5,
+    "height": 4,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 7,
+    "y": 20,
+    "width": 2,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 14,
+    "y": 20,
+    "width": 2,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 6,
+    "y": 12,
+    "width": 12,
+    "height": 10,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 8,
+    "y": 14,
+    "width": 8,
+    "height": 6,
+    "color": "#b5aabaFF",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 9,
+    "y": 14,
+    "width": 7,
+    "height": 5,
+    "color": "#f8f0dfff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 11,
+    "y": 15,
+    "width": 3,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 4,
+    "y": 13,
+    "width": 5,
     "height": 6,
     "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 5,
+    "y": 14,
+    "width": 2,
+    "height": 2,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 5,
+    "y": 17,
+    "width": 2,
+    "height": 1,
+    "color": "#b5aabaFF",
     "filled": true
   },
   {
@@ -41,9 +151,31 @@
     "frameId": "frame-1",
     "layerId": "layer-1",
     "x": 15,
+    "y": 13,
+    "width": 5,
+    "height": 5,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 17,
+    "y": 14,
+    "width": 2,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 4,
     "y": 1,
-    "width": 6,
-    "height": 6,
+    "width": 5,
+    "height": 5,
     "color": "#171628ff",
     "filled": true
   },
@@ -51,9 +183,42 @@
     "type": "draw.ellipse",
     "frameId": "frame-1",
     "layerId": "layer-1",
+    "x": 14,
+    "y": 1,
+    "width": 5,
+    "height": 5,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
     "x": 5,
     "y": 2,
-    "width": 14,
+    "width": 2,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 16,
+    "y": 2,
+    "width": 1,
+    "height": 2,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 4,
+    "y": 2,
+    "width": 15,
     "height": 13,
     "color": "#171628ff",
     "filled": true
@@ -62,10 +227,21 @@
     "type": "draw.ellipse",
     "frameId": "frame-1",
     "layerId": "layer-1",
-    "x": 7,
-    "y": 4,
-    "width": 10,
-    "height": 9,
+    "x": 5,
+    "y": 3,
+    "width": 13,
+    "height": 11,
+    "color": "#b5aabaFF",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 5,
+    "y": 3,
+    "width": 12,
+    "height": 10,
     "color": "#f8f0dfff",
     "filled": true
   },
@@ -73,36 +249,87 @@
     "type": "draw.rect",
     "frameId": "frame-1",
     "layerId": "layer-1",
+    "x": 8,
+    "y": 3,
+    "width": 6,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
     "x": 5,
-    "y": 5,
-    "width": 14,
+    "y": 4,
+    "width": 13,
     "height": 2,
     "color": "#ef3340ff",
     "filled": true
   },
   {
-    "type": "draw.line",
+    "type": "draw.rect",
     "frameId": "frame-1",
     "layerId": "layer-1",
-    "from": {
-      "x": 18,
-      "y": 6
-    },
-    "to": {
-      "x": 22,
-      "y": 3
-    },
+    "x": 7,
+    "y": 4,
+    "width": 8,
+    "height": 1,
+    "color": "#ff6b57ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 17,
+    "y": 5,
+    "width": 2,
+    "height": 2,
+    "color": "#a8294aff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 4,
+    "width": 2,
+    "height": 1,
     "color": "#ef3340ff",
-    "size": 2
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 3,
+    "width": 1,
+    "height": 1,
+    "color": "#ff6b57ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 6,
+    "width": 2,
+    "height": 1,
+    "color": "#ef3340ff",
+    "filled": true
   },
   {
     "type": "draw.ellipse",
     "frameId": "frame-1",
     "layerId": "layer-1",
-    "x": 8,
+    "x": 6,
     "y": 7,
     "width": 4,
-    "height": 3,
+    "height": 4,
     "color": "#171628ff",
     "filled": true
   },
@@ -113,7 +340,73 @@
     "x": 13,
     "y": 7,
     "width": 4,
-    "height": 3,
+    "height": 4,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 8,
+    "y": 8,
+    "width": 1,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 14,
+    "y": 8,
+    "width": 1,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 7,
+    "y": 10,
+    "width": 1,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 15,
+    "y": 10,
+    "width": 1,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 10,
+    "y": 10,
+    "width": 3,
+    "height": 1,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 11,
+    "y": 11,
+    "width": 1,
+    "height": 1,
     "color": "#171628ff",
     "filled": true
   },
@@ -122,162 +415,285 @@
     "frameId": "frame-1",
     "layerId": "layer-1",
     "x": 10,
-    "y": 8,
+    "y": 12,
     "width": 1,
     "height": 1,
-    "color": "#f8f0dfff",
+    "color": "#514b60ff",
     "filled": true
   },
   {
     "type": "draw.rect",
     "frameId": "frame-1",
     "layerId": "layer-1",
-    "x": 14,
-    "y": 8,
+    "x": 12,
+    "y": 12,
     "width": 1,
     "height": 1,
-    "color": "#f8f0dfff",
+    "color": "#514b60ff",
     "filled": true
   },
   {
     "type": "draw.rect",
     "frameId": "frame-1",
     "layerId": "layer-1",
-    "x": 11,
-    "y": 10,
-    "width": 3,
+    "x": 9,
+    "y": 11,
+    "width": 1,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 13,
+    "y": 11,
+    "width": 1,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 15,
+    "width": 2,
+    "height": 6,
+    "color": "#704332ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 16,
+    "width": 1,
+    "height": 4,
+    "color": "#ad7046ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 15,
+    "width": 2,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 20,
+    "y": 14,
+    "width": 1,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 13,
+    "width": 1,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 12,
+    "width": 1,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 7,
+    "width": 2,
+    "height": 5,
+    "color": "#704332ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 8,
+    "width": 1,
+    "height": 3,
+    "color": "#ad7046ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 7,
+    "width": 2,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "frame-1",
+    "layerId": "layer-1",
+    "x": 18,
+    "y": 16,
+    "width": 2,
     "height": 2,
     "color": "#171628ff",
     "filled": true
   },
   {
-    "type": "draw.ellipse",
+    "type": "draw.rect",
     "frameId": "frame-1",
     "layerId": "layer-1",
-    "x": 6,
-    "y": 13,
-    "width": 12,
-    "height": 9,
-    "color": "#171628ff",
+    "x": 18,
+    "y": 16,
+    "width": 2,
+    "height": 1,
+    "color": "#b5aabaFF",
     "filled": true
-  },
-  {
-    "type": "draw.ellipse",
-    "frameId": "frame-1",
-    "layerId": "layer-1",
-    "x": 9,
-    "y": 15,
-    "width": 6,
-    "height": 6,
-    "color": "#f8f0dfff",
-    "filled": true
-  },
-  {
-    "type": "draw.line",
-    "frameId": "frame-1",
-    "layerId": "layer-1",
-    "from": {
-      "x": 7,
-      "y": 15
-    },
-    "to": {
-      "x": 3,
-      "y": 18
-    },
-    "color": "#171628ff",
-    "size": 3
-  },
-  {
-    "type": "draw.line",
-    "frameId": "frame-1",
-    "layerId": "layer-1",
-    "from": {
-      "x": 17,
-      "y": 15
-    },
-    "to": {
-      "x": 20,
-      "y": 12
-    },
-    "color": "#171628ff",
-    "size": 3
-  },
-  {
-    "type": "draw.ellipse",
-    "frameId": "frame-1",
-    "layerId": "layer-1",
-    "x": 5,
-    "y": 20,
-    "width": 6,
-    "height": 3,
-    "color": "#171628ff",
-    "filled": true
-  },
-  {
-    "type": "draw.ellipse",
-    "frameId": "frame-1",
-    "layerId": "layer-1",
-    "x": 14,
-    "y": 20,
-    "width": 6,
-    "height": 3,
-    "color": "#171628ff",
-    "filled": true
-  },
-  {
-    "type": "draw.line",
-    "frameId": "frame-1",
-    "layerId": "layer-1",
-    "from": {
-      "x": 19,
-      "y": 11
-    },
-    "to": {
-      "x": 21,
-      "y": 8
-    },
-    "color": "#8b5a2bff",
-    "size": 2
-  },
-  {
-    "type": "draw.line",
-    "frameId": "frame-1",
-    "layerId": "layer-1",
-    "from": {
-      "x": 21,
-      "y": 7
-    },
-    "to": {
-      "x": 22,
-      "y": 5
-    },
-    "color": "#ffe66dff",
-    "size": 1
-  },
-  {
-    "type": "draw.line",
-    "frameId": "frame-1",
-    "layerId": "layer-1",
-    "from": {
-      "x": 22,
-      "y": 4
-    },
-    "to": {
-      "x": 20,
-      "y": 1
-    },
-    "color": "#8b5a2bff",
-    "size": 2
   },
   {
     "type": "draw.ellipse",
     "frameId": "idle-2",
     "layerId": "layer-1",
-    "x": 3,
-    "y": 2,
-    "width": 6,
+    "x": 6,
+    "y": 19,
+    "width": 5,
+    "height": 4,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 13,
+    "y": 19,
+    "width": 5,
+    "height": 4,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 7,
+    "y": 20,
+    "width": 2,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 14,
+    "y": 20,
+    "width": 2,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 6,
+    "y": 12,
+    "width": 12,
+    "height": 10,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 8,
+    "y": 14,
+    "width": 8,
+    "height": 6,
+    "color": "#b5aabaFF",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 9,
+    "y": 14,
+    "width": 7,
+    "height": 5,
+    "color": "#f8f0dfff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 11,
+    "y": 15,
+    "width": 3,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 4,
+    "y": 13,
+    "width": 5,
     "height": 6,
     "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 5,
+    "y": 14,
+    "width": 2,
+    "height": 2,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 5,
+    "y": 17,
+    "width": 2,
+    "height": 1,
+    "color": "#b5aabaFF",
     "filled": true
   },
   {
@@ -285,9 +701,75 @@
     "frameId": "idle-2",
     "layerId": "layer-1",
     "x": 15,
+    "y": 13,
+    "width": 5,
+    "height": 5,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 17,
+    "y": 14,
+    "width": 2,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 4,
+    "y": 1,
+    "width": 5,
+    "height": 5,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 14,
+    "y": 1,
+    "width": 5,
+    "height": 5,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 5,
     "y": 2,
-    "width": 6,
-    "height": 6,
+    "width": 2,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 16,
+    "y": 2,
+    "width": 1,
+    "height": 2,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 4,
+    "y": 2,
+    "width": 15,
+    "height": 13,
     "color": "#171628ff",
     "filled": true
   },
@@ -297,19 +779,19 @@
     "layerId": "layer-1",
     "x": 5,
     "y": 3,
-    "width": 14,
-    "height": 13,
-    "color": "#171628ff",
+    "width": 13,
+    "height": 11,
+    "color": "#b5aabaFF",
     "filled": true
   },
   {
     "type": "draw.ellipse",
     "frameId": "idle-2",
     "layerId": "layer-1",
-    "x": 7,
-    "y": 5,
-    "width": 10,
-    "height": 9,
+    "x": 5,
+    "y": 3,
+    "width": 12,
+    "height": 10,
     "color": "#f8f0dfff",
     "filled": true
   },
@@ -317,36 +799,87 @@
     "type": "draw.rect",
     "frameId": "idle-2",
     "layerId": "layer-1",
+    "x": 8,
+    "y": 3,
+    "width": 6,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
     "x": 5,
-    "y": 6,
-    "width": 14,
+    "y": 4,
+    "width": 13,
     "height": 2,
     "color": "#ef3340ff",
     "filled": true
   },
   {
-    "type": "draw.line",
+    "type": "draw.rect",
     "frameId": "idle-2",
     "layerId": "layer-1",
-    "from": {
-      "x": 18,
-      "y": 7
-    },
-    "to": {
-      "x": 22,
-      "y": 5
-    },
+    "x": 7,
+    "y": 4,
+    "width": 8,
+    "height": 1,
+    "color": "#ff6b57ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 17,
+    "y": 5,
+    "width": 2,
+    "height": 2,
+    "color": "#a8294aff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 5,
+    "width": 2,
+    "height": 1,
     "color": "#ef3340ff",
-    "size": 2
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 4,
+    "width": 1,
+    "height": 1,
+    "color": "#ff6b57ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 7,
+    "width": 2,
+    "height": 1,
+    "color": "#ef3340ff",
+    "filled": true
   },
   {
     "type": "draw.ellipse",
     "frameId": "idle-2",
     "layerId": "layer-1",
-    "x": 8,
-    "y": 8,
+    "x": 6,
+    "y": 7,
     "width": 4,
-    "height": 3,
+    "height": 4,
     "color": "#171628ff",
     "filled": true
   },
@@ -355,9 +888,9 @@
     "frameId": "idle-2",
     "layerId": "layer-1",
     "x": 13,
-    "y": 8,
+    "y": 7,
     "width": 4,
-    "height": 3,
+    "height": 4,
     "color": "#171628ff",
     "filled": true
   },
@@ -365,11 +898,11 @@
     "type": "draw.rect",
     "frameId": "idle-2",
     "layerId": "layer-1",
-    "x": 10,
-    "y": 9,
+    "x": 8,
+    "y": 8,
     "width": 1,
     "height": 1,
-    "color": "#f8f0dfff",
+    "color": "#fffaf0ff",
     "filled": true
   },
   {
@@ -377,10 +910,43 @@
     "frameId": "idle-2",
     "layerId": "layer-1",
     "x": 14,
-    "y": 9,
+    "y": 8,
     "width": 1,
     "height": 1,
-    "color": "#f8f0dfff",
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 7,
+    "y": 10,
+    "width": 1,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 15,
+    "y": 10,
+    "width": 1,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 10,
+    "y": 10,
+    "width": 3,
+    "height": 1,
+    "color": "#171628ff",
     "filled": true
   },
   {
@@ -389,139 +955,295 @@
     "layerId": "layer-1",
     "x": 11,
     "y": 11,
-    "width": 3,
+    "width": 1,
+    "height": 1,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 10,
+    "y": 12,
+    "width": 1,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 12,
+    "y": 12,
+    "width": 1,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 9,
+    "y": 11,
+    "width": 1,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 13,
+    "y": 11,
+    "width": 1,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 14,
+    "width": 2,
+    "height": 6,
+    "color": "#704332ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 15,
+    "width": 1,
+    "height": 4,
+    "color": "#ad7046ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 14,
+    "width": 2,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 20,
+    "y": 13,
+    "width": 1,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 12,
+    "width": 1,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 11,
+    "width": 1,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 6,
+    "width": 2,
+    "height": 5,
+    "color": "#704332ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 7,
+    "width": 1,
+    "height": 3,
+    "color": "#ad7046ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 6,
+    "width": 2,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-2",
+    "layerId": "layer-1",
+    "x": 18,
+    "y": 15,
+    "width": 2,
     "height": 2,
     "color": "#171628ff",
     "filled": true
   },
   {
-    "type": "draw.ellipse",
+    "type": "draw.rect",
     "frameId": "idle-2",
     "layerId": "layer-1",
-    "x": 6,
-    "y": 14,
-    "width": 12,
-    "height": 9,
-    "color": "#171628ff",
+    "x": 18,
+    "y": 15,
+    "width": 2,
+    "height": 1,
+    "color": "#b5aabaFF",
     "filled": true
-  },
-  {
-    "type": "draw.ellipse",
-    "frameId": "idle-2",
-    "layerId": "layer-1",
-    "x": 9,
-    "y": 16,
-    "width": 6,
-    "height": 6,
-    "color": "#f8f0dfff",
-    "filled": true
-  },
-  {
-    "type": "draw.line",
-    "frameId": "idle-2",
-    "layerId": "layer-1",
-    "from": {
-      "x": 7,
-      "y": 16
-    },
-    "to": {
-      "x": 3,
-      "y": 19
-    },
-    "color": "#171628ff",
-    "size": 3
-  },
-  {
-    "type": "draw.line",
-    "frameId": "idle-2",
-    "layerId": "layer-1",
-    "from": {
-      "x": 17,
-      "y": 16
-    },
-    "to": {
-      "x": 20,
-      "y": 12
-    },
-    "color": "#171628ff",
-    "size": 3
-  },
-  {
-    "type": "draw.ellipse",
-    "frameId": "idle-2",
-    "layerId": "layer-1",
-    "x": 5,
-    "y": 21,
-    "width": 6,
-    "height": 3,
-    "color": "#171628ff",
-    "filled": true
-  },
-  {
-    "type": "draw.ellipse",
-    "frameId": "idle-2",
-    "layerId": "layer-1",
-    "x": 14,
-    "y": 21,
-    "width": 6,
-    "height": 3,
-    "color": "#171628ff",
-    "filled": true
-  },
-  {
-    "type": "draw.line",
-    "frameId": "idle-2",
-    "layerId": "layer-1",
-    "from": {
-      "x": 19,
-      "y": 11
-    },
-    "to": {
-      "x": 21,
-      "y": 8
-    },
-    "color": "#8b5a2bff",
-    "size": 2
-  },
-  {
-    "type": "draw.line",
-    "frameId": "idle-2",
-    "layerId": "layer-1",
-    "from": {
-      "x": 21,
-      "y": 7
-    },
-    "to": {
-      "x": 21,
-      "y": 6
-    },
-    "color": "#ffe66dff",
-    "size": 1
-  },
-  {
-    "type": "draw.line",
-    "frameId": "idle-2",
-    "layerId": "layer-1",
-    "from": {
-      "x": 21,
-      "y": 5
-    },
-    "to": {
-      "x": 18,
-      "y": 2
-    },
-    "color": "#8b5a2bff",
-    "size": 2
   },
   {
     "type": "draw.ellipse",
     "frameId": "idle-3",
     "layerId": "layer-1",
-    "x": 3,
-    "y": 1,
-    "width": 6,
+    "x": 6,
+    "y": 19,
+    "width": 5,
+    "height": 4,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 13,
+    "y": 19,
+    "width": 5,
+    "height": 4,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 7,
+    "y": 20,
+    "width": 2,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 14,
+    "y": 20,
+    "width": 2,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 6,
+    "y": 12,
+    "width": 12,
+    "height": 10,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 8,
+    "y": 14,
+    "width": 8,
+    "height": 6,
+    "color": "#b5aabaFF",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 9,
+    "y": 14,
+    "width": 7,
+    "height": 5,
+    "color": "#f8f0dfff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 11,
+    "y": 15,
+    "width": 3,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 4,
+    "y": 13,
+    "width": 5,
     "height": 6,
     "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 5,
+    "y": 14,
+    "width": 2,
+    "height": 2,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 5,
+    "y": 17,
+    "width": 2,
+    "height": 1,
+    "color": "#b5aabaFF",
     "filled": true
   },
   {
@@ -529,9 +1251,31 @@
     "frameId": "idle-3",
     "layerId": "layer-1",
     "x": 15,
+    "y": 13,
+    "width": 5,
+    "height": 5,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 17,
+    "y": 14,
+    "width": 2,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 4,
     "y": 1,
-    "width": 6,
-    "height": 6,
+    "width": 5,
+    "height": 5,
     "color": "#171628ff",
     "filled": true
   },
@@ -539,9 +1283,42 @@
     "type": "draw.ellipse",
     "frameId": "idle-3",
     "layerId": "layer-1",
+    "x": 14,
+    "y": 1,
+    "width": 5,
+    "height": 5,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
     "x": 5,
     "y": 2,
-    "width": 14,
+    "width": 2,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 16,
+    "y": 2,
+    "width": 1,
+    "height": 2,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 4,
+    "y": 2,
+    "width": 15,
     "height": 13,
     "color": "#171628ff",
     "filled": true
@@ -550,10 +1327,21 @@
     "type": "draw.ellipse",
     "frameId": "idle-3",
     "layerId": "layer-1",
-    "x": 7,
-    "y": 4,
-    "width": 10,
-    "height": 9,
+    "x": 5,
+    "y": 3,
+    "width": 13,
+    "height": 11,
+    "color": "#b5aabaFF",
+    "filled": true
+  },
+  {
+    "type": "draw.ellipse",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 5,
+    "y": 3,
+    "width": 12,
+    "height": 10,
     "color": "#f8f0dfff",
     "filled": true
   },
@@ -561,36 +1349,87 @@
     "type": "draw.rect",
     "frameId": "idle-3",
     "layerId": "layer-1",
+    "x": 8,
+    "y": 3,
+    "width": 6,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
     "x": 5,
-    "y": 5,
-    "width": 14,
+    "y": 4,
+    "width": 13,
     "height": 2,
     "color": "#ef3340ff",
     "filled": true
   },
   {
-    "type": "draw.line",
+    "type": "draw.rect",
     "frameId": "idle-3",
     "layerId": "layer-1",
-    "from": {
-      "x": 18,
-      "y": 6
-    },
-    "to": {
-      "x": 22,
-      "y": 2
-    },
+    "x": 7,
+    "y": 4,
+    "width": 8,
+    "height": 1,
+    "color": "#ff6b57ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 17,
+    "y": 5,
+    "width": 2,
+    "height": 2,
+    "color": "#a8294aff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 3,
+    "width": 2,
+    "height": 1,
     "color": "#ef3340ff",
-    "size": 2
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 2,
+    "width": 1,
+    "height": 1,
+    "color": "#ff6b57ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 5,
+    "width": 2,
+    "height": 1,
+    "color": "#ef3340ff",
+    "filled": true
   },
   {
     "type": "draw.ellipse",
     "frameId": "idle-3",
     "layerId": "layer-1",
-    "x": 8,
+    "x": 6,
     "y": 7,
     "width": 4,
-    "height": 3,
+    "height": 4,
     "color": "#171628ff",
     "filled": true
   },
@@ -601,7 +1440,73 @@
     "x": 13,
     "y": 7,
     "width": 4,
-    "height": 3,
+    "height": 4,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 8,
+    "y": 8,
+    "width": 1,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 14,
+    "y": 8,
+    "width": 1,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 7,
+    "y": 10,
+    "width": 1,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 15,
+    "y": 10,
+    "width": 1,
+    "height": 1,
+    "color": "#514b60ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 10,
+    "y": 10,
+    "width": 3,
+    "height": 1,
+    "color": "#171628ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 11,
+    "y": 11,
+    "width": 1,
+    "height": 1,
     "color": "#171628ff",
     "filled": true
   },
@@ -610,151 +1515,164 @@
     "frameId": "idle-3",
     "layerId": "layer-1",
     "x": 10,
-    "y": 8,
+    "y": 12,
     "width": 1,
     "height": 1,
-    "color": "#f8f0dfff",
+    "color": "#514b60ff",
     "filled": true
   },
   {
     "type": "draw.rect",
     "frameId": "idle-3",
     "layerId": "layer-1",
-    "x": 14,
-    "y": 8,
+    "x": 12,
+    "y": 12,
     "width": 1,
     "height": 1,
-    "color": "#f8f0dfff",
+    "color": "#514b60ff",
     "filled": true
   },
   {
     "type": "draw.rect",
     "frameId": "idle-3",
     "layerId": "layer-1",
-    "x": 11,
-    "y": 10,
-    "width": 3,
+    "x": 9,
+    "y": 11,
+    "width": 1,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 13,
+    "y": 11,
+    "width": 1,
+    "height": 1,
+    "color": "#fffaf0ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 15,
+    "width": 2,
+    "height": 6,
+    "color": "#704332ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 16,
+    "width": 1,
+    "height": 4,
+    "color": "#ad7046ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 19,
+    "y": 15,
+    "width": 2,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 20,
+    "y": 14,
+    "width": 1,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 13,
+    "width": 1,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 12,
+    "width": 1,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 7,
+    "width": 2,
+    "height": 5,
+    "color": "#704332ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 8,
+    "width": 1,
+    "height": 3,
+    "color": "#ad7046ff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 21,
+    "y": 7,
+    "width": 2,
+    "height": 1,
+    "color": "#ffe66dff",
+    "filled": true
+  },
+  {
+    "type": "draw.rect",
+    "frameId": "idle-3",
+    "layerId": "layer-1",
+    "x": 18,
+    "y": 16,
+    "width": 2,
     "height": 2,
     "color": "#171628ff",
     "filled": true
   },
   {
-    "type": "draw.ellipse",
+    "type": "draw.rect",
     "frameId": "idle-3",
     "layerId": "layer-1",
-    "x": 6,
-    "y": 13,
-    "width": 12,
-    "height": 9,
-    "color": "#171628ff",
+    "x": 18,
+    "y": 16,
+    "width": 2,
+    "height": 1,
+    "color": "#b5aabaFF",
     "filled": true
-  },
-  {
-    "type": "draw.ellipse",
-    "frameId": "idle-3",
-    "layerId": "layer-1",
-    "x": 9,
-    "y": 15,
-    "width": 6,
-    "height": 6,
-    "color": "#f8f0dfff",
-    "filled": true
-  },
-  {
-    "type": "draw.line",
-    "frameId": "idle-3",
-    "layerId": "layer-1",
-    "from": {
-      "x": 7,
-      "y": 15
-    },
-    "to": {
-      "x": 3,
-      "y": 18
-    },
-    "color": "#171628ff",
-    "size": 3
-  },
-  {
-    "type": "draw.line",
-    "frameId": "idle-3",
-    "layerId": "layer-1",
-    "from": {
-      "x": 17,
-      "y": 15
-    },
-    "to": {
-      "x": 20,
-      "y": 13
-    },
-    "color": "#171628ff",
-    "size": 3
-  },
-  {
-    "type": "draw.ellipse",
-    "frameId": "idle-3",
-    "layerId": "layer-1",
-    "x": 5,
-    "y": 20,
-    "width": 6,
-    "height": 3,
-    "color": "#171628ff",
-    "filled": true
-  },
-  {
-    "type": "draw.ellipse",
-    "frameId": "idle-3",
-    "layerId": "layer-1",
-    "x": 14,
-    "y": 20,
-    "width": 6,
-    "height": 3,
-    "color": "#171628ff",
-    "filled": true
-  },
-  {
-    "type": "draw.line",
-    "frameId": "idle-3",
-    "layerId": "layer-1",
-    "from": {
-      "x": 19,
-      "y": 12
-    },
-    "to": {
-      "x": 21,
-      "y": 9
-    },
-    "color": "#8b5a2bff",
-    "size": 2
-  },
-  {
-    "type": "draw.line",
-    "frameId": "idle-3",
-    "layerId": "layer-1",
-    "from": {
-      "x": 21,
-      "y": 8
-    },
-    "to": {
-      "x": 23,
-      "y": 5
-    },
-    "color": "#ffe66dff",
-    "size": 1
-  },
-  {
-    "type": "draw.line",
-    "frameId": "idle-3",
-    "layerId": "layer-1",
-    "from": {
-      "x": 23,
-      "y": 4
-    },
-    "to": {
-      "x": 22,
-      "y": 1
-    },
-    "color": "#8b5a2bff",
-    "size": 2
   }
 ]

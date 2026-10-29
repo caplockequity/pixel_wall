@@ -10,7 +10,7 @@ Public production is https://www.pixelwall.dev on Vercel. The apex redirects the
 - Public page content remains server-rendered, with ordinary links without editor prefetch and separate studio styles. A shared client component supplies privacy controls and explicit page/link events. Optional SDK download begins only after consent on pixelwall.dev; private previews and local/downloaded builds are excluded. A failed or delayed SDK download cannot bypass privacy choices.
 - SoftwareApplication, organization, website and breadcrumb data; technical article data for guides. No invented reviews or ratings.
 - Studio's existing Desert Signal starter exported as a tiny static homepage image and downloadable project, PNGs, GIF and JSON. The homepage also offers a click-to-load tiny editor for a quick local-tab edit and PNG export; it is deliberately limited, with a clear link to the full editor for layers, animation, tracing, and the rest of the studio. Regenerate the static starter with `node scripts/export-demo.mjs`.
-- A public AI-agent guide, `/llms.txt`, and `/agent-integration.json` describe the supported CLI, browser command API, Lua, and computer-control paths without claiming interfaces that do not exist. The guide includes a reproducible 63-command animated ninja-panda project and rendered result.
+- A public AI-agent guide, `/llms.txt`, and `/agent-integration.json` describe the supported CLI, browser command API, Lua, and computer-control paths without claiming interfaces that do not exist. The guide includes a reproducible 153-command animated ninja-panda project and rendered result.
 
 ## Verify and publish
 

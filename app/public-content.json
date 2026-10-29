@@ -1375,7 +1375,7 @@
     "title": "Try the Desert Signal starter project",
     "description": "Download an editable 16×16 PixelWall project with three animation frames, PNGs, an animated GIF, and a sprite atlas with JSON metadata.",
     "eyebrow": "EDITABLE EXAMPLE",
-    "intro": "Download Desert Signal, a small three-frame sunset example, and inspect its native project and finished exports. It is a separate starter download; a fresh current workspace opens a blank document.",
+    "intro": "Download Desert Signal, a small three-frame cactus-and-sunset example, and inspect its native project and finished exports. It is a separate starter download; a fresh current workspace opens a blank document.",
     "sections": [
       {
         "heading": "Download the example",
@@ -1390,6 +1390,10 @@
           {
             "href": "/examples/desert-signal.pixelwall",
             "label": "Download the editable .pixelwall project"
+          },
+          {
+            "href": "/examples/desert-signal-commands.json",
+            "label": "Download the PixelWall drawing commands"
           },
           {
             "href": "/examples/desert-signal-sheet.png",
@@ -1917,10 +1921,10 @@
       {
         "heading": "Run the complete ninja-panda example",
         "paragraphs": [
-          "This example uses 63 ordinary PixelWall commands to create a 24 × 24 ninja panda with nunchucks and three idle-animation frames. The downloadable command file is readable JSON. The finished project and first rendered frame let an agent compare its result before revising the commands.",
+          "This example uses 153 ordinary PixelWall commands to create a 24 × 24 ninja panda with nunchucks and three idle-animation frames. The downloadable command file is readable JSON. The finished project and first rendered frame let an agent compare its result before revising the commands.",
           "Download and extract the CLI, then keep the command file in the same working folder. The first command creates an empty project. The second applies the complete animation as one edit. The third renders frame zero at 8× for inspection. Change the JSON and apply it to a fresh project for another revision."
         ],
-        "code": "node pixelwall.mjs new --width 24 --height 24 --name \"Ninja Panda Idle\" --out ninja-panda.pixelwall\nnode pixelwall.mjs apply ninja-panda.pixelwall --commands agent-ninja-panda-commands.json --out ninja-panda-animated.pixelwall\nnode pixelwall.mjs inspect ninja-panda-animated.pixelwall\nnode pixelwall.mjs render ninja-panda-animated.pixelwall --frame 0 --scale 8 --out ninja-panda-preview.png",
+        "code": "node pixelwall.mjs new --width 24 --height 24 --duration 180 --name \"Ninja Panda Idle\" --out ninja-panda.pixelwall\nnode pixelwall.mjs apply ninja-panda.pixelwall --commands agent-ninja-panda-commands.json --out ninja-panda-animated.pixelwall\nnode pixelwall.mjs inspect ninja-panda-animated.pixelwall\nnode pixelwall.mjs render ninja-panda-animated.pixelwall --frame 0 --scale 8 --out ninja-panda-preview.png",
         "links": [
           {
             "href": "/downloads/pixelwall-cli.zip",
