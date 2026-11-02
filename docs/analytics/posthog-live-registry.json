@@ -138,6 +138,19 @@
         "refunded_usd": 0,
         "net_paid_usd": 0
       }
+    },
+    {
+      "key": "internal-telemetry-validation",
+      "id": 2294250,
+      "url": "https://us.posthog.com/project/333211/dashboard/2294250",
+      "status": "verified",
+      "private": true,
+      "last_checked": "2026-11-02",
+      "purpose": "Explicitly marked test-run validation only; excludes environment=test from all production dashboards.",
+      "insights": {
+        "cli": { "id": 13595335, "short_id": "ZGWSfcPM", "tile_id": 14690726, "verified": true },
+        "desktop_mcp": { "id": 13595337, "short_id": "wvUjhSsl", "tile_id": 14690728, "verified": true }
+      }
     }
   ],
   "recheck_instructions": "With an authenticated PostHog session, verify project and dashboard IDs, validate each query, inspect rendered results, then fill IDs/URLs and set last_checked. Do not infer IDs from local keys or create historical events to populate empty charts.",

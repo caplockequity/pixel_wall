@@ -13,6 +13,8 @@ Before comparing numbers, record:
 3. The event surface (browser, hosted automation, desktop MCP, CLI, desktop health) and consent/coverage qualifier.
 4. Any release, test, dogfooding, outage, or instrumentation change that overlaps the window. Native tests must have telemetry disabled at source; anonymous native dogfooding cannot be removed after ingest.
 
+Every real-usage query must retain `analytics_schema_version=2` and `environment=production`. Explicit live validation events carry `environment=test` and a `test_run` UUID; they belong only on the private Internal telemetry validation dashboard and must never trigger the first real native edit/export notification. This does not retroactively reclassify older unmarked tests. A reported local 0.6.4 launch on November 2 is consistent with the owner's update, not evidence of independent adoption.
+
 If a dashboard or source is inaccessible, record that once as `blocked` with the exact missing access and stop retrying it during this run. Do not turn an access gap into a zero and do not repeat the same notification every week without a state change.
 
 ## Review order

@@ -18,6 +18,10 @@ const SUPPORTED_FORMATS = new Set(['png', 'bmp', 'tga', 'project', 'aseprite', '
 const PLATFORMS = new Set(['darwin', 'win32', 'linux', 'other']);
 const ARCHITECTURES = new Set(['arm64', 'x64', 'ia32', 'other']);
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
+// A test run is an explicit, server-filterable classification. Treat any
+// present but malformed value (including an empty string) as a privacy failure
+// and disable reporting rather than risking a test event in production totals.
+const TEST_RUN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 function cleanSettings(value) {
   return { schemaVersion: 1, enabled: value?.enabled === true, ...(DAY.test(value?.usageDay) ? { usageDay: value.usageDay } : {}) };
@@ -41,7 +45,10 @@ export function createDesktopAutomationTelemetry({
   env = process.env,
   now = () => new Date(),
 } = {}) {
-  const forcedOff = env?.PIXELWALL_TELEMETRY_DISABLED === '1' || env?.DO_NOT_TRACK === '1';
+  const testRunPresent = Object.prototype.hasOwnProperty.call(env || {}, 'PIXELWALL_TELEMETRY_TEST_RUN');
+  const testRun = env?.PIXELWALL_TELEMETRY_TEST_RUN;
+  const invalidTestRun = testRunPresent && (typeof testRun !== 'string' || !TEST_RUN.test(testRun));
+  const forcedOff = env?.PIXELWALL_TELEMETRY_DISABLED === '1' || env?.DO_NOT_TRACK === '1' || invalidTestRun;
   const defaultPlatform = PLATFORMS.has(platform) ? platform : 'other';
   const defaultArch = ARCHITECTURES.has(arch) ? arch : 'other';
   let settings = cleanSettings({});
@@ -78,6 +85,7 @@ export function createDesktopAutomationTelemetry({
       platform: defaultPlatform,
       arch: defaultArch,
     };
+    if (TEST_RUN.test(testRun)) payload.test_run = testRun;
     if (typeof input.changed === 'boolean' && ['apply', 'lua', 'color_profile', 'undo', 'redo'].includes(input.operation) && input.outcome === 'success') payload.changed = input.changed;
     if (PREVIEW_KINDS.has(input.preview_kind)) payload.preview_kind = input.preview_kind;
     if (ARTIFACT_PERSISTENCE.has(input.artifact_persistence)) payload.artifact_persistence = input.artifact_persistence;
@@ -160,6 +168,8 @@ export function createDesktopAutomationTelemetry({
 }
 
 export function cleanAutomationTelemetrySettings(value) { return cleanSettings(value); }
+
+export { TEST_RUN };
 
 export function createAutomationTelemetrySettingsStore(file) {
   let writing = Promise.resolve();

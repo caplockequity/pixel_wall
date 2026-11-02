@@ -6,6 +6,9 @@ const POSTHOG_HOSTS = new Map([
 ]);
 const MAX_BODY_BYTES = 2048;
 const VERSION = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+// Explicit operator validation only. This ID identifies one disposable test,
+// never an installation, person, or normal production usage.
+const TEST_RUN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const OUTCOMES = new Set(['success', 'failure', 'cancelled', 'blocked', 'missing']);
 const FORMATS = new Set(['png', 'bmp', 'tga', 'gif', 'sheet', 'atlas', 'zip', 'ase', 'aseprite', 'pixelwall', 'project', 'json']);
 const ENUMS = {
@@ -63,8 +66,9 @@ async function readPayload(request, contract) {
   let payload;
   try { payload = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { return null; }
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
-  const allowed = new Set(['event', 'operation', 'outcome', 'version', 'changed', 'format', ...Object.keys(ENUMS), ...contract.extras]);
+  const allowed = new Set(['event', 'operation', 'outcome', 'version', 'changed', 'format', 'test_run', ...Object.keys(ENUMS), ...contract.extras]);
   if (Object.keys(payload).some(key => !allowed.has(key))) return null;
+  if (Object.hasOwn(payload, 'test_run') && (typeof payload.test_run !== 'string' || !TEST_RUN.test(payload.test_run))) return null;
   if (payload.event !== contract.inputEvent || !contract.operations.has(payload.operation) || !OUTCOMES.has(payload.outcome) || typeof payload.version !== 'string' || !VERSION.test(payload.version)) return null;
   for (const [key, values] of Object.entries(ENUMS)) if (Object.hasOwn(payload, key) && !values.has(payload[key])) return null;
   if (Object.hasOwn(payload, 'changed') && (typeof payload.changed !== 'boolean' || !contract.changed.has(payload.operation) || payload.outcome !== 'success')) return null;
@@ -106,10 +110,11 @@ export async function handleNativeTrafficRequest(request, surface, {
     uuid = randomUUID(); distinctId = randomUUID();
   } catch { return empty(503); }
   const properties = {
-    distinct_id: distinctId, token, analytics_schema_version: 2, environment: 'production', app_version: payload.version,
+    distinct_id: distinctId, token, analytics_schema_version: 2, environment: payload.test_run ? 'test' : 'production', app_version: payload.version,
     surface, measurement_mode: 'aggregate', operation: payload.operation, outcome: payload.outcome,
     $process_person_profile: false, $geoip_disable: true, $ip: null,
   };
+  if (payload.test_run) properties.test_run = payload.test_run;
   for (const key of ['changed', 'format', ...Object.keys(ENUMS), ...contract.extras]) if (Object.hasOwn(payload, key)) properties[key] = payload[key];
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeoutMs);
   try {

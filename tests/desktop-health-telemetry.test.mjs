@@ -46,6 +46,24 @@ test('health follows shared refusal and privacy environment even when its own fi
   await sharedOff.start(); assert.equal(sharedOff.report({ operation: 'launch', outcome: 'success' }), false);
 });
 
+test('health test run marker is bounded and malformed values fail closed', async () => {
+  const valid = '123e4567-e89b-42d3-a456-426614174000';
+  const reports = [];
+  const telemetry = createDesktopHealthTelemetry({ packaged: true, version: '0.6.4', env: { PIXELWALL_TELEMETRY_TEST_RUN: valid }, readSettings: async () => ({ enabled: true }), fetchImpl: async (_url, init) => reports.push(JSON.parse(init.body)) });
+  await telemetry.start();
+  assert.equal(telemetry.report({ operation: 'launch', outcome: 'success' }), true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(reports[0].test_run, valid);
+  for (const invalid of ['', 'not-a-uuid', '123e4567-e89b-12d3-a456-426614174000']) {
+    let calls = 0;
+    const rejected = createDesktopHealthTelemetry({ packaged: true, env: { PIXELWALL_TELEMETRY_TEST_RUN: invalid }, readSettings: async () => ({ enabled: true }), fetchImpl: async () => { calls += 1; } });
+    await rejected.start();
+    assert.equal(rejected.isEnabled(), false);
+    assert.equal(rejected.report({ operation: 'launch', outcome: 'success' }), false);
+    assert.equal(calls, 0);
+  }
+});
+
 test('health dedupe is process-local and later launches report returning activity', async () => {
   let saved = { enabled: true }, calls = [];
   const first = createDesktopHealthTelemetry({ packaged: true, version: '0.6.4', readSettings: async () => saved, writeSettings: async value => { saved = value; }, now: () => new Date('2026-11-02T00:00:00Z'), fetchImpl: async (_url, init) => calls.push(JSON.parse(init.body)) });

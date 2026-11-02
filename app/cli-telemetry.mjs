@@ -11,6 +11,7 @@ const PLATFORMS = new Set(['darwin', 'win32', 'linux']);
 const ARCHES = new Set(['arm64', 'x64', 'ia32']);
 const WRITE_OPERATIONS = new Set(['new', 'apply', 'script', 'profile', 'render', 'export', 'import', 'import_sequence']);
 const VERIFY_OPERATIONS = new Set(['verify', 'render', 'export']);
+const TEST_RUN_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 const packaged = () => process.env.PIXELWALL_PACKAGED_CLI === '1';
 const disabledByEnvironment = () => process.env.PIXELWALL_TELEMETRY_DISABLED === '1' || process.env.DO_NOT_TRACK === '1';
@@ -19,6 +20,11 @@ const day = () => new Date().toISOString().slice(0, 10);
 const bucket = ms => ms < 100 ? 'under_100ms' : ms < 1000 ? '100ms_1s' : ms < 10000 ? '1s_10s' : 'over_10s';
 const safePlatform = () => PLATFORMS.has(platform()) ? platform() : 'other';
 const safeArch = () => ARCHES.has(arch()) ? arch() : 'other';
+const testRunMarker = () => {
+  const value = process.env.PIXELWALL_TELEMETRY_TEST_RUN;
+  if (value === undefined) return { configured: false, value: undefined };
+  return TEST_RUN_UUID.test(value) ? { configured: true, value } : { configured: true, value: null };
+};
 
 async function readPreference() {
   try {
@@ -67,13 +73,16 @@ async function reserveUsageDay() {
 
 export async function telemetryStatus() {
   const pref = await readPreference();
-  return { packaged: packaged(), enabled: packaged() && !disabledByEnvironment() && !pref.unavailable && pref.enabled !== false, disabledByEnvironment: disabledByEnvironment(), storageAvailable: !pref.unavailable };
+  const testRun = testRunMarker();
+  const enabled = packaged() && !disabledByEnvironment() && !pref.unavailable && pref.enabled !== false && (!testRun.configured || testRun.value !== null);
+  return { testReportingVersion: 1, testRun: testRun.value ?? null, packaged: packaged(), enabled, disabledByEnvironment: disabledByEnvironment(), storageAvailable: !pref.unavailable };
 }
 
 export function isReportableOperation(operation) { return OPERATIONS.has(operation); }
 
 export async function announceCliTelemetry() {
-  if (!packaged() || disabledByEnvironment()) return false;
+  const testRun = testRunMarker();
+  if (!packaged() || disabledByEnvironment() || testRun.configured && testRun.value === null) return false;
   return withPreferenceLock(async () => {
     const pref = await readPreference();
     if (pref.unavailable || pref.enabled === false || pref.disclosed) return false;
@@ -93,10 +102,16 @@ export async function setTelemetryEnabled(enabled) {
 
 export async function reportCliOperation({ operation, outcome, format, changed, wrote_files, verified, durationMs = 0 } = {}) {
   if (!packaged() || disabledByEnvironment()) return false;
+  const testRun = testRunMarker();
+  // A test run must be explicitly identified by a canonical UUID. If the
+  // marker is present but malformed (including an empty value), fail closed so
+  // a smoke test can never silently enter production totals.
+  if (testRun.configured && testRun.value === null) return false;
   const pref = await readPreference();
   if (pref.unavailable || pref.enabled === false) return false;
   if (!OPERATIONS.has(operation) || !['success', 'failure', 'blocked'].includes(outcome)) return false;
   const payload = { event: 'cli_usage_operation', version: VERSION, operation, outcome, platform: safePlatform(), arch: safeArch(), duration_bucket: bucket(durationMs) };
+  if (testRun.value) payload.test_run = testRun.value;
   if (['export', 'render', 'plan'].includes(operation) && FORMATS.has(format)) payload.format = format;
   if (outcome === 'success' && typeof changed === 'boolean' && ['apply', 'script', 'profile'].includes(operation)) payload.changed = changed;
   if (outcome === 'success' && WRITE_OPERATIONS.has(operation) && typeof wrote_files === 'boolean') payload.wrote_files = wrote_files;
@@ -109,9 +124,13 @@ export async function reportCliOperation({ operation, outcome, format, changed, 
   timer.unref?.();
   try {
     const response = await fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), redirect: 'error', signal: controller.signal });
+    if (testRun.value && process.env.PIXELWALL_TELEMETRY_TEST_LOG === '1') process.stderr.write(`PixelWall telemetry test: operation=${operation} status=${response.status}\n`);
     if (!response.ok) return false;
     return true;
   } catch { return false; } finally { clearTimeout(timer); }
 }
 
 export function isTelemetryPackaged() { return packaged(); }
+export function isTelemetryTestRunMarker(value = process.env.PIXELWALL_TELEMETRY_TEST_RUN) {
+  return typeof value === 'string' && TEST_RUN_UUID.test(value);
+}
