@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
-import { createCloseController, runEditorAction } from '../desktop/editor-controls.mjs';
+import { createCloseController, createUpdateUnloadGuard, runEditorAction } from '../desktop/editor-controls.mjs';
 import { createDesktopMenuTemplate } from '../desktop/update-checker.mjs';
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -109,6 +109,38 @@ test('a destroyed owner suppresses late dialogs and close callbacks', async () =
   const closing = run.controller.request();
   destroyed = true; waiting.reject(new Error('renderer destroyed')); await closing;
   assert.deepEqual(run.events, []);
+});
+
+test('update unload guard bypasses only after the save handshake authorizes restart', () => {
+  let restarting = false;
+  let bypassed = 0;
+  const guard = createUpdateUnloadGuard({ isRestarting: () => restarting });
+  guard({ preventDefault: () => { bypassed++; } });
+  assert.equal(bypassed, 0);
+  restarting = true;
+  guard({ preventDefault: () => { bypassed++; } });
+  assert.equal(bypassed, 1);
+});
+
+test('failed update installation releases the unload bypass before a later retry', async () => {
+  let restarting = false;
+  let failInstall = true;
+  let bypassed = 0;
+  const guard = createUpdateUnloadGuard({ isRestarting: () => restarting });
+  const run = harness({
+    close: async ({ forUpdate } = {}) => {
+      restarting = forUpdate === true;
+      if (failInstall) throw new Error('staging failed');
+    },
+    onKeepEditing: () => { restarting = false; },
+  });
+  await run.controller.request({ forUpdate: true });
+  guard({ preventDefault: () => { bypassed++; } });
+  assert.equal(bypassed, 0);
+  failInstall = false;
+  await run.controller.request({ forUpdate: true });
+  guard({ preventDefault: () => { bypassed++; } });
+  assert.equal(bypassed, 1);
 });
 
 function rendererHarness({ activeElement = null, api } = {}) {

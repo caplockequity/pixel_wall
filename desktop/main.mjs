@@ -7,7 +7,7 @@ import { createFileSettingsStore, createDesktopMenuTemplate } from './update-che
 import { createUpdateInstaller } from './update-installer.mjs';
 import { createDesktopUpdater } from './desktop-updater.mjs';
 import { createUpdateWindow } from './update-window.mjs';
-import { createCloseController, runEditorAction } from './editor-controls.mjs';
+import { createCloseController, createUpdateUnloadGuard, runEditorAction } from './editor-controls.mjs';
 import { createNativeClipboardIpc } from './native-clipboard-ipc.mjs';
 import { createNativeFileIpc } from './native-file-ipc.mjs';
 import { createNativeBindingStore, nativePathsFromArgv } from './native-files.mjs';
@@ -64,6 +64,7 @@ else {
       window = new BrowserWindow({ width: 1440, height: 980, minWidth: 960, minHeight: 640, backgroundColor: '#111219', title: 'PixelWall', webPreferences: { preload: join(desktopFolder, 'native-preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true } });
       window.webContents.setWindowOpenHandler(({ url }) => { if (/^https:\/\/|^mailto:/.test(url)) void shell.openExternal(url); return { action: 'deny' }; });
       window.webContents.on('will-navigate', (event, url) => { if (!url.startsWith('pixelwall://app/')) { event.preventDefault(); if (/^https:\/\/|^mailto:/.test(url)) void shell.openExternal(url); } });
+      window.webContents.on('will-prevent-unload', createUpdateUnloadGuard({ isRestarting: () => savedForUpdate }));
       const owner = window;
       owner.on('closed', () => { if (mcpBridge) { void mcpBridge.stop(); mcpBridge = undefined; } const item = Menu.getApplicationMenu()?.getMenuItemById('pixelwall-local-agent'); if (item) item.checked = false; });
       const native = nativeFiles.attach(owner);

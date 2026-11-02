@@ -55,6 +55,17 @@ export function createCloseController({ prepare, cancel, confirmDiscard, close, 
   };
 }
 
+/**
+ * Electron emits will-prevent-unload when a renderer beforeunload handler
+ * blocks a native quit. Once the close handshake has verified every document,
+ * an update restart may ignore that second prompt so Squirrel can finish.
+ */
+export function createUpdateUnloadGuard({ isRestarting }) {
+  return event => {
+    if (isRestarting()) event.preventDefault();
+  };
+}
+
 // This self-contained function is serialized into the sandboxed renderer.
 // It exposes no Node/Electron capability and accepts only the actions below.
 export async function rendererEditorAction(action, payload) {
