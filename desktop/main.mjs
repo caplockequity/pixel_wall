@@ -171,7 +171,7 @@ else {
             defaultId: automationTelemetry.isEnabled() ? 0 : 1,
             cancelId: 1,
           });
-          if (reporting.response === 1) { await healthTelemetry.setEnabled(false); await automationTelemetry.setEnabled(false); }
+          if (reporting.response === 1) { void healthTelemetry.setEnabled(false); await automationTelemetry.setEnabled(false); }
           else if (!automationTelemetry.isEnabled()) await automationTelemetry.setEnabled(true);
           await healthTelemetry.setEnabled(automationTelemetry.isEnabled());
           const picked = await dialog.showOpenDialog(window, { title: 'Choose the local agent export folder', properties: ['openDirectory', 'createDirectory'] });
@@ -201,7 +201,9 @@ else {
           });
           if (answer.response !== 0) enabled = false;
         }
-        if (!enabled) await healthTelemetry?.setEnabled(false);
+        // Withdraw both reporters immediately; a slow health-state write must
+        // not delay withdrawal of the authoritative MCP reporting preference.
+        if (!enabled) void healthTelemetry?.setEnabled(false);
         const next = await automationTelemetry.setEnabled(enabled);
         await healthTelemetry?.setEnabled(next.enabled);
         const item = Menu.getApplicationMenu()?.getMenuItemById('pixelwall-desktop-telemetry'); if (item) item.checked = next.enabled;
