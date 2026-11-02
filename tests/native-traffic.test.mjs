@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { handleCliTrafficRequest } from '../app/cli-traffic-core.mjs';
 import { handleDesktopTrafficRequest } from '../app/desktop-traffic-core.mjs';
+import { handleDesktopHealthRequest } from '../app/desktop-health-core.mjs';
 
 const env = { NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: 'test-token', NEXT_PUBLIC_POSTHOG_HOST: 'https://us.i.posthog.com' };
 const request = (body, headers = {}, url = 'https://www.pixelwall.dev/api/cli-traffic') => new Request(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) });
@@ -56,4 +57,27 @@ test('missing configuration is inert and failed upstream delivery is observable'
   assert.equal(calls, 0);
   assert.equal((await handleCliTrafficRequest(request(cli), { env, fetchImpl })).status, 502);
   assert.equal((await handleCliTrafficRequest(request(cli), { env, fetchImpl: async () => { throw Error('private upstream error'); } })).status, 502);
+});
+
+test('desktop health accepts bounded lifecycle outcomes without identifiers', async () => {
+  let event;
+  const body = { event: 'desktop_app_health', operation: 'update_failure', outcome: 'failure', failure_category: 'download', version: '0.6.4', platform: 'darwin', arch: 'arm64', usage_day: 'returning' };
+  assert.equal((await handleDesktopHealthRequest(request(body, {}, 'https://www.pixelwall.dev/api/desktop-health'), { env, fetchImpl: async (_url, init) => { event = JSON.parse(init.body); return new Response(null, { status: 200 }); } })).status, 204);
+  assert.equal(event.event, 'desktop_app_health_counted');
+  assert.equal(event.properties.surface, 'health');
+  assert.equal(event.properties.failure_category, 'download');
+  assert.equal((await handleDesktopHealthRequest(request({ ...body, email: 'private@example.com' }), { env })).status, 400);
+});
+
+test('desktop health ingestion forwards every approved lifecycle field', async () => {
+  let sent;
+  const body = { event: 'desktop_app_health', operation: 'update_failure', outcome: 'failure', version: '0.6.4', platform: 'darwin', arch: 'arm64', usage_day: 'returning', target_version: '0.6.5', failure_category: 'download' };
+  const result = await handleDesktopHealthRequest(request(body, {}, 'https://www.pixelwall.dev/api/desktop-health'), { env, now: () => new Date('2026-11-04T00:00:00Z'), randomUUID: (() => { let n = 0; return () => `id-${++n};`; })(), fetchImpl: async (_url, init) => { sent = JSON.parse(init.body); return new Response(null, { status: 200 }); } });
+  assert.equal(result.status, 204);
+  assert.equal(sent.event, 'desktop_app_health_counted');
+  assert.equal(sent.properties.target_version, '0.6.5');
+  assert.equal(sent.properties.failure_category, 'download');
+  assert.equal(sent.properties.usage_day, 'returning');
+  assert.equal(sent.properties.$process_person_profile, false);
+  assert.equal(sent.properties.$ip, null);
 });

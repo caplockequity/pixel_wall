@@ -5,11 +5,11 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import { createNativeFileIpc, trustedNativeSender, NATIVE_METHODS } from '../desktop/native-file-ipc.mjs';
 const tick = () => new Promise(resolve => setImmediate(resolve));
-function harness() {
+function harness(onReady) {
   const owner = new EventEmitter(), contents = new EventEmitter(), handlers = new Map(), received = [], calls = [];
   contents.id = 1; contents.mainFrame = { url: 'pixelwall://app/editor' }; contents.send = (channel, payload) => received.push([channel, payload]);
   owner.webContents = contents; owner.isDestroyed = () => false;
-  const api = createNativeFileIpc({ ipcMain: { handle: (name, cb) => handlers.set(name, cb), removeHandler: name => handlers.delete(name) }, createService: () => ({
+  const api = createNativeFileIpc({ onReady, ipcMain: { handle: (name, cb) => handlers.set(name, cb), removeHandler: name => handlers.delete(name) }, createService: () => ({
     openPaths: async paths => { calls.push(['openPaths', paths]); return { status: 'opened', files: paths }; },
     open: async () => { calls.push(['open']); return 'open result'; },
     verifyClose: async result => result, dispose: () => calls.push(['dispose']),
@@ -18,6 +18,15 @@ function harness() {
   const invoke = (method, payload, from = event) => handlers.get(`pixelwall:native:${method}`)(from, payload);
   return { api, owner, contents, event, received, calls, attached, invoke, handlers };
 }
+test('launch readiness comes only from the trusted renderer and reporting errors cannot block native readiness', async () => {
+  let ready = 0;
+  const run = harness(() => { ready++; throw Error('optional health failure'); });
+  await assert.rejects(run.invoke('ready', null, { sender: run.contents, senderFrame: { url: 'pixelwall://app/editor' } }), /restricted/);
+  await tick(); assert.equal(ready, 0);
+  assert.deepEqual(await run.invoke('ready'), { status: 'ready' });
+  await tick(); assert.equal(ready, 1);
+  run.api.dispose();
+});
 test('native IPC only accepts the exact owning top frame on the packaged app origin', async () => {
   const run = harness();
   assert.equal(await run.invoke('open'), 'open result');

@@ -63,6 +63,32 @@ test('a cancelled save retains the ready update without installing', async () =>
   assert.equal(run.controller.getState().status, 'ready');
   assert.ok(!run.actions.includes('install'));
 });
+test('update health callbacks report download and install lifecycle without affecting actions', async () => {
+  const health = [];
+  const run = uiHarness({ onHealth: async event => { health.push(event); } });
+  await run.controller.check(); await run.controller.download(); await run.controller.install();
+  assert.deepEqual(health.map(event => event.operation), ['update_download', 'update_install_attempt']);
+  assert.deepEqual(run.actions.slice(-2), ['save', 'install']);
+});
+test('update health does not claim an install attempt when save is cancelled, and observes install failure', async () => {
+  const cancelled = [], run = uiHarness({ onHealth: async event => cancelled.push(event), restart: async () => false });
+  await run.controller.check(); await run.controller.download(); await run.controller.install();
+  assert.deepEqual(cancelled.map(event => event.operation), ['update_download', 'update_failure']);
+  assert.equal(cancelled[1].outcome, 'cancelled');
+  const failed = [], errorRun = uiHarness({ onHealth: async event => failed.push(event), installer: { download: async () => {}, install: async () => { throw Error('install failed'); }, dispose() {} } });
+  await errorRun.controller.check(); await errorRun.controller.download(); await errorRun.controller.install();
+  assert.deepEqual(failed.map(event => event.operation), ['update_download', 'update_install_attempt', 'update_failure']);
+  assert.equal(failed.at(-1).failure_category, 'install');
+});
+test('health callback failures and hangs never change update outcomes', async () => {
+  const throwing = uiHarness({ onHealth: async () => { throw Error('telemetry down'); } });
+  await throwing.controller.check(); await throwing.controller.download(); await throwing.controller.install();
+  assert.ok(throwing.actions.includes('install'));
+  const hanging = uiHarness({ onHealth: () => new Promise(() => {}) });
+  await hanging.controller.check(); const started = Date.now(); await hanging.controller.download();
+  assert.equal(hanging.controller.getState().status, 'ready');
+  assert.ok(Date.now() - started < 1000);
+});
 test('disposing a download suppresses late state changes and ready notifications', async () => {
   const waiting = deferred();
   const run = uiHarness({ installer: { download: () => waiting.promise, dispose() {} } });

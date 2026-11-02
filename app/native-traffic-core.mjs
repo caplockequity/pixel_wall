@@ -13,8 +13,14 @@ const ENUMS = {
   arch: new Set(['arm64', 'x64', 'ia32', 'other']),
   duration_bucket: new Set(['under_100ms', '100ms_1s', '1s_10s', 'over_10s']),
   usage_day: new Set(['first', 'returning']),
+  launch_kind: new Set(['first', 'same_version', 'after_update', 'version_changed']),
 };
 const CONTRACTS = {
+  health: {
+    inputEvent: 'desktop_app_health', outputEvent: 'desktop_app_health_counted',
+    operations: new Set(['launch', 'update_download', 'update_install_attempt', 'update_failure']),
+    changed: new Set(), extras: ['failure_category', 'launch_kind', 'target_version'],
+  },
   desktop_mcp: {
     inputEvent: 'desktop_automation_operation', outputEvent: 'desktop_automation_counted',
     operations: new Set(['connect', 'apply', 'lua', 'color_profile', 'undo', 'redo', 'new_document', 'open_project', 'import_project', 'save', 'export', 'validate', 'capture_preview', 'preview', 'read_artifact', 'download_artifact', 'remove_artifact', 'save_artifact']),
@@ -65,6 +71,15 @@ async function readPayload(request, contract) {
   if (Object.hasOwn(payload, 'format') && (!FORMATS.has(payload.format) || !['export', 'render', 'plan'].includes(payload.operation))) return null;
   if (Object.hasOwn(payload, 'preview_kind') && !['frame', 'contact-sheet', 'comparison'].includes(payload.preview_kind)) return null;
   if (Object.hasOwn(payload, 'artifact_persistence') && !['persisted', 'failed', 'not_requested'].includes(payload.artifact_persistence)) return null;
+  if (Object.hasOwn(payload, 'failure_category') && (!contract.extras.includes('failure_category') || payload.operation !== 'update_failure' || !['download', 'verification', 'install', 'restart', 'unknown'].includes(payload.failure_category))) return null;
+  if (Object.hasOwn(payload, 'launch_kind') && (!contract.extras.includes('launch_kind') || payload.operation !== 'launch')) return null;
+  if (Object.hasOwn(payload, 'target_version') && (!contract.extras.includes('target_version') || payload.operation === 'launch' || typeof payload.target_version !== 'string' || !VERSION.test(payload.target_version))) return null;
+  if (contract === CONTRACTS.health) {
+    if (payload.operation === 'update_failure') {
+      if (!['failure', 'cancelled'].includes(payload.outcome) || !['download', 'install', 'restart', 'unknown'].includes(payload.failure_category)) return null;
+    } else if (payload.outcome !== 'success') return null;
+    if (payload.operation === 'launch' && !Object.hasOwn(payload, 'launch_kind')) return null;
+  }
   if (Object.hasOwn(payload, 'wrote_files') && (typeof payload.wrote_files !== 'boolean' || !contract.writes?.has(payload.operation) || payload.outcome !== 'success')) return null;
   if (Object.hasOwn(payload, 'verified') && (typeof payload.verified !== 'boolean' || !['verify', 'render', 'export'].includes(payload.operation) || payload.outcome !== 'success')) return null;
   return payload;

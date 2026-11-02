@@ -215,6 +215,6 @@ export function createDesktopMenuTemplate({ platform, appName = 'PixelWall', aut
       { role: 'selectAll' },
     ] },
     { role: 'viewMenu' }, { role: 'windowMenu' },
-    { role: 'help', submenu: [{ label: 'PixelWall Documentation', click: onDocumentation }, { label: 'AI Agent Guide', click: onAgentGuide }, { id: 'pixelwall-local-agent', label: 'Allow local agent connection', type: 'checkbox', checked: mcpConnected, click: item => onMcpToggle(item.checked) }, { id: 'pixelwall-desktop-telemetry', label: 'Share anonymous MCP usage (default on)', type: 'checkbox', checked: desktopTelemetryEnabled, enabled: packaged, click: item => onDesktopTelemetryToggle(item.checked) }, ...(!mac ? [{ type: 'separator' }, ...updateItems, { type: 'separator' }, { role: 'about' }] : [])] },
+    { role: 'help', submenu: [{ label: 'PixelWall Documentation', click: onDocumentation }, { label: 'AI Agent Guide', click: onAgentGuide }, { id: 'pixelwall-local-agent', label: 'Allow local agent connection', type: 'checkbox', checked: mcpConnected, click: item => onMcpToggle(item.checked) }, { id: 'pixelwall-desktop-telemetry', label: 'Share anonymous app and MCP usage (default on)', type: 'checkbox', checked: desktopTelemetryEnabled, enabled: packaged, click: item => onDesktopTelemetryToggle(item.checked) }, ...(!mac ? [{ type: 'separator' }, ...updateItems, { type: 'separator' }, { role: 'about' }] : [])] },
   ];
 }

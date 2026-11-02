@@ -1,5 +1,6 @@
 import { verifyOfflineLicense } from "./offline-license.mjs";
 import { offlineSigningConfig, signOfflineLicense } from "./offline-license-server.mjs";
+import { aggregateStripeSessions } from "./business-scorecard.mjs";
 
 // Stripe is the durable purchase record. Artwork never enters these endpoints.
 const COOKIE = "pixelwall_pro";
@@ -92,6 +93,51 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
       throw new BillingError("Payment verification is temporarily unavailable. Please try again.", 503, "stripe_unavailable");
     }
     return result.json();
+  }
+  async function scorecard({ from = null, to = null } = {}) {
+    requireReady();
+    const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+    if (!iso.test(from ?? "") || !iso.test(to ?? "")) throw new BillingError("Scorecard requires ISO UTC from and to endpoints.", 400, "invalid_range");
+    const fromMs = from ? Date.parse(from) : null;
+    const toMs = to ? Date.parse(to) : null;
+    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || fromMs >= toMs || new Date(fromMs).toISOString() !== from.replace(/(?<!\.\d{3})Z$/, '.000Z') || new Date(toMs).toISOString() !== to.replace(/(?<!\.\d{3})Z$/, '.000Z')) throw new BillingError("Invalid scorecard date range.", 400, "invalid_range");
+    if (toMs - fromMs > 366 * 24 * 60 * 60 * 1000) throw new BillingError("Scorecard date range is limited to one year.", 400, "range_too_large");
+    const sessions = [];
+    let scannedSessions = 0;
+    let appSessions = 0;
+    let pages = 0;
+    let startingAfter = "";
+    let complete = false;
+    const seenCursors = new Set();
+    for (let page = 0; page < 100; page++) {
+      pages++;
+      const params = { limit: "100", "expand[0]": "data.payment_intent.latest_charge", "expand[1]": "data.line_items", "created[gte]": String(Math.floor(fromMs / 1000)), "created[lt]": String(Math.floor(toMs / 1000)) };
+      if (startingAfter) params.starting_after = startingAfter;
+      const result = await stripe("checkout/sessions", params);
+      if (!result || !Array.isArray(result.data) || typeof result.has_more !== "boolean") throw new BillingError("Stripe returned an incomplete scorecard page.", 503, "incomplete_report");
+      scannedSessions += result.data?.length ?? 0;
+      for (const session of result.data ?? []) {
+        if (!session || typeof session !== 'object') throw new BillingError("Stripe returned an incomplete scorecard page.", 503, "incomplete_report");
+        if (session.metadata?.app !== APP) continue;
+        appSessions++;
+        // Keep only the fields needed by the aggregate, never customer details.
+        sessions.push({
+          livemode: session.livemode, mode: session.mode, metadata: { app: session.metadata.app },
+          status: session.status, payment_status: session.payment_status, currency: session.currency,
+          amount_total: session.amount_total, line_items: session.line_items,
+          payment_intent: session.payment_intent,
+        });
+      }
+      if (!result.has_more) { complete = true; break; }
+      if (!result.data.length) throw new BillingError("Stripe pagination did not advance.", 503, "incomplete_report");
+      startingAfter = result.data.at(-1)?.id ?? "";
+      if (!/^cs_[a-zA-Z0-9_]+$/.test(startingAfter) || seenCursors.has(startingAfter)) throw new BillingError("Stripe pagination did not advance.", 503, "incomplete_report");
+      seenCursors.add(startingAfter);
+    }
+    if (!complete) throw new BillingError("Scorecard pagination was incomplete.", 503, "incomplete_report");
+    const report = aggregateStripeSessions(sessions, { mode: config.mode, acceptedPrices: config.acceptedPrices, from, to, scannedSessions, appSessions });
+    report.query = { pages, order_date_field: "checkout_session.created", payment_amount_field: "payment_intent.latest_charge.amount", refunds_field: "payment_intent.latest_charge.amount_refunded" };
+    return report;
   }
   async function priceDetails() {
     const price = await stripe(`prices/${config.price}`);
@@ -301,5 +347,5 @@ export function createBillingService({ env, fetch: fetcher = globalThis.fetch, c
       return response({ error: "We couldn’t complete that request. Please try again.", code: "billing_unavailable" }, 503, exchangeHeaders);
     }
   }
-  return { handle, checkLicense, licenseFor, readPurchase };
+  return { handle, checkLicense, licenseFor, readPurchase, scorecard };
 }

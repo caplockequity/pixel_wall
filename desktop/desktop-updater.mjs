@@ -1,10 +1,21 @@
 import { createUpdateController } from './update-checker.mjs';
 
 /** UI state and explicit user actions; scheduling/legacy feed validation stay in the checker. */
-export function createDesktopUpdater({ installer, restart, onState = () => {}, show = () => {}, ...options }) {
+export function createDesktopUpdater({ installer, restart, onState = () => {}, onHealth = async () => {}, show = () => {}, ...options }) {
   let state = { status: 'idle', currentVersion: options.currentVersion }, candidate, transfer, restarting, abort, disposed = false;
   const busy = () => ['downloading', 'ready', 'installing'].includes(state.status);
   const set = patch => { if (!disposed) { state = { ...state, ...patch }; onState(state); } };
+  // Reporting must never prevent or indefinitely delay an update.
+  const health = async event => {
+    let timer;
+    try {
+      await Promise.race([
+        Promise.resolve().then(() => onHealth({ ...event, target_version: state.version })),
+        new Promise(resolve => { timer = setTimeout(resolve, 500); }),
+      ]);
+    } catch { /* Optional diagnostics are best effort. */ }
+    finally { clearTimeout(timer); }
+  };
   const checker = createUpdateController({ ...options, shouldNotify: () => !busy(), notify: async event => {
     if (disposed || busy()) return 'later';
     if (event.kind === 'available') {
@@ -35,11 +46,12 @@ export function createDesktopUpdater({ installer, restart, onState = () => {}, s
         } });
         if (signal.aborted) throw new Error('Cancelled');
         if (disposed) return;
+        await health({ operation: 'update_download', outcome: 'success' });
         set({ status: 'ready', progress: 100, message: '' });
         show();
       } catch {
         if (signal.aborted) set({ status: 'available', progress: 0, message: 'Download cancelled. You can try again whenever you’re ready.' });
-        else { set({ status: 'error', retry: 'download', message: 'PixelWall could not download or verify the update. Check your connection and available disk space, then retry.' }); show(); }
+        else { await health({ operation: 'update_failure', outcome: 'failure', failure_category: 'download' }); set({ status: 'error', retry: 'download', message: 'PixelWall could not download or verify the update. Check your connection and available disk space, then retry.' }); show(); }
       } finally { transfer = undefined; abort = undefined; }
     })();
     return transfer;
@@ -49,8 +61,10 @@ export function createDesktopUpdater({ installer, restart, onState = () => {}, s
     set({ status: 'installing', message: 'Saving your artwork and preparing the update…' });
     restarting = (async () => {
       try {
-        if (await restart(() => installer.install()) !== true) set({ status: 'ready', message: 'Restart cancelled. Your artwork remains open. Save your work and try again.' });
+        const result = await restart(async () => { await health({ operation: 'update_install_attempt', outcome: 'success', version: state.version }); await installer.install(); });
+        if (result !== true) { await health({ operation: 'update_failure', outcome: 'cancelled', failure_category: 'restart' }); set({ status: 'ready', message: 'Restart cancelled. Your artwork remains open. Save your work and try again.' }); }
       } catch {
+        await health({ operation: 'update_failure', outcome: 'failure', failure_category: 'install' });
         set({ status: 'ready', message: 'PixelWall could not install the update. Your artwork remains open. Please try restarting again.' });
       } finally { restarting = undefined; }
     })();

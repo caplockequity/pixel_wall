@@ -1,9 +1,59 @@
 {
   "schema_version": 2,
-  "status": "draft_not_applied",
+  "status": "reference_only",
   "api_host": "https://us.posthog.com",
-  "project_id": null,
+  "project_id": 333211,
   "cutover_date": null,
+  "registry": {
+    "kind": "verified_metadata_only",
+    "last_checked": "2026-11-02",
+    "note": "The project ID is from the authenticated PostHog workspace review. This file is a source-of-truth catalog for definitions and query intent; it does not claim that every listed insight is currently deployed.",
+    "confirmed_dashboards": {
+      "agent-automation": {
+        "id": 2262819,
+        "url": "https://us.posthog.com/project/333211/dashboard/2262819",
+        "verified": true,
+        "last_checked": "2026-11-02"
+      },
+      "public-acquisition": {
+        "id": 2080742,
+        "url": "https://us.posthog.com/project/333211/dashboard/2080742",
+        "verified": true,
+        "last_checked": "2026-11-02"
+      },
+      "product-signals": {
+        "id": 2241334,
+        "url": "https://us.posthog.com/project/333211/dashboard/2241334",
+        "verified": true,
+        "last_checked": "2026-11-02"
+      },
+      "editor-value": {
+        "id": 2080744,
+        "url": "https://us.posthog.com/project/333211/dashboard/2080744",
+        "verified": true,
+        "last_checked": "2026-11-02"
+      },
+      "pro-reliability": {
+        "id": 2080745,
+        "url": "https://us.posthog.com/project/333211/dashboard/2080745",
+        "verified": true,
+        "last_checked": "2026-11-02"
+      },
+      "desktop-health": {
+        "id": 2294006,
+        "url": "https://us.posthog.com/project/333211/dashboard/2294006",
+        "verified": true,
+        "last_checked": "2026-11-02"
+      },
+      "business-scorecard": {
+        "id": 2294035,
+        "url": "https://us.posthog.com/project/333211/dashboard/2294035",
+        "verified": true,
+        "last_checked": "2026-11-02"
+      }
+    },
+    "unverified_dashboard_keys": []
+  },
   "instructions": [
     "Read existing dashboards and match keys/titles before creating. Preserve legacy insights and data; update or clearly label old coverage instead of deleting.",
     "Resolve the project from authenticated PostHog UI/API and verify it matches the public capture token without printing the token.",
@@ -1676,8 +1726,8 @@
         },
         {
           "key": "agent-desktop-workflows",
-          "name": "Desktop MCP operations (opt-in)",
-          "description": "Anonymous reports only from updated packaged desktop apps with Share anonymous MCP usage enabled. Desktop 0.5.0, CLI and standalone use are excluded. Missing counts do not prove no usage.",
+          "name": "Desktop MCP operations (default-on, opt-out)",
+          "description": "Anonymous reports from updated packaged desktop apps while Share anonymous MCP usage remains enabled (the default). Users can decline in the app. Desktop 0.5.0, CLI and standalone use are excluded. Missing counts do not prove no usage.",
           "query": {
             "kind": "InsightVizNode",
             "source": {
@@ -1739,8 +1789,8 @@
         },
         {
           "key": "agent-desktop-outcomes",
-          "name": "Desktop MCP operation outcomes (opt-in)",
-          "description": "Terminal MCP outcomes from explicitly opted-in updated desktop apps. No agent identities or historical backfill. Validation failures, cancellation and missing artifacts are separate outcomes.",
+          "name": "Desktop MCP operation outcomes (default-on, opt-out)",
+          "description": "Terminal MCP outcomes from updated desktop apps while anonymous reporting remains enabled by default. No agent identities or historical backfill. Validation failures, cancellation and missing artifacts are separate outcomes.",
           "query": {
             "kind": "InsightVizNode",
             "source": {
@@ -2214,6 +2264,80 @@
           "tags": ["pixelwall", "analytics-v2", "agent-automation"]
         }
       ]
+    },
+    {
+      "key": "desktop-health",
+      "name": "PixelWall — Desktop launch & update health",
+      "description": "Anonymous lifecycle outcomes from updated packaged desktop apps. Counts are operations, not installations, people, or unique devices. A launch after_update is evidence that the updated app opened; it is not a download or install count. Missing events can reflect older clients, disabled reporting, offline delivery, or no use.",
+      "tags": ["pixelwall", "analytics-v2", "desktop-health"],
+      "insights": [
+        {
+          "key": "desktop-health-operations",
+          "name": "Desktop health operations",
+          "description": "Launches and updater lifecycle operations by operation and outcome.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+              { "type": "event", "key": "surface", "operator": "exact", "value": ["health"] }
+            ],
+            "series": [{ "kind": "EventsNode", "event": "desktop_app_health_counted", "custom_name": "Health operations", "math": "total" }],
+            "trendsFilter": { "display": "ActionsLineGraph", "showLegend": true },
+            "breakdownFilter": { "breakdown": "operation", "breakdown_type": "event", "breakdown_limit": 8 }
+          }},
+          "tags": ["pixelwall", "analytics-v2", "desktop-health"]
+        },
+        {
+          "key": "desktop-health-outcomes",
+          "name": "Desktop update failures by category",
+          "description": "Updater failure categories are download, verification, install, restart, or unknown. The chart filters outcome=failure and excludes cancelled operations. This is a failure report count, not a failure rate until divided by update attempts in the same complete UTC-day window.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+              { "type": "event", "key": "surface", "operator": "exact", "value": ["health"] },
+              { "type": "event", "key": "operation", "operator": "exact", "value": ["update_failure"] }
+            ],
+            "series": [{ "kind": "EventsNode", "event": "desktop_app_health_counted", "custom_name": "Update failures", "math": "total" }],
+            "trendsFilter": { "display": "ActionsLineGraph", "showLegend": true },
+            "breakdownFilter": { "breakdown": "failure_category", "breakdown_type": "event", "breakdown_limit": 5 }
+          }},
+          "tags": ["pixelwall", "analytics-v2", "desktop-health"]
+        },
+        {
+          "key": "desktop-health-launch-kind",
+          "name": "Desktop launches by update state",
+          "description": "Launches split by first, same_version, version_changed, and after_update. after_update is emitted only when the launch matches the pending install target; version_changed covers a manual version change. It does not establish that a user completed a download.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+              { "type": "event", "key": "surface", "operator": "exact", "value": ["health"] },
+              { "type": "event", "key": "operation", "operator": "exact", "value": ["launch"] }
+            ],
+            "series": [{ "kind": "EventsNode", "event": "desktop_app_health_counted", "custom_name": "Desktop launches", "math": "total" }],
+            "trendsFilter": { "display": "ActionsLineGraph", "showLegend": true },
+            "breakdownFilter": { "breakdown": "launch_kind", "breakdown_type": "event", "breakdown_limit": 3 }
+          }},
+          "tags": ["pixelwall", "analytics-v2", "desktop-health"]
+        }
+      ]
+    },
+    {
+      "key": "business-scorecard",
+      "name": "PixelWall — Business scorecard",
+      "description": "Private scorecard with one dated aggregate Stripe snapshot tile and two reused anonymous product-intent insights. The Stripe tile is a snapshot, not a live revenue feed; it contains no customer identifiers.",
+      "dashboard_id": 2294035,
+      "dashboard_url": "https://us.posthog.com/project/333211/dashboard/2294035",
+      "snapshot_text_tile": { "tile_id": 14688228, "text_id": 1441641, "update_scope": "this tile only" },
+      "reused_insights": [
+        { "catalog_key": "aggregate-pro-restrictions", "id": 13131524, "short_id": "7oJuCDer", "source_dashboard_id": 2241334 },
+        { "catalog_key": "aggregate-live-checkout-interest", "id": 13131562, "short_id": "kkmHjCXD", "source_dashboard_id": 2241334 }
+      ],
+      "tags": ["pixelwall", "analytics-v2", "business-scorecard"]
     },
     {
       "key": "pro-reliability",
