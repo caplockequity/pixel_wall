@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "version": "0.6.2",
+  "publishedAt": "2026-11-02",
+  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-6-2",
+  "releaseNotes": [
+    "Added anonymous usage reporting for the packaged CLI and local desktop MCP tools, enabled by default with clear first-use explanations and separate off switches.",
+    "Existing desktop reporting opt-outs stay off. The CLI supports a saved reporting preference, a one-command opt-out, and environment controls.",
+    "Reports distinguish changed edits, exports, verified file writes, and failures without sending artwork, scripts, filenames, paths, or persistent identifiers.",
+    "Reporting is best effort and never queues offline activity. Unreadable preferences keep reporting off."
+  ],
+  "downloads": {
+    "darwin-arm64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.2/PixelWall-0.6.2-mac-arm64.zip",
+      "filename": "PixelWall-0.6.2-mac-arm64.zip",
+      "signed": true,
+      "size": 114796225,
+      "sha256": "2e0b7d9f5b3266c5a0343c74838110500601f4827bd1a6f10a177b01bd49dc2b",
+      "notarized": true
+    },
+    "darwin-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.2/PixelWall-0.6.2-mac-x64.zip",
+      "filename": "PixelWall-0.6.2-mac-x64.zip",
+      "signed": true,
+      "size": 121544670,
+      "sha256": "22740a328bf7642026ecd352f51a305fc290a2afdca46937811ec84a1247649b",
+      "notarized": true
+    },
+    "win32-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.2/PixelWall-0.6.2-windows-x64.exe",
+      "filename": "PixelWall-0.6.2-windows-x64.exe",
+      "signed": false,
+      "size": 95200963,
+      "sha256": "5276385c68e311dc40ab324d36246ef1f149e7182be609beccdb46f42b909084"
+    },
+    "linux-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.2/PixelWall-0.6.2-linux-x64.AppImage",
+      "filename": "PixelWall-0.6.2-linux-x64.AppImage",
+      "signed": false,
+      "size": 118416282,
+      "sha256": "dcca78578f436e379c795dd40fd0b1f92899644bf8f90cc671624b227f1f1542"
+    }
+  }
+}
