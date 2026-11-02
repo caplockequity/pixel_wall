@@ -6,7 +6,7 @@ This is the reference for interpreting the PixelWall analytics dashboards. It is
 
 - Last known PostHog project: **333211** (from the prior authenticated workspace review; re-check before treating this registry as a live inventory).
 - Last known dashboard: [Agents & AI referrals](https://us.posthog.com/project/333211/dashboard/2262819). The URL and ID are retained for traceability, not as proof of current access. Other dashboard IDs in `posthog-dashboards.json` are query/catalog keys until they are checked in the authenticated workspace.
-- Schema 2 events are production-only. Do not combine them with preview, local, test, or synthetic events.
+- Real-usage queries require both `analytics_schema_version=2` and `environment=production`. Explicit native validation runs use schema 2 with `environment=test`; never combine them with production totals.
 - Workflow attribution was implemented in commit `9509c87072571c39aea2405a2803062727290596` (2026-10-29). The exact first production-serving timestamp is not recorded here, so `cutover_date` remains unset until a deployment log confirms it. Never backfill earlier events.
 - Packaged CLI/MCP reporting was implemented in commit `24b56295ae327c847304c5dde30bf135aedeff0` (2026-11-02) and only exists in updated clients. A missing event can mean an old client, a disabled preference, offline delivery, or no use. These commit dates establish implementation availability, not the first production-serving timestamp.
 
@@ -30,6 +30,8 @@ Native CLI and MCP events carry platform, architecture, app version, operation, 
 Desktop health launch events use `launch_kind` values `first`, `same_version`, `version_changed`, and `after_update`. `after_update` is reserved for a launch matching the pending install target; `version_changed` describes a manual or otherwise observed version change. A bounded semantic `target_version` may accompany non-launch updater operations. Neither field proves that a download completed or that an installation succeeded unless the corresponding updater outcome is also present.
 
 All reviews must exclude local tests, CI fixtures, preview deployments, internal dogfooding, and events before the relevant production cutover. Native test runs must set `PIXELWALL_TELEMETRY_DISABLED=1` (or `DO_NOT_TRACK=1`); browser tests must use a non-production host or decline analytics. Because anonymous native events have no stable identity, later dogfooding cannot be reliably removed from an aggregate total; record the test window and suppress it at source. Keep exclusions documented with the dashboard query or review note rather than deleting raw data.
+
+An explicit live reporting validation is the exception to suppressing native test reports: use the guarded harnesses described in [native telemetry validation](native-telemetry-validation.md). Supported clients attach `test_run` only when `PIXELWALL_TELEMETRY_TEST_RUN` contains a fresh canonical UUIDv4. The collector validates that marker and assigns `environment=test`; clients cannot supply an environment directly. Invalid markers fail closed. Test IDs identify disposable validation runs only and must never be used as customer or installation identifiers. The released desktop 0.6.4 binary predates this test mode; do not assume that setting this variable on an older client isolates its traffic.
 
 ## Weekly review contract
 

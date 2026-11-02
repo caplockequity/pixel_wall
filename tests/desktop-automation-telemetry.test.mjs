@@ -74,6 +74,24 @@ test('missing settings default packaged reporting on, while corrupt and privacy 
   assert.equal(signal.isEnabled(), false);
 });
 
+test('test run marker is bounded, included only when valid, and malformed values fail closed', async () => {
+  const valid = '123e4567-e89b-42d3-a456-426614174000';
+  const reports = [];
+  const telemetry = createDesktopAutomationTelemetry({ packaged: true, version: '0.6.4', env: { PIXELWALL_TELEMETRY_TEST_RUN: valid }, readSettings: async () => ({ enabled: true }), fetchImpl: async (_url, init) => reports.push(JSON.parse(init.body)) });
+  await telemetry.start();
+  assert.equal(telemetry.report({ operation: 'connect', outcome: 'success' }), true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(reports[0].test_run, valid);
+  for (const invalid of ['', 'not-a-uuid', '123e4567-e89b-12d3-a456-426614174000']) {
+    let calls = 0;
+    const rejected = createDesktopAutomationTelemetry({ packaged: true, env: { PIXELWALL_TELEMETRY_TEST_RUN: invalid }, readSettings: async () => ({ enabled: true }), fetchImpl: async () => { calls += 1; } });
+    await rejected.start();
+    assert.equal(rejected.isEnabled(), false);
+    assert.equal(rejected.report({ operation: 'connect', outcome: 'success' }), false);
+    assert.equal(calls, 0);
+  }
+});
+
 test('usage_day marks only the first report of each UTC day', async () => {
   let day = '2026-11-02T10:00:00Z';
   const calls = [];

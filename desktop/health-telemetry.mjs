@@ -9,6 +9,9 @@ const VERSION = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 const PLATFORM = new Set(['darwin', 'win32', 'linux', 'other']);
 const ARCH = new Set(['arm64', 'x64', 'ia32', 'other']);
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
+// Keep test classification explicit and bounded. A malformed present value
+// fails closed so test traffic cannot silently enter production aggregates.
+const TEST_RUN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const version = value => typeof value === 'string' && VERSION.test(value) ? value : '0.0.0';
 function clean(value) {
   return { schemaVersion: 1, enabled: value?.enabled === true,
@@ -22,7 +25,10 @@ export function createDesktopHealthTelemetry({ version: appVersion, packaged = f
   readSettings = async () => ({}), writeSettings = async () => {}, isReportingEnabled,
   platform = process.platform, arch = process.arch, env = process.env, now = () => new Date(),
 } = {}) {
-  const forcedOff = env?.PIXELWALL_TELEMETRY_DISABLED === '1' || env?.DO_NOT_TRACK === '1';
+  const testRunPresent = Object.prototype.hasOwnProperty.call(env || {}, 'PIXELWALL_TELEMETRY_TEST_RUN');
+  const testRun = env?.PIXELWALL_TELEMETRY_TEST_RUN;
+  const invalidTestRun = testRunPresent && (typeof testRun !== 'string' || !TEST_RUN.test(testRun));
+  const forcedOff = env?.PIXELWALL_TELEMETRY_DISABLED === '1' || env?.DO_NOT_TRACK === '1' || invalidTestRun;
   let settings = clean({}), initialized = false, disposed = false;
   const pending = new Map(), reported = new Set();
   const enabled = () => initialized && packaged && !disposed && !forcedOff && settings.enabled && (typeof isReportingEnabled !== 'function' || isReportingEnabled() === true);
@@ -54,7 +60,8 @@ export function createDesktopHealthTelemetry({ version: appVersion, packaged = f
       platform: PLATFORM.has(platform) ? platform : 'other', arch: ARCH.has(arch) ? arch : 'other',
       ...(usageDay ? { usage_day: usageDay } : {}), ...(launchKind ? { launch_kind: launchKind } : {}),
       ...(input.operation !== 'launch' && VERSION.test(input.target_version) ? { target_version: input.target_version } : {}),
-      ...(input.operation === 'update_failure' ? { failure_category: input.failure_category } : {}) };
+      ...(input.operation === 'update_failure' ? { failure_category: input.failure_category } : {}),
+      ...(TEST_RUN.test(testRun) ? { test_run: testRun } : {}) };
     if (key) { reported.add(key); if (reported.size > 128) reported.delete(reported.values().next().value); }
     settings.usageDay = today;
     if (input.operation === 'launch') { settings.lastVersion = v; delete settings.pendingVersion; }
@@ -107,4 +114,4 @@ export function createDesktopHealthSettingsStore(file) {
     },
   };
 }
-export { ARCH, DAY, FAILURE_CATEGORIES, OPERATIONS, OUTCOMES, PLATFORM, VERSION };
+export { ARCH, DAY, FAILURE_CATEGORIES, OPERATIONS, OUTCOMES, PLATFORM, TEST_RUN, VERSION };

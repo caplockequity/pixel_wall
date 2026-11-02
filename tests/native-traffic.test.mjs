@@ -16,6 +16,8 @@ test('CLI ingestion preserves approved fields without linking installations or f
   assert.equal(sent[0].event, 'cli_usage_counted');
   assert.equal(sent[0].timestamp, '2026-11-02T00:00:00.000Z');
   assert.equal(sent[0].properties.surface, 'cli');
+  assert.equal(sent[0].properties.environment, 'production');
+  assert.equal(Object.hasOwn(sent[0].properties, 'test_run'), false);
   assert.equal(sent[0].properties.usage_day, 'returning');
   assert.equal(sent[0].properties.verified, true);
   assert.equal(sent[0].properties.$process_person_profile, false);
@@ -23,6 +25,29 @@ test('CLI ingestion preserves approved fields without linking installations or f
   assert.notEqual(sent[0].properties.distinct_id, sent[1].properties.distinct_id);
   assert.deepEqual(sent[0].headers, { 'content-type': 'application/json' });
   assert.ok(!JSON.stringify(sent).includes('secret-agent'));
+});
+
+test('explicit validation runs are isolated from production across every native surface', async () => {
+  const testRun = 'f3638b50-c18f-4f45-813f-17f581452e56';
+  for (const [handler, payload, outputEvent] of [
+    [handleCliTrafficRequest, cli, 'cli_usage_counted'],
+    [handleDesktopTrafficRequest, { event: 'desktop_automation_operation', operation: 'apply', outcome: 'success', changed: true, version: '0.6.4' }, 'desktop_automation_counted'],
+    [handleDesktopHealthRequest, { event: 'desktop_app_health', operation: 'launch', outcome: 'success', launch_kind: 'first', version: '0.6.4' }, 'desktop_app_health_counted'],
+  ]) {
+    const sent = [];
+    const options = { env, fetchImpl: async (_url, init) => { sent.push(JSON.parse(init.body)); return new Response(null, { status: 200 }); } };
+    assert.equal((await handler(request({ ...payload, test_run: testRun }), options)).status, 204);
+    assert.equal(sent[0].event, outputEvent);
+    assert.equal(sent[0].properties.environment, 'test');
+    assert.equal(sent[0].properties.test_run, testRun);
+    assert.equal(sent[0].properties.$process_person_profile, false);
+    assert.equal(sent[0].properties.$ip, null);
+    for (const invalid of ['', true, null, 123, testRun.toUpperCase(), 'some-person@example.com', 'f3638b50-c18f-1f45-813f-17f581452e56']) {
+      assert.equal((await handler(request({ ...payload, test_run: invalid }), options)).status, 400);
+    }
+    assert.equal((await handler(request({ ...payload, environment: 'test' }), options)).status, 400);
+    assert.equal(sent.length, 1, 'invalid labels cannot fall back to production reporting');
+  }
 });
 
 test('native ingestion rejects identifiers, content, invalid categories and invented success semantics', async () => {

@@ -14,6 +14,7 @@ async function withTelemetry(t) {
     state: process.env.PIXELWALL_CLI_TELEMETRY_PATH,
     disabled: process.env.PIXELWALL_TELEMETRY_DISABLED,
     dnt: process.env.DO_NOT_TRACK,
+    testRun: process.env.PIXELWALL_TELEMETRY_TEST_RUN,
     fetch: globalThis.fetch,
     exitCode: process.exitCode,
   };
@@ -22,6 +23,7 @@ async function withTelemetry(t) {
   process.env.PIXELWALL_CLI_TELEMETRY_PATH = join(root, 'telemetry.json');
   delete process.env.PIXELWALL_TELEMETRY_DISABLED;
   delete process.env.DO_NOT_TRACK;
+  delete process.env.PIXELWALL_TELEMETRY_TEST_RUN;
   globalThis.fetch = async (url, init) => {
     payloads.push(JSON.parse(init.body));
     const response = await handleCliTrafficRequest(new Request(url, init), {
@@ -37,6 +39,7 @@ async function withTelemetry(t) {
     if (previous.state === undefined) delete process.env.PIXELWALL_CLI_TELEMETRY_PATH; else process.env.PIXELWALL_CLI_TELEMETRY_PATH = previous.state;
     if (previous.disabled === undefined) delete process.env.PIXELWALL_TELEMETRY_DISABLED; else process.env.PIXELWALL_TELEMETRY_DISABLED = previous.disabled;
     if (previous.dnt === undefined) delete process.env.DO_NOT_TRACK; else process.env.DO_NOT_TRACK = previous.dnt;
+    if (previous.testRun === undefined) delete process.env.PIXELWALL_TELEMETRY_TEST_RUN; else process.env.PIXELWALL_TELEMETRY_TEST_RUN = previous.testRun;
     globalThis.fetch = previous.fetch;
     process.exitCode = previous.exitCode;
   });
@@ -60,6 +63,24 @@ test('main reports successful new, editable export, and verify with truthful fil
   assert.equal(payloads[2].operation, 'verify');
   assert.equal(payloads[2].verified, true);
   assert.ok((await readFile(exported)).length > 0);
+});
+
+test('main carries an explicit UUID test marker through real edit and export commands', async t => {
+  const { root, payloads } = await withTelemetry(t);
+  process.env.PIXELWALL_TELEMETRY_TEST_RUN = '123e4567-e89b-42d3-a456-426614174000';
+  const project = join(root, 'marked.pixelwall');
+  const commands = join(root, 'commands.json');
+  const exported = join(root, 'marked.json');
+  await cli.main(['new', '--out', project]);
+  await writeFile(commands, JSON.stringify([{ type: 'document.resize', width: 16, height: 16 }]));
+  await cli.main(['apply', project, '--commands', commands, '--out', project]);
+  await cli.main(['export', project, '--format', 'json', '--out', exported, '--verify']);
+  assert.equal(payloads[1].test_run, process.env.PIXELWALL_TELEMETRY_TEST_RUN);
+  assert.equal(payloads[1].operation, 'apply');
+  assert.equal(payloads[1].changed, true);
+  assert.equal(payloads[2].test_run, process.env.PIXELWALL_TELEMETRY_TEST_RUN);
+  assert.equal(payloads[2].operation, 'export');
+  assert.equal(payloads[2].verified, true);
 });
 
 test('main reports failures but telemetry transport failures never change CLI result', async t => {
