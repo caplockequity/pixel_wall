@@ -58,8 +58,9 @@ production, set these two public variables in Vercel and rebuild:
 Optional collection runs only on `pixelwall.dev` and `www.pixelwall.dev`.
 Local development, Vercel aliases, private Sites previews, desktop apps, the
 standalone browser bundle and the CLI are excluded from browser analytics. Packaged
-desktop MCP has a separate, off-by-default reporting choice described below. Leaving the token unset is
-supported and keeps PostHog disabled.
+CLI and desktop MCP builds have separate anonymous operation reporting, enabled by
+default in current packaged builds and independently controllable. Leaving the token
+unset is supported and keeps PostHog disabled.
 
 Browser events use the first-party `/beam` relay. It strips cookies,
 authorization, referrer and other app headers before forwarding to the configured
@@ -133,16 +134,21 @@ The event inventory covers:
   failures and cancellations from actual edits. Scene components use the `scene`
   command family. A successful export means generation; its
   `artifact_persistence` separately reports whether retrieval storage succeeded.
-- Desktop MCP: packaged apps with the new reporting control can explicitly enable
-  **Help → Share anonymous MCP usage**. It is off by default and separate from
-  permission to connect an agent. `desktop_automation_counted` contains fixed
-  operation/outcome categories and, where applicable, `changed`, preview kind or
-  artifact persistence. `save_artifact` succeeds only after disk and hash
-  verification. No persistent identity, content, paths, model names or raw errors
-  are sent; timestamps are rounded to the UTC date. Reports have no offline queue,
-  retries or backfill. Disabling aborts pending reports. Existing 0.5.0 apps cannot
-  report; a desktop update and explicit opt-in are required. CLI and standalone
-  use remain untracked. These are reported actions, not verified agents or users.
+- Desktop MCP: current packaged apps show the reporting choice before the first
+  connection. Reporting is enabled by default unless declined and is separate from
+  permission to connect an agent. **Help → Share anonymous MCP usage** changes the
+  choice later; stored refusals are preserved and corrupt settings fail closed.
+  `desktop_automation_counted` contains fixed operation/outcome categories and,
+  where applicable, `changed`, preview kind, artifact persistence, platform,
+  architecture, duration bucket and local `usage_day` (`first` or `returning`).
+  CLI reports use `cli_usage_counted` with the same bounded fields plus format,
+  `wrote_files` and `verified` where applicable. No persistent identity, content,
+  paths, model names, raw arguments, email or raw errors are sent. Reports have no
+  offline queue or backfill. The labels describe reported installation-days;
+  resets, reinstalls, offline work and multiple machines can change them. They are
+  not unique users, retention, verified agents or a linked funnel. CLI users can
+  use `--no-telemetry`, `PIXELWALL_TELEMETRY_DISABLED=1`, `DO_NOT_TRACK=1`, or the
+  telemetry status and enable/disable controls.
 - Classic editor: lifecycle/guidance, committed edits, structure, playback,
   references, file operations, autosave and export outcomes.
 - Privacy grants: `analytics_consent_updated`. Refusals and withdrawals do not
@@ -155,12 +161,15 @@ requests so validation traffic is not mistaken for real visitors.
 
 The versioned dashboard definitions are in `docs/analytics/posthog-dashboards.json`.
 They cover website/downloads, product signals, editor/exports, Pro/reliability,
-and agent discovery/automation (48 insights). The agent dashboard separates
+and agent discovery/automation. The agent dashboard separates
 anonymous aggregate edits and automated export outcomes from the optional
 consented `automation_edit_completed` subset, so the same activity is not added
 twice. Its daily aggregate series use UTC-rounded timestamps and count events,
-not visitors or sessions. Desktop MCP operations and verified saves have separate
-charts; aggregate events cannot be linked into per-user conversion funnels.
+not visitors or sessions. CLI operation/outcome, completed-work, version and format
+charts count reported actions. Separate CLI and MCP reporting-day charts break out
+the local `first`/`returning` labels; those are installation-day signals, not
+additional users or retention. Desktop MCP operations and verified saves have
+separate charts; aggregate events cannot be linked into per-user conversion funnels.
 Only schema 2 production events are included; no historical activity is backfilled.
 To manage them, use a personal API key with project/read, dashboard/read,
 insight/read and query/read access; applying also needs dashboard/write and

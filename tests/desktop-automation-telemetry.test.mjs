@@ -8,14 +8,14 @@ import { tmpdir } from 'node:os';
 
 test('desktop reporting is disabled by default and sanitizes payloads', async () => {
   const calls = [];
-  const telemetry = createDesktopAutomationTelemetry({ packaged: true, version: '0.5.0', fetchImpl: async (_url, options) => { calls.push(JSON.parse(options.body)); }, now: () => 1 });
+  const telemetry = createDesktopAutomationTelemetry({ packaged: true, version: '0.5.0', readSettings: async () => ({ enabled: false }), fetchImpl: async (_url, options) => { calls.push(JSON.parse(options.body)); }, now: () => 1 });
   await telemetry.start();
   assert.equal(telemetry.report({ operation: 'apply', outcome: 'success', changed: true, dedupeKey: 'a' }), false);
   assert.equal(calls.length, 0);
   await telemetry.setEnabled(true);
   assert.equal(telemetry.report({ operation: 'apply', outcome: 'success', changed: true, dedupeKey: 'a', path: '/secret', source: 'agent' }), true);
   await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(calls[0], { event: 'desktop_automation_operation', operation: 'apply', outcome: 'success', version: '0.5.0', changed: true });
+  assert.deepEqual(calls[0], { event: 'desktop_automation_operation', operation: 'apply', outcome: 'success', version: '0.5.0', platform: 'darwin', arch: 'arm64', changed: true, usage_day: 'first' });
   assert.equal(telemetry.report({ operation: 'apply', outcome: 'success', changed: true, dedupeKey: 'a' }), false);
 });
 
@@ -24,6 +24,7 @@ test('withdrawal clears persisted choice and aborts pending requests', async () 
   const telemetry = createDesktopAutomationTelemetry({ packaged: true, version: '0.5.0', fetchImpl: async (_url, options) => new Promise((_resolve, reject) => { options.signal.addEventListener('abort', () => { aborted = true; reject(new Error('aborted')); }); }) });
   await telemetry.start(); await telemetry.setEnabled(true);
   telemetry.report({ operation: 'connect', outcome: 'success' });
+  await new Promise(resolve => setImmediate(resolve));
   await telemetry.setEnabled(false);
   assert.equal(telemetry.isEnabled(), false);
   await new Promise(resolve => setImmediate(resolve));
@@ -59,6 +60,56 @@ test('settings store writes only the opt-in flag', async () => {
   const store = createAutomationTelemetrySettingsStore(join(root, 'automation-telemetry.json'));
   await store.writeSettings({ enabled: true, artwork: 'secret', token: 'secret' });
   assert.deepEqual(await store.readSettings(), { schemaVersion: 1, enabled: true });
+});
+
+test('missing settings default packaged reporting on, while corrupt and privacy signal settings stay off', async () => {
+  const on = createDesktopAutomationTelemetry({ packaged: true, readSettings: async () => ({ __missing: true }), fetchImpl: async () => {} });
+  await on.start();
+  assert.equal(on.isEnabled(), true);
+  const corrupt = createDesktopAutomationTelemetry({ packaged: true, readSettings: async () => ({ __corrupt: true }), fetchImpl: async () => {} });
+  await corrupt.start();
+  assert.equal(corrupt.isEnabled(), false);
+  const signal = createDesktopAutomationTelemetry({ packaged: true, readSettings: async () => ({ __missing: true }), env: { DO_NOT_TRACK: '1' }, fetchImpl: async () => {} });
+  await signal.start();
+  assert.equal(signal.isEnabled(), false);
+});
+
+test('usage_day marks only the first report of each UTC day', async () => {
+  let day = '2026-11-02T10:00:00Z';
+  const calls = [];
+  const telemetry = createDesktopAutomationTelemetry({ packaged: true, version: '0.5.0', readSettings: async () => ({ enabled: true }), now: () => day, fetchImpl: async (_url, options) => { calls.push(JSON.parse(options.body)); } });
+  await telemetry.start();
+  telemetry.report({ operation: 'connect', outcome: 'success', usage_day: 'returning' });
+  telemetry.report({ operation: 'validate', outcome: 'success' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls[0].usage_day, 'first');
+  assert.equal('usage_day' in calls[1], false);
+  day = '2026-11-03T01:00:00Z';
+  telemetry.report({ operation: 'export', outcome: 'success', format: 'png' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls[2].usage_day, 'returning');
+  telemetry.report({ operation: 'save', outcome: 'success' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal('usage_day' in calls[3], false);
+});
+
+test('future local usage day does not fabricate a daily label', async () => {
+  const calls = [];
+  const telemetry = createDesktopAutomationTelemetry({ packaged: true, version: '0.5.0', readSettings: async () => ({ enabled: true, usageDay: '2026-11-04' }), now: () => '2026-11-03T01:00:00Z', fetchImpl: async (_url, options) => { calls.push(JSON.parse(options.body)); } });
+  await telemetry.start();
+  telemetry.report({ operation: 'connect', outcome: 'success' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal('usage_day' in calls[0], false);
+});
+
+test('disabling before the fetch microtask prevents the report request', async () => {
+  const calls = [];
+  const telemetry = createDesktopAutomationTelemetry({ packaged: true, version: '0.5.0', readSettings: async () => ({ enabled: true }), fetchImpl: async () => { calls.push(true); } });
+  await telemetry.start();
+  telemetry.report({ operation: 'connect', outcome: 'success' });
+  await telemetry.setEnabled(false);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.length, 0);
 });
 
 test('bridge reports completed MCP edits once across wait and polling retries', async () => {

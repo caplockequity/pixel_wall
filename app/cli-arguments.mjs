@@ -2,7 +2,7 @@
 import { validateExportScale } from './export-scale.mjs';
 import { MAX_ORDERED_SCALES } from './export-transform.mjs';
 const SCOPED = new Set(['layer', 'ignore-layer', 'all-layers', 'split-layers', 'split-tags', 'play-subtags', 'split-slices', 'split-grid', 'clip', 'tag', 'frame-tag', 'frame-range', 'frame', 'slice', 'grid']);
-const BOOLEAN = new Set(['help', 'verify', 'schemas', 'include-reference-layers', 'trim', 'trim-sprite', 'ignore-empty', 'all-layers', 'split-layers', 'split-tags', 'play-subtags', 'split-slices', 'split-grid', 'power-of-two', 'power-of-two-size', 'ordered-inputs']);
+const BOOLEAN = new Set(['help', 'verify', 'schemas', 'include-reference-layers', 'trim', 'trim-sprite', 'ignore-empty', 'all-layers', 'split-layers', 'split-tags', 'play-subtags', 'split-slices', 'split-grid', 'power-of-two', 'power-of-two-size', 'ordered-inputs', 'no-telemetry', 'telemetry-status', 'telemetry-enable', 'telemetry-disable']);
 const REPEAT = new Set(['layer', 'ignore-layer']);
 const fail = message => { throw Error(message); };
 

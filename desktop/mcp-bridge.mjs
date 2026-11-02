@@ -76,18 +76,19 @@ export function createMcpBridge({ webContents, configPath, exportRoot, appVersio
   const activeObservers = new Set();
   const operationEpochs = new Map();
   const reportTool = (name, args, result, outcome = 'success', context = {}) => {
+    const timedReport = (input, startedAt = context.startedAt) => report({ ...input, ...(context.durationMs == null && startedAt != null ? { durationMs: Date.now() - startedAt } : context.durationMs == null ? {} : { durationMs: context.durationMs }) });
     const normalizedOutcome = outcome === 'failed' ? 'failure' : outcome;
     const terminal = result?.operation || result;
     if (name === 'pixelwall_apply') {
       if (!terminal || !['completed', 'failed', 'cancelled'].includes(terminal.status)) {
-        if (normalizedOutcome !== 'success' && context.eligible === true && context.epoch === telemetry?.getConsentEpoch?.()) report({ operation: 'apply', outcome: normalizedOutcome, dedupeKey: args?.requestKey ? `apply-request:${args.requestKey}` : undefined });
+        if (normalizedOutcome !== 'success' && context.eligible === true && context.epoch === telemetry?.getConsentEpoch?.()) timedReport({ operation: 'apply', outcome: normalizedOutcome, dedupeKey: args?.requestKey ? `apply-request:${args.requestKey}` : undefined });
         return;
       }
       const operationId = terminal.operationId || result.operationId;
       const record = operationId ? operationEpochs.get(operationId) : null;
       const eligible = record ? record.eligible && record.epoch === telemetry?.getConsentEpoch?.() : context.eligible && context.epoch === telemetry?.getConsentEpoch?.();
       if (!eligible) return;
-      report({ operation: 'apply', outcome: terminal.status === 'completed' ? 'success' : (terminal.status === 'failed' ? 'failure' : terminal.status), changed: terminal.changed ?? result.changed, ...(operationId ? { dedupeKey: `apply:${operationId}` } : {}) });
+      timedReport({ operation: 'apply', outcome: terminal.status === 'completed' ? 'success' : (terminal.status === 'failed' ? 'failure' : terminal.status), changed: terminal.changed ?? result.changed, ...(operationId ? { dedupeKey: `apply:${operationId}` } : {}) });
       return;
     }
     if (name === 'pixelwall_operation') {
@@ -95,7 +96,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, appVersio
       const operationId = result.operationId || result.id;
       const record = operationEpochs.get(operationId);
       if (!record?.eligible || record.epoch !== telemetry?.getConsentEpoch?.()) return;
-      report({ operation: 'apply', outcome: result.status === 'completed' ? 'success' : (result.status === 'failed' ? 'failure' : result.status), changed: result.changed, ...(operationId ? { dedupeKey: `apply:${operationId}` } : {}) });
+      timedReport({ operation: 'apply', outcome: result.status === 'completed' ? 'success' : (result.status === 'failed' ? 'failure' : result.status), changed: result.changed, ...(operationId ? { dedupeKey: `apply:${operationId}` } : {}) }, record.startedAt);
       return;
     }
     if (name === 'pixelwall_cancel') {
@@ -103,7 +104,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, appVersio
         const operationId = result.operationId || result.id;
         const record = operationEpochs.get(operationId);
         if (!record?.eligible || record.epoch !== telemetry?.getConsentEpoch?.()) return;
-        report({ operation: 'apply', outcome: 'cancelled', dedupeKey: `apply:${operationId}` });
+        timedReport({ operation: 'apply', outcome: 'cancelled', dedupeKey: `apply:${operationId}` }, record.startedAt);
       }
       return;
     }
@@ -129,9 +130,10 @@ export function createMcpBridge({ webContents, configPath, exportRoot, appVersio
       input.artifact_persistence = normalizedOutcome === 'success' && result?.saved === true ? 'persisted' : 'failed';
       if (result?.saved === false && normalizedOutcome === 'success') input.outcome = 'failure';
     }
+    if (operation === 'export' && typeof args?.format === 'string') input.format = args.format;
     if (operation === 'export') input.artifact_persistence = result?.exportResult?.persistence?.status === 'persisted'
       ? 'persisted' : result?.exportResult?.persistence?.status === 'failed' ? 'failed' : 'not_requested';
-    report(input);
+    timedReport(input);
   };
   const saveArtifact = async ({ artifactId, filename } = {}) => {
     if (!exportRoot) fail('Choose an export folder in PixelWall first.');
@@ -207,7 +209,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, appVersio
           const started = await call('apply', args);
           if (started?.operationId) {
             hooks.onOperation?.(started.operationId);
-            const record = { epoch: hooks.telemetryContext?.epoch, eligible: hooks.telemetryContext?.eligible === true };
+            const record = { epoch: hooks.telemetryContext?.epoch, eligible: hooks.telemetryContext?.eligible === true, startedAt: hooks.telemetryContext?.startedAt };
             if (!operationEpochs.has(started.operationId)) operationEpochs.set(started.operationId, record);
             if (operationEpochs.size > 1024) operationEpochs.delete(operationEpochs.keys().next().value);
             // Continue observing a fire-and-forget apply so its terminal
@@ -221,7 +223,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, appVersio
                 await new Promise(resolveDelay => setTimeout(resolveDelay, 100));
                 try { current = await call('operation', started.operationId); } catch { activeObservers.delete(observer); return; }
               }
-              if (!observer.stopped && observer.epoch === telemetry?.getConsentEpoch?.() && ['completed', 'failed', 'cancelled'].includes(current?.status)) reportTool('pixelwall_operation', {}, current);
+              if (!observer.stopped && observer.epoch === telemetry?.getConsentEpoch?.() && ['completed', 'failed', 'cancelled'].includes(current?.status)) reportTool('pixelwall_operation', {}, current, 'success', { startedAt: record.startedAt, eligible: record.eligible, epoch: record.epoch });
               activeObservers.delete(observer);
             })();
           }
@@ -232,7 +234,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, appVersio
         const started = await call('apply', { ...(args || {}), wait: false });
         const operationId = started?.operationId;
         if (!operationId) return started;
-        const record = { epoch: hooks.telemetryContext?.epoch, eligible: hooks.telemetryContext?.eligible === true };
+        const record = { epoch: hooks.telemetryContext?.epoch, eligible: hooks.telemetryContext?.eligible === true, startedAt: hooks.telemetryContext?.startedAt };
         if (!operationEpochs.has(operationId)) operationEpochs.set(operationId, record);
         if (operationEpochs.size > 1024) operationEpochs.delete(operationEpochs.keys().next().value);
         hooks.onOperation?.(operationId);
@@ -331,7 +333,7 @@ export function createMcpBridge({ webContents, configPath, exportRoot, appVersio
       const name = message.params?.name;
       const schema = dynamicSchemas.get(name);
       if (!schema) return errorResponse(message.id, -32602, 'Unknown PixelWall tool.');
-      const telemetryContext = { eligible: telemetry?.isEnabled?.() === true, epoch: telemetry?.getConsentEpoch?.() };
+      const telemetryContext = { eligible: telemetry?.isEnabled?.() === true, epoch: telemetry?.getConsentEpoch?.(), startedAt: Date.now() };
       try {
         validateInput(schema, message.params?.arguments || {});
         const arguments_ = message.params?.arguments || {};
