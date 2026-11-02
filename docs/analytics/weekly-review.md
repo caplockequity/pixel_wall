@@ -31,11 +31,12 @@ Notify only when one of these gates is met:
 
 - A count changes by at least 5 events and at least 25% from the preceding period.
 - A conversion rate changes by at least 10 percentage points with at least 20 events in each denominator.
-- A failure rate changes by at least 10 percentage points with at least 20 attempts in each denominator.
+- A browser/export failure rate changes by at least 10 percentage points with at least 20 attempts in each denominator. Desktop update failures remain categorized counts; do not derive a rate from unmatched download/install attempts.
 - Native reporting-day coverage changes by at least 5 reporting days.
 - A verified purchase, refund, or receipts-after-refunds amount changes.
+- The first non-test native changed edit or successful export is observed after its tracking cutover; report once as a reported operation, not proof of an AI agent or independent customer.
 
-For a denominator below the minimum, show the counts and label the percentage as low-volume; do not describe a large percentage as a dramatic trend. If no gate is met, leave the review quiet.
+With a zero prior count, use the absolute count gate and do not calculate percentage growth. For a denominator below the minimum, show the counts and label the percentage as low-volume; do not describe a large percentage as a dramatic trend. If no gate is met, leave the review quiet.
 
 ## Output
 

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "reference_only",
   "last_known_posthog_project_id": 333211,
-  "last_verified_at": null,
+  "last_verified_at": "2026-11-02",
   "timezone": "UTC",
   "review_window": {
     "current": "7 complete UTC calendar days",
@@ -10,47 +10,139 @@
     "notify_only_when_meaningful": true
   },
   "meaningful_change": {
-    "count": { "absolute_minimum": 5, "relative_minimum": 0.25 },
-    "conversion_rate": { "percentage_points_minimum": 10, "minimum_denominator_each_period": 20 },
-    "failure_rate": { "percentage_points_minimum": 10, "minimum_denominator_each_period": 20 },
-    "native_reporting_days": { "absolute_minimum": 5 },
-    "low_count_rule": "Report counts and qualify percentages when a denominator is below the applicable minimum."
+    "count": {
+      "absolute_minimum": 5,
+      "relative_minimum": 0.25
+    },
+    "conversion_rate": {
+      "percentage_points_minimum": 10,
+      "minimum_denominator_each_period": 20
+    },
+    "failure_rate": {
+      "percentage_points_minimum": 10,
+      "minimum_denominator_each_period": 20
+    },
+    "native_reporting_days": {
+      "absolute_minimum": 5
+    },
+    "low_count_rule": "Report counts and qualify percentages when a denominator is below the applicable minimum.",
+    "zero_baseline_rule": "When the prior count is zero, report a new observed count only after the absolute minimum; do not calculate a percentage increase.",
+    "first_native_outcome": "Notify once on the first non-test native changed edit or successful export observed after its tracking cutover. Call it a reported operation, not a verified AI agent or customer."
   },
   "metrics": {
     "activated": {
       "definition": "First meaningful changed browser-editor command after editor_loaded, with applicable consent.",
-      "event_families": ["editor_activated"],
+      "event_families": [
+        "editor_activated"
+      ],
       "unit": "event",
-      "does_not_mean": ["person", "session", "completed_project"]
+      "does_not_mean": [
+        "person",
+        "session",
+        "completed_project"
+      ]
     },
     "exported": {
       "definition": "Output generation completed successfully.",
-      "event_families": ["export_completed", "site_traffic_counted"],
+      "event_families": [
+        "export_completed",
+        "site_traffic_counted"
+      ],
       "unit": "event",
-      "does_not_mean": ["download", "disk_write", "purchase"]
+      "does_not_mean": [
+        "download",
+        "disk_write",
+        "purchase"
+      ],
+      "selectors": [
+        {
+          "event": "export_completed",
+          "scope": "consenting browser output generation"
+        },
+        {
+          "event": "site_traffic_counted",
+          "where": {
+            "action": "export",
+            "outcome": "success"
+          },
+          "scope": "aggregate hosted output generation"
+        }
+      ]
     },
     "downloaded": {
       "definition": "CTA click or asset request, depending on the source; installation and launch are separate health signals.",
-      "event_families": ["site_action_counted", "desktop_app_health_counted"],
+      "event_families": [
+        "desktop_download_clicked",
+        "site_cta_clicked",
+        "site_traffic_counted"
+      ],
       "unit": "event",
-      "does_not_mean": ["installed", "launched"]
+      "does_not_mean": [
+        "installed",
+        "launched"
+      ],
+      "selectors": [
+        {
+          "event": "desktop_download_clicked",
+          "scope": "consenting browser desktop CTA click"
+        },
+        {
+          "event": "site_cta_clicked",
+          "where": {
+            "destination": [
+              "browser_download",
+              "cli_download"
+            ]
+          },
+          "scope": "consenting browser standalone/CLI CTA click"
+        },
+        {
+          "event": "site_traffic_counted",
+          "where": {
+            "action": "download_click"
+          },
+          "scope": "aggregate download CTA click"
+        }
+      ]
     },
     "returning": {
       "definition": "Native local marker contains an earlier UTC calendar day and the client reports on a later UTC day.",
-      "event_families": ["desktop_automation_counted", "cli_usage_counted", "desktop_app_health_counted"],
+      "event_families": [
+        "desktop_automation_counted",
+        "cli_usage_counted",
+        "desktop_app_health_counted"
+      ],
       "unit": "reporting_day_label",
-      "does_not_mean": ["retained_person", "dau", "cross_client_user"]
+      "does_not_mean": [
+        "retained_person",
+        "dau",
+        "cross_client_user"
+      ]
     }
   },
   "exclusions": {
-    "native_test_env": ["PIXELWALL_TELEMETRY_DISABLED=1", "DO_NOT_TRACK=1"],
+    "native_test_env": [
+      "PIXELWALL_TELEMETRY_DISABLED=1",
+      "DO_NOT_TRACK=1"
+    ],
     "browser_test_rule": "Use non-production hosts or decline analytics.",
     "unrecoverable_after_aggregate_ingest": "Anonymous native dogfooding has no stable identity; suppress test runs at source and record the window."
   },
   "desktop_health": {
-    "launch_kind": ["first", "same_version", "version_changed", "after_update"],
+    "launch_kind": [
+      "first",
+      "same_version",
+      "version_changed",
+      "after_update"
+    ],
     "after_update_rule": "Only when the launch version matches the pending install target.",
     "version_changed_rule": "Manual or otherwise observed version change without the pending-target match.",
-    "target_version": "Optional bounded semantic version on non-launch updater operations."
-  }
+    "target_version": "Optional bounded semantic version on non-launch updater operations.",
+    "update_download_rule": "operation=update_download is a completed updater download/verification report; keep separate from CTA clicks and asset request counts."
+  },
+  "base_filters": {
+    "analytics_schema_version": 2,
+    "environment": "production"
+  },
+  "combination_rule": "Query each selector separately and label its surface. Never add optional browser events to aggregate events, or treat unrelated anonymous IDs as funnel actors."
 }

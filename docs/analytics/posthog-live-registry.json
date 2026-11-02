@@ -94,14 +94,21 @@
         "desktop-health-outcomes": {
           "id": 13593250,
           "short_id": "Hc6i6YPt",
-          "verified": true
+          "verified": true,
+          "filters": { "surface": "health", "operation": "update_failure", "outcome": "failure" },
+          "breakdown": "failure_category",
+          "breakdown_limit": 4,
+          "categories": ["download", "install", "restart", "unknown"]
         },
         "desktop-health-launch-kind": {
           "id": 13593251,
           "short_id": "Gpepk9V6",
-          "verified": true
+          "verified": true,
+          "breakdown_limit": 4,
+          "launch_kinds": ["first", "same_version", "version_changed", "after_update"]
         }
-      }
+      },
+      "last_query_sync_proof": "/Volumes/DevStorage/Builds/pixelart/analytics-monitor/desktop-health-sync-2026-11-02.json"
     },
     {
       "key": "business-scorecard",
