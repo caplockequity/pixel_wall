@@ -40,4 +40,3 @@ For a denominator below the minimum, show the counts and label the percentage as
 ## Output
 
 Save a concise dated result with: the two UTC windows, source availability, qualified counts/rates, verified business totals by currency, meaningful-change decisions, and one sentence on instrumentation coverage. Keep it aggregate and anonymous. Do not join usage to email, customer, support, or account records.
-

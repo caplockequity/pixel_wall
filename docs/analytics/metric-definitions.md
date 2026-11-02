@@ -38,4 +38,3 @@ Review the live registry and confirmed dashboard once per week using seven compl
 For every reported number, record the date range, event family, surface (`browser`, `hosted automation`, `desktop MCP`, or `CLI`), consent/coverage qualifier, and whether it is a total, outcome count, or verified business amount. Never present a native reporting day as a user count. Never join usage events to customer email, Stripe customer IDs, or support records.
 
 The business scorecard should use verified payment/refund records and report gross purchases, refunds, and net revenue by currency and period. Checkout starts, dialog views, and entitlement claims are intent/ownership signals and must remain separate from payment proof. Desktop update-health metrics should similarly distinguish download, install attempt, failure category, and successful post-update launch.
-
