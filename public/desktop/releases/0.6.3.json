@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "version": "0.6.3",
+  "publishedAt": "2026-11-02",
+  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-6-3",
+  "releaseNotes": [
+    "Fixed update restarts that could leave the old app open with editing locked and a misleading close-dialog message.",
+    "Once open documents are saved and verified, the native update restart can complete without a second unload warning blocking it.",
+    "Ordinary closes and failed saves retain their safeguards. If an older version is already stuck updating, close it once so the downloaded update can finish."
+  ],
+  "downloads": {
+    "darwin-arm64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.3/PixelWall-0.6.3-mac-arm64.zip",
+      "filename": "PixelWall-0.6.3-mac-arm64.zip",
+      "signed": true,
+      "size": 114795979,
+      "sha256": "9fbedda65d56fdbeb84ba70a56146b0d354ce907fbe5e1b97bada1621aabf249",
+      "notarized": true
+    },
+    "darwin-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.3/PixelWall-0.6.3-mac-x64.zip",
+      "filename": "PixelWall-0.6.3-mac-x64.zip",
+      "signed": true,
+      "size": 121544014,
+      "sha256": "0d882330880f9d4f11f3fd2251748177f48e5cd7412d808187ce8297fb0f48d0",
+      "notarized": true
+    },
+    "win32-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.3/PixelWall-0.6.3-windows-x64.exe",
+      "filename": "PixelWall-0.6.3-windows-x64.exe",
+      "signed": false,
+      "size": 95201174,
+      "sha256": "038686408deb2a54b7729e0dba9b79e045edef64bb2b353d370d254d47740eec"
+    },
+    "linux-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.3/PixelWall-0.6.3-linux-x64.AppImage",
+      "filename": "PixelWall-0.6.3-linux-x64.AppImage",
+      "signed": false,
+      "size": 118420353,
+      "sha256": "0cdfd764aeb1817914e81ad07e598a6b408cdbe0e54ee54bf5c384f805afbcd6"
+    }
+  }
+}
