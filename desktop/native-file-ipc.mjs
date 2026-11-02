@@ -11,7 +11,7 @@ export function trustedNativeSender(event, owner) {
 }
 
 /** One handler set per app; one grant namespace and document table per window. */
-export function createNativeFileIpc({ ipcMain, dialog, createService = createNativeFileService, store }) {
+export function createNativeFileIpc({ ipcMain, dialog, createService = createNativeFileService, store, onReady = () => {} }) {
   const owners = new Map();
   function retain(entry, result, sentGeneration = -1) {
     if (!result?.files?.length && !result?.errors?.length) return result;
@@ -56,7 +56,12 @@ export function createNativeFileIpc({ ipcMain, dialog, createService = createNat
   for (const method of NATIVE_METHODS) ipcMain.handle(`pixelwall:native:${method}`, async (event, payload) => {
     const entry = owners.get(event.sender.id);
     if (!entry || !trustedNativeSender(event, entry.owner)) throw new Error('Native file access is restricted to the owning editor.');
-    if (method === 'ready') { entry.ready = true; void drain(entry).catch(() => {}); return { status: 'ready' }; }
+    if (method === 'ready') {
+      entry.ready = true;
+      void Promise.resolve().then(() => onReady()).catch(() => {});
+      void drain(entry).catch(() => {});
+      return { status: 'ready' };
+    }
     if (method === 'ackOpen') {
       const delivery = entry.deliveries.get(payload?.deliveryId);
       if (!delivery) return { status: 'missing' };

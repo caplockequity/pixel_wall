@@ -136,7 +136,7 @@ The event inventory covers:
   `artifact_persistence` separately reports whether retrieval storage succeeded.
 - Desktop MCP: current packaged apps show the reporting choice before the first
   connection. Reporting is enabled by default unless declined and is separate from
-  permission to connect an agent. **Help → Share anonymous MCP usage** changes the
+  permission to connect an agent. **Help → Share anonymous app and MCP usage** changes the
   choice later; stored refusals are preserved and corrupt settings fail closed.
   `desktop_automation_counted` contains fixed operation/outcome categories and,
   where applicable, `changed`, preview kind, artifact persistence, platform,
@@ -337,8 +337,9 @@ production domain. Page views use fixed page groups rather than URLs; public lin
 and current desktop downloads use a known destination list. The current page is
 counted on permission, and earlier activity is not recovered. Referral categories
 describe the immediate source only. Private previews and downloadable apps remain
-outside this site analytics integration. Packaged desktop MCP offers its own
-explicit opt-in anonymous operation reporting; it does not use the browser SDK.
+outside this site analytics integration. Packaged desktop apps and CLI builds use
+a separate bounded anonymous reporting path enabled by default in current
+releases; it does not use the browser SDK and can be disabled independently.
 
 See [the search launch notes](docs/search-launch.md) for verification, production
 checks, and the remaining account setup. Regenerate the downloadable starter

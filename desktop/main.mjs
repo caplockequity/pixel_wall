@@ -13,6 +13,7 @@ import { createNativeFileIpc } from './native-file-ipc.mjs';
 import { createNativeBindingStore, nativePathsFromArgv } from './native-files.mjs';
 import { createMcpBridge } from './mcp-bridge.mjs';
 import { createAutomationTelemetrySettingsStore, createDesktopAutomationTelemetry } from './automation-telemetry.mjs';
+import { createDesktopHealthSettingsStore, createDesktopHealthTelemetry } from './health-telemetry.mjs';
 const desktopFolder = dirname(fileURLToPath(import.meta.url));
 const folder = join(desktopFolder, 'app');
 protocol.registerSchemesAsPrivileged([{ scheme: 'pixelwall', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
@@ -21,6 +22,8 @@ if (process.env.PIXELWALL_DESKTOP_USER_DATA) app.setPath('userData', resolve(pro
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   let window;
+  let healthReadyResolve;
+  const healthReady = new Promise(resolve => { healthReadyResolve = resolve; });
   let nativeFiles;
   let closeController, installAction, savedForUpdate = false, mcpBridge;
   const pendingFiles = nativePathsFromArgv(process.argv.slice(app.isPackaged ? 1 : 2));
@@ -58,7 +61,9 @@ else {
       try { await access(path); return net.fetch(pathToFileURL(path).href); } catch { return new Response('This file is missing from the desktop app.', { status: 404 }); }
     });
     session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
-    nativeFiles = createNativeFileIpc({ ipcMain, dialog, store: createNativeBindingStore(join(app.getPath('userData'), 'native-documents.json')) });
+    nativeFiles = createNativeFileIpc({ ipcMain, dialog, store: createNativeBindingStore(join(app.getPath('userData'), 'native-documents.json')),
+      onReady: () => healthReady.then(() => healthTelemetry?.report({ operation: 'launch', outcome: 'success' })),
+    });
     const nativeClipboard = createNativeClipboardIpc({ ipcMain, clipboard, nativeImage });
     function openWindow() {
       window = new BrowserWindow({ width: 1440, height: 980, minWidth: 960, minHeight: 640, backgroundColor: '#111219', title: 'PixelWall', webPreferences: { preload: join(desktopFolder, 'native-preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true } });
@@ -105,6 +110,7 @@ else {
     }
     openWindow();
     app.on('activate', () => { if ((!window || window.isDestroyed()) && !savedForUpdate) openWindow(); });
+    let healthTelemetry;
     const installer = createUpdateInstaller({ engine: electronUpdater.autoUpdater, nativeUpdater, CancellationToken: electronUpdater.CancellationToken,
       currentVersion: app.getVersion(), platform: process.platform, arch: process.arch, packaged: app.isPackaged, appImagePath: process.env.APPIMAGE });
     let updateWindow;
@@ -119,6 +125,13 @@ else {
       onState: state => {
         updateWindow.send(state);
         if (window && !window.isDestroyed()) window.setProgressBar(state.status === 'downloading' ? state.progress / 100 : -1);
+      },
+      onHealth: async event => {
+        if (!healthTelemetry) return;
+        if (event.operation === 'update_install_attempt' && event.version) await healthTelemetry.setPendingVersion(event.version);
+        if (event.operation === 'update_failure' && event.outcome === 'failure') await healthTelemetry.clearPendingVersion();
+        healthTelemetry.report(event);
+        if (event.operation === 'update_install_attempt') await healthTelemetry.flush(300);
       },
       restart: async action => {
         if (!window || window.isDestroyed()) { await action(); return true; }
@@ -137,20 +150,30 @@ else {
       ...createAutomationTelemetrySettingsStore(join(app.getPath('userData'), 'automation-telemetry.json')),
     });
     const telemetrySettings = await automationTelemetry.start();
+    const healthStore = createDesktopHealthSettingsStore(join(app.getPath('userData'), 'health-telemetry.json'));
+    healthTelemetry = createDesktopHealthTelemetry({
+      version: app.getVersion(), packaged: app.isPackaged,
+      isReportingEnabled: () => automationTelemetry.isEnabled(),
+      readSettings: async () => ({ ...await healthStore.readSettings(), enabled: telemetrySettings.enabled }),
+      writeSettings: healthStore.writeSettings,
+    });
+    await healthTelemetry.start();
+    healthReadyResolve();
     const toggleMcp = async enabled => {
       try {
         if (enabled) {
           const reporting = await dialog.showMessageBox(window, {
             type: 'question',
             title: 'Local agent usage reporting',
-            message: automationTelemetry.isEnabled() ? 'Anonymous MCP usage reporting is on.' : 'Anonymous MCP usage reporting is off.',
-            detail: 'PixelWall reports bounded operation totals and outcomes to improve agent support. It does not send artwork, scripts, file paths, agent names, or persistent IDs. You can change this anytime in Help → Share anonymous MCP usage.',
+            message: automationTelemetry.isEnabled() ? 'Anonymous app and MCP usage reporting is on.' : 'Anonymous app and MCP usage reporting is off.',
+            detail: 'PixelWall reports app launches, update outcomes, and bounded MCP operation totals. It does not send artwork, scripts, file paths, agent names, or persistent IDs. You can change this anytime in Help → Share anonymous app and MCP usage.',
             buttons: automationTelemetry.isEnabled() ? ['Continue with reporting on', 'Turn reporting off and continue'] : ['Enable reporting and continue', 'Keep reporting off'],
             defaultId: automationTelemetry.isEnabled() ? 0 : 1,
             cancelId: 1,
           });
-          if (reporting.response === 1) await automationTelemetry.setEnabled(false);
+          if (reporting.response === 1) { await healthTelemetry.setEnabled(false); await automationTelemetry.setEnabled(false); }
           else if (!automationTelemetry.isEnabled()) await automationTelemetry.setEnabled(true);
+          await healthTelemetry.setEnabled(automationTelemetry.isEnabled());
           const picked = await dialog.showOpenDialog(window, { title: 'Choose the local agent export folder', properties: ['openDirectory', 'createDirectory'] });
           if (picked.canceled || !picked.filePaths[0]) { const item = Menu.getApplicationMenu()?.getMenuItemById('pixelwall-local-agent'); if (item) item.checked = false; return; }
           if (mcpBridge) await mcpBridge.stop();
@@ -171,14 +194,16 @@ else {
       try {
         if (enabled) {
           const answer = await dialog.showMessageBox(window, {
-            type: 'question', title: 'Share anonymous MCP usage?',
-            message: 'Help improve PixelWall agent support by sharing anonymous desktop MCP operation totals?',
-            detail: 'PixelWall sends only the operation, result, app version, and limited export or preview categories. It never sends artwork, file paths, content, IDs, agent names, or error text. This is separate from allowing a local agent connection and can be turned off here at any time.',
+            type: 'question', title: 'Share anonymous app and MCP usage?',
+            message: 'Help improve PixelWall by sharing anonymous app health and agent operation totals?',
+            detail: 'PixelWall sends bounded lifecycle categories such as launch and update result, plus MCP operation totals, app version, operating system, and limited export or preview categories. It never sends artwork, file paths, content, IDs, agent names, or error text. This is separate from allowing a local agent connection and can be turned off here at any time.',
             buttons: ['Share anonymous usage', 'Keep disabled'], defaultId: 0, cancelId: 1,
           });
           if (answer.response !== 0) enabled = false;
         }
+        if (!enabled) await healthTelemetry?.setEnabled(false);
         const next = await automationTelemetry.setEnabled(enabled);
+        await healthTelemetry?.setEnabled(next.enabled);
         const item = Menu.getApplicationMenu()?.getMenuItemById('pixelwall-desktop-telemetry'); if (item) item.checked = next.enabled;
       } catch {
         const item = Menu.getApplicationMenu()?.getMenuItemById('pixelwall-desktop-telemetry'); if (item) item.checked = false;
@@ -212,7 +237,7 @@ else {
         });
       },
     })));
-    app.on('will-quit', () => { updater.dispose(); automationTelemetry.dispose(); updateWindow.dispose(); nativeFiles.dispose(); nativeClipboard.dispose(); void mcpBridge?.stop(); });
+    app.on('will-quit', () => { updater.dispose(); automationTelemetry.dispose(); healthTelemetry?.dispose(); updateWindow.dispose(); nativeFiles.dispose(); nativeClipboard.dispose(); void mcpBridge?.stop(); });
   }).catch((error) => { dialog.showErrorBox('PixelWall could not start', error.message); app.quit(); });
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 }

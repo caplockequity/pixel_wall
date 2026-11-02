@@ -1,6 +1,6 @@
 {
   "name": "pixelwall-desktop",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "PixelWall local desktop studio",
   "private": true,
   "type": "module",
@@ -37,6 +37,7 @@
       "mcp-catalog.mjs",
       "mcp-schemas.mjs",
       "automation-telemetry.mjs",
+      "health-telemetry.mjs",
       "clipboard-payload.mjs",
       "app/**/*",
       "package.json"
