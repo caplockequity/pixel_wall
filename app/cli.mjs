@@ -18,6 +18,7 @@ import {diagnoseDesktopConnection} from './cli-doctor.mjs';
 import { verifyOutputFile } from './cli-verification.mjs';
 import { access } from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
+import { announceCliTelemetry, isReportableOperation, reportCliOperation, setTelemetryEnabled, telemetryStatus } from './cli-telemetry.mjs';
 import {readAseprite,writeAseprite,readPng,writePng,importGif,importSequence,importSheet,packAtlas,encodeGif,makeGamePackage,readBmp,writeBmp,readTga,writeTga} from './formats.mjs';
 import {verifyOfflineLicense} from './offline-license.mjs';
 import {PINNED_PUBLIC_KEYS} from './license-public-keys.mjs';
@@ -56,6 +57,9 @@ Frames are zero-based indices or frame IDs. --clip selects a clip by name or ID.
 PNG/BMP/TGA and editable projects are free; GIF, sheet, atlas and ZIP require Pro.
 A signed perpetual license can also be supplied with PIXELWALL_PRO_LICENSE.
 Lua scripts run in a bounded Lua 5.4 worker with supported sprite editing APIs.
+Packaged CLI builds share anonymous operation totals by default; use --no-telemetry,
+--telemetry-status, --telemetry-enable or --telemetry-disable to control this.
+PIXELWALL_TELEMETRY_DISABLED=1 and DO_NOT_TRACK=1 disable reporting.
 Use --out-dir for scripts that edit several projects and image sequences or split GIF jobs.
 Directory exports refuse existing or colliding output filenames. --out and --out-dir are exclusive.
 Export flags apply to every input by default, preserving existing commands.
@@ -211,26 +215,26 @@ async function describeCliPlan(inputs,args,rendering={}){
  return {...summary,outputs,conflicts,overwritePolicy:args['out-dir']?'refuse-existing':'replace-explicit-output',canWrite:summary.canWrite&&!multipleNeedsDirectory&&(!args['out-dir']||conflicts.length===0),...(multipleNeedsDirectory?{reason:'Multiple outputs require --out-dir.'}:{}),freeAlternative:summary.requiredEntitlement==='pro'?'Export explicit PNG frames with --out-dir.':null};
 }
 function framesFor(doc,args,rendering={}){if(args['include-reference-layers']!==true)doc={...doc,layers:doc.layers.map(layer=>layer.type==='reference'?{...layer,visible:false}:layer)};let frames=doc.frames;if(args.clip){const clip=doc.clips.find(c=>c.id===args.clip||c.name===args.clip);if(!clip)fail('Unknown clip.');frames=clip.frameIds.map(id=>doc.frames.find(f=>f.id===id));if(clip.direction==='reverse'||clip.direction==='pingpong_reverse')frames.reverse();if(clip.direction==='pingpong'||clip.direction==='pingpong_reverse')frames=[...frames,...frames.slice(1,-1).reverse()];}if(args.frame!=null){const frame=doc.frames.find(f=>f.id===args.frame)||doc.frames[Number(args.frame)];if(!frame)fail('Unknown frame.');frames=[frame];}const scale=number(args,'scale',1);return frames.map((frame,index)=>({id:frame.id,name:`${doc.name.replace(/[^a-z0-9_-]/gi,'_')}-${String(index+1).padStart(4,'0')}`,...renderScaledExportFrame(doc,frame.id,scale,rendering),durationMs:frame.durationMs}));}
-export async function main(argv=process.argv.slice(2)){
+async function runCli(argv=process.argv.slice(2), telemetryDetails = {}){
  const {args,inputs:inputScopes}=parseCliArguments(argv),[command,input,...rest]=args._;if(!args.file&&input)args.file=input;if(!command||command==='help'||args.help){process.stdout.write(HELP);return;}
  if(command==='commands'){process.stdout.write(JSON.stringify(COMMANDS,null,2)+'\n');return;}
- if(command==='capabilities'){process.stdout.write(JSON.stringify(capabilityReport({interfaceName:'cli',includeSchemas:args.schemas===true}),null,2)+'\n');return;}
+ if(command==='capabilities'){process.stdout.write(JSON.stringify(capabilityReport({cliVersion:process.env.PIXELWALL_CLI_VERSION||'0.1.0',interfaceName:'cli',includeSchemas:args.schemas===true}),null,2)+'\n');return;}
  if(command==='doctor'){
    const folder=args['export-folder']||args['out-dir'];let folderOk=true;
    if(folder){try{folderOk=(await stat(resolve(folder))).isDirectory();await access(resolve(folder),fsConstants.W_OK|fsConstants.X_OK);}catch{folderOk=false;}}
    const [major,minor]=process.versions.node.split('.').map(Number),nodeOk=major>22||(major===22&&minor>=13),entitlement=await entitlementStatus(args);
    const connection=await diagnoseDesktopConnection(args['mcp-config']);
-   const result={ok:folderOk&&nodeOk&&entitlement!=='invalid'&&(!connection.required||connection.status==='connected'),checks:{node:{supported:nodeOk,actual:process.version,minimum:'22.13.0'},exportFolder:{status:folder?(folderOk?'writable':'unavailable'):'not-requested'},entitlement:{status:entitlement,source:'portable-license',desktopEntitlementShared:false},connection},capabilities:capabilityReport({interfaceName:'cli'})};
-   process.stdout.write(JSON.stringify(result,null,2)+'\n');if(!result.ok)process.exitCode=1;return;
+   const result={ok:folderOk&&nodeOk&&entitlement!=='invalid'&&(!connection.required||connection.status==='connected'),checks:{node:{supported:nodeOk,actual:process.version,minimum:'22.13.0'},exportFolder:{status:folder?(folderOk?'writable':'unavailable'):'not-requested'},entitlement:{status:entitlement,source:'portable-license',desktopEntitlementShared:false},connection},capabilities:capabilityReport({cliVersion:process.env.PIXELWALL_CLI_VERSION||'0.1.0',interfaceName:'cli'})};
+   process.stdout.write(JSON.stringify(result,null,2)+'\n');telemetryDetails.outcome=result.ok?'success':'failure';if(!result.ok)process.exitCode=1;return;
  }
- if(command==='new'){const doc=createDocument({width:number(args,'width',32),height:number(args,'height',number(args,'width',32)),name:args.name||'Untitled Sprite',colorMode:args['color-mode']||'rgba',durationMs:number(args,'duration',100)});await saveDocument(required(args,'out'),doc);return;}
- if(command==='import-sequence'){const paths=[input,...rest].filter(Boolean);if(!paths.length)fail('Provide one or more PNG filenames.');const entries=[];for(const path of paths){const result=await readManagedPng(new Uint8Array(await readFile(resolve(path))));warn(result.warnings);entries.push(result);}await saveDocument(required(args,'out'),importSequence(entries,{name:args.name||'Imported sequence',durationMs:number(args,'duration',100)}));return;}
+ if(command==='new'){const doc=createDocument({width:number(args,'width',32),height:number(args,'height',number(args,'width',32)),name:args.name||'Untitled Sprite',colorMode:args['color-mode']||'rgba',durationMs:number(args,'duration',100)});await saveDocument(required(args,'out'),doc);telemetryDetails.wrote_files=true;return;}
+ if(command==='import-sequence'){const paths=[input,...rest].filter(Boolean);if(!paths.length)fail('Provide one or more PNG filenames.');const entries=[];for(const path of paths){const result=await readManagedPng(new Uint8Array(await readFile(resolve(path))));warn(result.warnings);entries.push(result);}await saveDocument(required(args,'out'),importSequence(entries,{name:args.name||'Imported sequence',durationMs:number(args,'duration',100)}));telemetryDetails.wrote_files=true;return;}
  if(command==='plan') { const paths=[input,...rest].filter(Boolean);if(!paths.length)fail('Plan requires at least one input project.');const inputs=[];for(const [index,path]of paths.entries())inputs.push({filename:path,document:await readDocument(path),options:inputScopes[index]?.options,transforms:inputScopes[index]?.transforms});const colorManager=inputs.some(source=>!isSRGB(documentProfile(source.document)))?await loadNodeColorManager():undefined;process.stdout.write(JSON.stringify(await describeCliPlan(inputs,args,{colorManager}),null,2)+'\n');return; }
- if(command==='verify') { const path=args.file||input;if(!path)fail('Verify requires a file path.');process.stdout.write(JSON.stringify(await verifyOutputFile(path),null,2)+'\n');return; }
+ if(command==='verify') { const path=args.file||input;if(!path)fail('Verify requires a file path.');process.stdout.write(JSON.stringify(await verifyOutputFile(path),null,2)+'\n');telemetryDetails.verified=true;return; }
  let doc=await readDocument(input);
  if(command==='inspect'){process.stdout.write(JSON.stringify({...describeDocument(doc),layerDetails:doc.layers,frameDetails:doc.frames.map(f=>({id:f.id,durationMs:f.durationMs,cels:Object.keys(f.cels)})),clips:doc.clips,slices:doc.slices,metadata:doc.metadata},null,2)+'\n');return;}
- if(command==='import'){if(args['frame-width']||args['frame-height']){if(extname(input).toLowerCase()!=='.png')fail('Sheet import requires a PNG image.');doc=importSheet(await readManagedPng(new Uint8Array(await readFile(resolve(input)))),{frameWidth:number(args,'frame-width'),frameHeight:number(args,'frame-height'),margin:number(args,'margin',0),spacing:number(args,'spacing',0),count:number(args,'count'),durationMs:number(args,'duration',100),order:args.order||'row',name:args.name||'Imported sheet'});}await saveDocument(required(args,'out'),doc);return;}
- if(command==='apply'){const data=JSON.parse(await readFile(resolve(required(args,'commands')),'utf8')),commands=Array.isArray(data)?data:data.commands;try{validateCommandManifest(commands);}catch(error){fail(`${error.code||'INVALID_COMMAND'} at ${error.path||'commands'}: ${error.message}`);}for(const cmd of commands)doc=applyCommand(doc,cmd);await saveDocument(required(args,'out'),doc);return;}
+ if(command==='import'){if(args['frame-width']||args['frame-height']){if(extname(input).toLowerCase()!=='.png')fail('Sheet import requires a PNG image.');doc=importSheet(await readManagedPng(new Uint8Array(await readFile(resolve(input)))),{frameWidth:number(args,'frame-width'),frameHeight:number(args,'frame-height'),margin:number(args,'margin',0),spacing:number(args,'spacing',0),count:number(args,'count'),durationMs:number(args,'duration',100),order:args.order||'row',name:args.name||'Imported sheet'});}await saveDocument(required(args,'out'),doc);telemetryDetails.wrote_files=true;return;}
+ if(command==='apply'){const before=JSON.stringify(doc);const data=JSON.parse(await readFile(resolve(required(args,'commands')),'utf8')),commands=Array.isArray(data)?data:data.commands;try{validateCommandManifest(commands);}catch(error){fail(`${error.code||'INVALID_COMMAND'} at ${error.path||'commands'}: ${error.message}`);}for(const cmd of commands)doc=applyCommand(doc,cmd);await saveDocument(required(args,'out'),doc);telemetryDetails.changed=JSON.stringify(doc)!==before;telemetryDetails.wrote_files=true;return;}
  if(command==='script'){
   const scriptPath=resolve(required(args,'script'));
   if(extname(scriptPath).toLowerCase()==='.lua'){
@@ -238,11 +242,12 @@ export async function main(argv=process.argv.slice(2)){
    const changedIds=new Set(result.transactions.map(item=>item.documentId));
    if(args['out-dir']){let index=0;const outputs=[];for(const output of result.documents)if(changedIds.has(output.id)||result.created.some(created=>created.id===output.id)){const name=output.name.replace(/[^a-z0-9_-]/gi,'_')||'sprite';outputs.push({path:joinPath(required(args,'out-dir'),`${String(++index).padStart(3,'0')}-${name}.pixelwall`),data:jsonBytes(normalizeDocument(output))});}await writeOutputs(outputs,{exclusive:true});}
    else{if([...changedIds].some(id=>id!==result.document?.id))fail('The script edited multiple projects. Supply --out-dir to save every result.');if(!result.document)fail('The Lua script returned no active sprite.');await saveDocument(required(args,'out'),result.document);}
+   telemetryDetails.changed=changedIds.size>0 || result.created.length>0;telemetryDetails.wrote_files=args['out-dir'] ? result.documents.some(output => changedIds.has(output.id) || result.created.some(created => created.id===output.id)) : true;
    for(const line of result.prints)process.stderr.write(line+'\n');return;
   }
-  const scriptModule=await import(pathToFileURL(scriptPath).href);if(typeof scriptModule.default!=='function')fail('Script must export a default function.');const context={get document(){return structuredClone(doc);},apply(command){doc=applyCommand(doc,command);return structuredClone(doc);},commands:COMMANDS};const result=await scriptModule.default(context);if(result!=null)doc=normalizeDocument(result);await saveDocument(required(args,'out'),doc);return;}
- if(command==='profile'){if(args.assign&&args.convert)fail('Choose either --assign or --convert.');const manager=await loadNodeColorManager(),file=args.assign||args.convert;if(!file||file===true)fail('Supply --assign or --convert with sRGB or an ICC filename.');const target=file==='sRGB'?'sRGB':manager.readProfile(new Uint8Array(await readFile(resolve(file))));doc=args.assign?manager.assignProfile(doc,target):manager.convertDocument(doc,target,{intent:number(args,'intent',1)});await saveDocument(required(args,'out'),doc);return;}
- if(command==='render'){const colorManager=isSRGB(documentProfile(doc))?undefined:await loadNodeColorManager();const [entry]=framesFor(doc,{...args,frame:args.frame??'0'},{colorManager,intent:number(args,'intent',1)});await atomicWrite(required(args,'out'),writePng(entry.width,entry.height,entry.rgba));return;}
+  const before=JSON.stringify(doc);const scriptModule=await import(pathToFileURL(scriptPath).href);if(typeof scriptModule.default!=='function')fail('Script must export a default function.');const context={get document(){return structuredClone(doc);},apply(command){doc=applyCommand(doc,command);return structuredClone(doc);},commands:COMMANDS};const result=await scriptModule.default(context);if(result!=null)doc=normalizeDocument(result);await saveDocument(required(args,'out'),doc);telemetryDetails.changed=JSON.stringify(doc)!==before;telemetryDetails.wrote_files=true;return;}
+ if(command==='profile'){if(args.assign&&args.convert)fail('Choose either --assign or --convert.');const before=JSON.stringify(doc);const manager=await loadNodeColorManager(),file=args.assign||args.convert;if(!file||file===true)fail('Supply --assign or --convert with sRGB or an ICC filename.');const target=file==='sRGB'?'sRGB':manager.readProfile(new Uint8Array(await readFile(resolve(file))));doc=args.assign?manager.assignProfile(doc,target):manager.convertDocument(doc,target,{intent:number(args,'intent',1)});await saveDocument(required(args,'out'),doc);telemetryDetails.changed=JSON.stringify(doc)!==before;telemetryDetails.wrote_files=true;return;}
+ if(command==='render'){const colorManager=isSRGB(documentProfile(doc))?undefined:await loadNodeColorManager();const [entry]=framesFor(doc,{...args,frame:args.frame??'0'},{colorManager,intent:number(args,'intent',1)});await atomicWrite(required(args,'out'),writePng(entry.width,entry.height,entry.rgba));telemetryDetails.wrote_files=true;return;}
  if(command==='export'){
   const format=required(args,'format').toLowerCase(),paths=[input,...rest],outDir=args['out-dir']?required(args,'out-dir'):null;
   if(!['ase','aseprite','pixelwall','json','png','bmp','tga','gif','sheet','atlas','zip'].includes(format))fail(`Unknown export format ${format}.`);
@@ -254,18 +259,39 @@ export async function main(argv=process.argv.slice(2)){
   if(['ase','aseprite','pixelwall','json'].includes(format)){
    const editable=editableExportPlan(inputs,{...args,format}),extension=editable.extension;
    const outputs=editable.outputs.map((output,index)=>({path:output.path,data:extension==='aseprite'?writeAseprite(inputs[index].document):format==='json'?jsonBytes(inputs[index].document):encodeProjectContainer(inputs[index].document)}));
-   await writeOutputs(outputs,{exclusive:!!outDir,verify:args.verify});return;
+   await writeOutputs(outputs,{exclusive:!!outDir,verify:args.verify});telemetryDetails.wrote_files=outputs.length>0;telemetryDetails.verified=outputs.length>0&&args.verify===true;return;
   }
   const colorManager=inputs.some(source=>!isSRGB(documentProfile(source.document)))?await loadNodeColorManager():undefined;
   const {plan,outputs}=buildCliExportOutputs(inputs,{...args,format},{colorManager,intent:number(args,'intent',1)});
   if(['png','bmp','tga','gif'].includes(format)){
    if(!outDir&&(outputs.length>1||(format==='gif'&&(inputs.some(source=>['split-layers','split-tags','split-slices'].some(key=>source.options?.[key]??args[key]))||inputs.length>1))))fail('Multiple frames or split animation jobs require --out-dir; no output was written.');
    if(format==='gif')warn(['GIF reduces alpha to binary transparency and quantizes images that exceed 255 opaque colors.']);
-   await writeOutputs(outputs.map(output=>({path:outDir?joinPath(outDir,output.name):out,data:output.data})),{exclusive:!!outDir,verify:args.verify});return;
+   await writeOutputs(outputs.map(output=>({path:outDir?joinPath(outDir,output.name):out,data:output.data})),{exclusive:!!outDir,verify:args.verify});telemetryDetails.wrote_files=outputs.length>0;telemetryDetails.verified=outputs.length>0&&args.verify===true;return;
   }
   const files=outputs.map(output=>({path:output.kind==='metadata'?(args.metadata?required(args,'metadata'):joinPath(dirname(out),basename(out,extname(out))+'.json')):out,data:output.data}));
-  if(plan.entries.length)await writeOutputs(files,{verify:args.verify});return;
+  if(plan.entries.length){await writeOutputs(files,{verify:args.verify});telemetryDetails.wrote_files=true;telemetryDetails.verified=args.verify===true;}return;
  }
  fail(`Unknown command ${command}. Run pixelwall help.`);
+}
+export async function main(argv=process.argv.slice(2)) {
+ const control = argv.filter(value => value.startsWith('--')).some(value => ['--telemetry-status','--telemetry-enable','--telemetry-disable','--no-telemetry'].includes(value.split('=')[0]));
+ if (argv.includes('--telemetry-status')) { process.stdout.write(JSON.stringify(await telemetryStatus(), null, 2) + '\n'); return; }
+ if (argv.includes('--telemetry-enable')) { process.stdout.write(JSON.stringify(await setTelemetryEnabled(true), null, 2) + '\n'); return; }
+ if (argv.includes('--telemetry-disable')) { process.stdout.write(JSON.stringify(await setTelemetryEnabled(false), null, 2) + '\n'); return; }
+ if (argv[0] === 'telemetry' && ['status', 'enable', 'disable'].includes(argv[1])) {
+   const status = argv[1] === 'status' ? await telemetryStatus() : await setTelemetryEnabled(argv[1] === 'enable');
+   process.stdout.write(JSON.stringify(status, null, 2) + '\n'); return;
+ }
+ const details = {}, started = Date.now(), parsed = parseCliArguments(argv), command = parsed.args._[0], operation = command === 'import-sequence' ? 'import_sequence' : command, helpRequested = !command || command === 'help' || parsed.args.help === true;
+ if (!helpRequested && !argv.includes('--no-telemetry') && isReportableOperation(operation)) await announceCliTelemetry();
+ let outcome = 'success';
+ try { await runCli(argv, details); } catch (caught) { outcome = /license|permission|blocked|requires pro/i.test(caught?.message || '') ? 'blocked' : 'failure'; throw caught; }
+ finally {
+   if (!helpRequested && !control && isReportableOperation(operation)) {
+     const formatArg = parsed.args.format;
+     const format = operation === 'export' ? (typeof formatArg === 'string' ? formatArg.toLowerCase() : undefined) : operation === 'render' ? 'png' : undefined;
+     await reportCliOperation({ operation, outcome: details.outcome || outcome, format, ...details, durationMs: Date.now() - started });
+   }
+ }
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(realpathSync(resolve(process.argv[1]))).href)main().catch(error=>{process.stderr.write(`PixelWall: ${error.message}\n`);process.exitCode=1;});

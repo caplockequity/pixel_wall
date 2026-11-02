@@ -139,6 +139,17 @@ else {
     const toggleMcp = async enabled => {
       try {
         if (enabled) {
+          const reporting = await dialog.showMessageBox(window, {
+            type: 'question',
+            title: 'Local agent usage reporting',
+            message: automationTelemetry.isEnabled() ? 'Anonymous MCP usage reporting is on.' : 'Anonymous MCP usage reporting is off.',
+            detail: 'PixelWall reports bounded operation totals and outcomes to improve agent support. It does not send artwork, scripts, file paths, agent names, or persistent IDs. You can change this anytime in Help → Share anonymous MCP usage.',
+            buttons: automationTelemetry.isEnabled() ? ['Continue with reporting on', 'Turn reporting off and continue'] : ['Enable reporting and continue', 'Keep reporting off'],
+            defaultId: automationTelemetry.isEnabled() ? 0 : 1,
+            cancelId: 1,
+          });
+          if (reporting.response === 1) await automationTelemetry.setEnabled(false);
+          else if (!automationTelemetry.isEnabled()) await automationTelemetry.setEnabled(true);
           const picked = await dialog.showOpenDialog(window, { title: 'Choose the local agent export folder', properties: ['openDirectory', 'createDirectory'] });
           if (picked.canceled || !picked.filePaths[0]) { const item = Menu.getApplicationMenu()?.getMenuItemById('pixelwall-local-agent'); if (item) item.checked = false; return; }
           if (mcpBridge) await mcpBridge.stop();

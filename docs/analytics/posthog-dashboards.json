@@ -1802,8 +1802,8 @@
         },
         {
           "key": "agent-desktop-delivery",
-          "name": "Desktop MCP edits, exports and verified saves",
-          "description": "Separate action counts: changed artwork, generated exports, and save_artifact after hash and disk verification. These totals are not a linked funnel or conversion rate. Exports and saves can be repeated.",
+          "name": "Desktop MCP edits, exports, verified saves and failures",
+          "description": "Separate action counts: changed artwork, generated exports, save_artifact after hash and disk verification, and failed or blocked operations. These totals are not a linked funnel or conversion rate. Exports and saves can be repeated.",
           "query": {
             "kind": "InsightVizNode",
             "source": {
@@ -1919,6 +1919,25 @@
                       "operator": "exact",
                       "value": [
                         "success"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EventsNode",
+                  "event": "desktop_automation_counted",
+                  "custom_name": "Failures",
+                  "math": "total",
+                  "properties": [
+                    {
+                      "type": "event",
+                      "key": "outcome",
+                      "operator": "exact",
+                      "value": [
+                        "failure",
+                        "blocked",
+                        "cancelled",
+                        "missing"
                       ]
                     }
                   ]
@@ -2056,6 +2075,143 @@
             "analytics-v2",
             "agent-automation"
           ]
+        },
+        {
+          "key": "agent-cli-operations",
+          "name": "CLI operations by type",
+          "description": "Reported packaged-CLI operation counts by operation. These are operation totals, not unique users, sessions or verified agents; coverage begins with the CLI telemetry release and has no historical backfill.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+              { "type": "event", "key": "surface", "operator": "exact", "value": ["cli"] }
+            ],
+            "series": [{ "kind": "EventsNode", "event": "cli_usage_counted", "custom_name": "CLI operations", "math": "total" }],
+            "trendsFilter": { "display": "ActionsLineGraph" },
+            "breakdownFilter": { "breakdown": "operation", "breakdown_type": "event", "breakdown_limit": 20 }
+          }},
+          "tags": ["pixelwall", "analytics-v2", "agent-automation"]
+        },
+        {
+          "key": "agent-cli-outcomes",
+          "name": "CLI operation outcomes",
+          "description": "Reported packaged-CLI outcomes by success, failure or blocked result. Counts are actions, not unique users or retention.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+              { "type": "event", "key": "surface", "operator": "exact", "value": ["cli"] }
+            ],
+            "series": [{ "kind": "EventsNode", "event": "cli_usage_counted", "custom_name": "CLI outcomes", "math": "total" }],
+            "trendsFilter": { "display": "ActionsLineGraph" },
+            "breakdownFilter": { "breakdown": "outcome", "breakdown_type": "event", "breakdown_limit": 6 }
+          }},
+          "tags": ["pixelwall", "analytics-v2", "agent-automation"]
+        },
+        {
+          "key": "agent-cli-completed-work",
+          "name": "CLI completed file work",
+          "description": "Separate packaged-CLI signals for changed edits, written export/render outputs, and verified exports. These are operation totals; verified exports overlap written outputs. They do not identify users or installations.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+              { "type": "event", "key": "surface", "operator": "exact", "value": ["cli"] }
+            ],
+            "series": [
+              { "kind": "EventsNode", "event": "cli_usage_counted", "custom_name": "Changed edits", "math": "total", "properties": [
+                { "type": "event", "key": "operation", "operator": "exact", "value": ["apply", "script", "profile"] },
+                { "type": "event", "key": "outcome", "operator": "exact", "value": ["success"] },
+                { "type": "event", "key": "changed", "operator": "exact", "value": [true] }
+              ] },
+              { "kind": "EventsNode", "event": "cli_usage_counted", "custom_name": "Written exports and renders", "math": "total", "properties": [
+                { "type": "event", "key": "operation", "operator": "exact", "value": ["export", "render"] },
+                { "type": "event", "key": "outcome", "operator": "exact", "value": ["success"] },
+                { "type": "event", "key": "wrote_files", "operator": "exact", "value": [true] }
+              ] },
+              { "kind": "EventsNode", "event": "cli_usage_counted", "custom_name": "Verified exports", "math": "total", "properties": [
+                { "type": "event", "key": "operation", "operator": "exact", "value": ["export"] },
+                { "type": "event", "key": "outcome", "operator": "exact", "value": ["success"] },
+                { "type": "event", "key": "verified", "operator": "exact", "value": [true] }
+              ] }
+            ],
+            "trendsFilter": { "display": "ActionsLineGraph", "showLegend": true }
+          }},
+          "tags": ["pixelwall", "analytics-v2", "agent-automation"]
+        },
+        {
+          "key": "agent-cli-reporting-days",
+          "name": "CLI reporting days",
+          "description": "First versus returning local installation-day labels from packaged CLI reports. Resets, reinstalls, offline work and multiple machines can change the counts; this is not DAU or retention.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+              { "type": "event", "key": "surface", "operator": "exact", "value": ["cli"] },
+              { "type": "event", "key": "usage_day", "operator": "exact", "value": ["first", "returning"] }
+            ],
+            "series": [{ "kind": "EventsNode", "event": "cli_usage_counted", "custom_name": "CLI reporting days", "math": "total" }],
+            "trendsFilter": { "display": "ActionsLineGraph" },
+            "breakdownFilter": { "breakdown": "usage_day", "breakdown_type": "event", "breakdown_limit": 2 }
+          }},
+          "tags": ["pixelwall", "analytics-v2", "agent-automation"]
+        },
+        {
+          "key": "agent-cli-version",
+          "name": "CLI reports by app version",
+          "description": "Packaged CLI reports split by the bounded app_version field. These are reported actions; missing versions do not imply missing users.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+              { "type": "event", "key": "surface", "operator": "exact", "value": ["cli"] }
+            ],
+            "series": [{ "kind": "EventsNode", "event": "cli_usage_counted", "custom_name": "CLI reports", "math": "total" }],
+            "trendsFilter": { "display": "ActionsLineGraph", "showLegend": true },
+            "breakdownFilter": { "breakdown": "app_version", "breakdown_type": "event", "breakdown_limit": 12 }
+          }},
+          "tags": ["pixelwall", "analytics-v2", "agent-automation"]
+        },
+        {
+          "key": "agent-cli-format",
+          "name": "CLI reports by format",
+          "description": "Packaged CLI reports split by bounded output format, excluding operations without a format. These are reported actions, not completed downloads or unique users.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+              { "type": "event", "key": "surface", "operator": "exact", "value": ["cli"] },
+              { "type": "event", "key": "format", "operator": "exact", "value": ["png", "bmp", "tga", "gif", "sheet", "atlas", "zip", "ase", "aseprite", "pixelwall", "json"] }
+            ],
+            "series": [{ "kind": "EventsNode", "event": "cli_usage_counted", "custom_name": "CLI reports", "math": "total" }],
+            "trendsFilter": { "display": "ActionsLineGraph", "showLegend": true },
+            "breakdownFilter": { "breakdown": "format", "breakdown_type": "event", "breakdown_limit": 12 }
+          }},
+          "tags": ["pixelwall", "analytics-v2", "agent-automation"]
+        },
+        {
+          "key": "agent-mcp-reporting-days",
+          "name": "Desktop MCP reporting days",
+          "description": "First versus returning local installation-day labels from desktop MCP reports. This is a reporting signal, not unique users, DAU, retention or a linked CLI-to-MCP funnel.",
+          "query": { "kind": "InsightVizNode", "source": {
+            "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
+            "properties": [
+              { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
+              { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
+              { "type": "event", "key": "surface", "operator": "exact", "value": ["desktop_mcp"] },
+              { "type": "event", "key": "usage_day", "operator": "exact", "value": ["first", "returning"] }
+            ],
+            "series": [{ "kind": "EventsNode", "event": "desktop_automation_counted", "custom_name": "MCP reporting days", "math": "total" }],
+            "trendsFilter": { "display": "ActionsLineGraph" },
+            "breakdownFilter": { "breakdown": "usage_day", "breakdown_type": "event", "breakdown_limit": 2 }
+          }},
+          "tags": ["pixelwall", "analytics-v2", "agent-automation"]
         }
       ]
     },
