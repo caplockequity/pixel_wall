@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "version": "0.6.4",
+  "publishedAt": "2026-11-02",
+  "releaseNotesUrl": "https://www.pixelwall.dev/downloads#release-0-6-4",
+  "releaseNotes": [
+    "Added anonymous desktop launch and update-health reports so downloaded updates, install attempts, and an editor opening on the expected version remain distinct.",
+    "App health and MCP reporting share the Help menu reporting control. Existing opt-outs stay off; no artwork, paths, emails, or persistent identifiers are sent.",
+    "Reporting failures never stop an update, and turning reporting off takes effect immediately. Earlier activity is not backfilled."
+  ],
+  "downloads": {
+    "darwin-arm64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.4/PixelWall-0.6.4-mac-arm64.zip",
+      "filename": "PixelWall-0.6.4-mac-arm64.zip",
+      "signed": true,
+      "size": 114797177,
+      "sha256": "19eea1f768161e7b71bab87a99a082e0c2bcd4d61af5985014326b394fb45fa5",
+      "notarized": true
+    },
+    "darwin-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.4/PixelWall-0.6.4-mac-x64.zip",
+      "filename": "PixelWall-0.6.4-mac-x64.zip",
+      "signed": true,
+      "size": 121546014,
+      "sha256": "b7678a9de0798127007c1c189a47161775b2eb4b88481302ba1832a64f16c322",
+      "notarized": true
+    },
+    "win32-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.4/PixelWall-0.6.4-windows-x64.exe",
+      "filename": "PixelWall-0.6.4-windows-x64.exe",
+      "signed": false,
+      "size": 95202645,
+      "sha256": "61f2429d2750c4d3bd4b4207ece775d79e32de74fa1be9f4a3d31d062759ebb4"
+    },
+    "linux-x64": {
+      "url": "https://www.pixelwall.dev/downloads/desktop/0.6.4/PixelWall-0.6.4-linux-x64.AppImage",
+      "filename": "PixelWall-0.6.4-linux-x64.AppImage",
+      "signed": false,
+      "size": 118420382,
+      "sha256": "525aa3af9416218cc543fea353fc2c5e1b5beb1e7168bb648b8a6a95c04fb2fe"
+    }
+  }
+}

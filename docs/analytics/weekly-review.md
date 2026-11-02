@@ -21,7 +21,7 @@ Check the confirmed PostHog dashboards first. Review activated → export moveme
 
 Use the Vercel Observability notebook only for server-side traffic and request/error context: [PixelWall observability notebook](https://vercel.com/caplock/pixel-wall/observability/notebooks/d19d3cca-91ac-468c-8d17-a17609679bb5). It cannot identify a person or prove that a bot was an AI agent.
 
-Use the verified Stripe scorecard for business numbers. Query the aggregate Checkout-session report from the launch baseline through the last 365 days, then restrict the displayed comparison to the review window. Report paid orders, complimentary orders, refunds, gross amount, refunded amount, and net amount by currency. Checkout starts, dialog views, and entitlement claims remain intent/ownership signals; never call them revenue. Preserve the source currency and mode (live/test). After the aggregate result is verified, update only the identified Business scorecard text tile with the new dated snapshot, cohort bounds, as-of UTC time, and source caveats. Preserve the two copied product-intent insight tiles, dashboard privacy, and all managed markers.
+Use the verified Stripe scorecard for business numbers. Use the connected Stripe definitions in `stripe-scorecard.md`. Query each review-window checkout cohort separately. Refresh a fixed historical cohort (partition into intervals of at most 366 days for the local API tool) to catch changes to old orders, and query successful refunds by refund-created date for each review window. Do not treat current cumulative refunds on a checkout-created cohort as refunds issued that week. Report paid orders, complimentary orders, refunds, gross amount, refunded amount, and net amount by currency. Checkout starts, dialog views, and entitlement claims remain intent/ownership signals; never call them revenue. Preserve the source currency and mode (live/test). After the aggregate result is verified, update only the identified Business scorecard text tile with the new dated snapshot, cohort bounds, as-of UTC time, and source caveats. Preserve the two copied product-intent insight tiles, dashboard privacy, and all managed markers.
 
 The current baseline artifact is stored outside the repository at `/Volumes/DevStorage/Builds/pixelart/scorecard-health-20261102.json`. Keep the next dated aggregate report beside it; do not put customer email, Stripe IDs, payment intents, or raw checkout payloads in the artifact.
 
@@ -31,11 +31,12 @@ Notify only when one of these gates is met:
 
 - A count changes by at least 5 events and at least 25% from the preceding period.
 - A conversion rate changes by at least 10 percentage points with at least 20 events in each denominator.
-- A failure rate changes by at least 10 percentage points with at least 20 attempts in each denominator.
+- A browser/export failure rate changes by at least 10 percentage points with at least 20 attempts in each denominator. Desktop update failures remain categorized counts; do not derive a rate from unmatched download/install attempts.
 - Native reporting-day coverage changes by at least 5 reporting days.
-- A verified purchase, refund, or net-revenue amount changes.
+- A verified purchase, refund, or receipts-after-refunds amount changes.
+- The first non-test native changed edit or successful export is observed after its tracking cutover; report once as a reported operation, not proof of an AI agent or independent customer.
 
-For a denominator below the minimum, show the counts and label the percentage as low-volume; do not describe a large percentage as a dramatic trend. If no gate is met, leave the review quiet.
+With a zero prior count, use the absolute count gate and do not calculate percentage growth. For a denominator below the minimum, show the counts and label the percentage as low-volume; do not describe a large percentage as a dramatic trend. If no gate is met, leave the review quiet.
 
 ## Output
 

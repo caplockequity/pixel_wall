@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "verified_with_pending_health_queries",
+  "status": "verified_dashboard_registry",
   "project_id": 333211,
   "project_id_status": "verified",
   "last_checked": "2026-11-02",
@@ -27,7 +27,12 @@
       "status": "verified",
       "last_checked": "2026-11-02",
       "catalog_source": "docs/analytics/posthog-dashboards.json",
-      "query_keys": ["public-browser-reach", "public-pages", "workflow-pageviews", "aggregate-traffic"]
+      "query_keys": [
+        "public-browser-reach",
+        "public-pages",
+        "workflow-pageviews",
+        "aggregate-traffic"
+      ]
     },
     {
       "key": "product-signals",
@@ -36,7 +41,11 @@
       "status": "verified",
       "last_checked": "2026-11-02",
       "catalog_source": "docs/analytics/posthog-dashboards.json",
-      "query_keys": ["aggregate-creation-export-success", "optional-homepage-demo-funnel", "optional-tracing-editor-export-funnel"]
+      "query_keys": [
+        "aggregate-creation-export-success",
+        "optional-homepage-demo-funnel",
+        "optional-tracing-editor-export-funnel"
+      ]
     },
     {
       "key": "editor-value",
@@ -45,7 +54,11 @@
       "status": "verified",
       "last_checked": "2026-11-02",
       "catalog_source": "docs/analytics/posthog-dashboards.json",
-      "query_keys": ["editor-browser-loads", "workbench-activation", "export-results"]
+      "query_keys": [
+        "editor-browser-loads",
+        "workbench-activation",
+        "export-results"
+      ]
     },
     {
       "key": "pro-reliability",
@@ -54,7 +67,11 @@
       "status": "verified",
       "last_checked": "2026-11-02",
       "catalog_source": "docs/analytics/posthog-dashboards.json",
-      "query_keys": ["pro-purchase-funnel", "checkout-operation-funnel", "verified-entitlements"]
+      "query_keys": [
+        "pro-purchase-funnel",
+        "checkout-operation-funnel",
+        "verified-entitlements"
+      ]
     },
     {
       "key": "desktop-health",
@@ -63,12 +80,35 @@
       "status": "verified",
       "last_checked": "2026-11-02",
       "catalog_source": "docs/analytics/posthog-dashboards.json",
-      "query_keys": ["desktop-health-operations", "desktop-health-outcomes", "desktop-health-launch-kind"],
+      "query_keys": [
+        "desktop-health-operations",
+        "desktop-health-outcomes",
+        "desktop-health-launch-kind"
+      ],
       "insights": {
-        "desktop-health-operations": { "id": 13593239, "short_id": "wkCsF9Vi", "verified": true },
-        "desktop-health-outcomes": { "id": 13593250, "short_id": "Hc6i6YPt", "verified": true },
-        "desktop-health-launch-kind": { "id": 13593251, "short_id": "Gpepk9V6", "verified": true }
-      }
+        "desktop-health-operations": {
+          "id": 13593239,
+          "short_id": "wkCsF9Vi",
+          "verified": true
+        },
+        "desktop-health-outcomes": {
+          "id": 13593250,
+          "short_id": "Hc6i6YPt",
+          "verified": true,
+          "filters": { "surface": "health", "operation": "update_failure", "outcome": "failure" },
+          "breakdown": "failure_category",
+          "breakdown_limit": 4,
+          "categories": ["download", "install", "restart", "unknown"]
+        },
+        "desktop-health-launch-kind": {
+          "id": 13593251,
+          "short_id": "Gpepk9V6",
+          "verified": true,
+          "breakdown_limit": 4,
+          "launch_kinds": ["first", "same_version", "version_changed", "after_update"]
+        }
+      },
+      "last_query_sync_proof": "/Volumes/DevStorage/Builds/pixelart/analytics-monitor/desktop-health-sync-2026-11-02.json"
     },
     {
       "key": "business-scorecard",
@@ -77,10 +117,36 @@
       "status": "verified",
       "last_checked": "2026-11-02",
       "catalog_source": "docs/analytics/posthog-dashboards.json",
-      "query_keys": ["aggregate-pro-restrictions", "aggregate-live-checkout-interest"],
-      "snapshot_text_tile": { "tile_id": 14688228, "text_id": 1441641, "update_scope": "this tile only" },
-      "snapshot": { "cohort_from": "2025-11-03T00:00:00Z", "cohort_to": "2026-11-03T00:00:00Z", "as_of": "2026-11-02T20:17:00Z", "paid_orders": 0, "complimentary_completed_sessions": 3, "ordinary_unpaid_or_unfinished": 4, "successful_refunds": 0, "gross_paid_usd": 0, "refunded_usd": 0, "net_paid_usd": 0 }
+      "query_keys": [
+        "aggregate-pro-restrictions",
+        "aggregate-live-checkout-interest"
+      ],
+      "snapshot_text_tile": {
+        "tile_id": 14688228,
+        "text_id": 1441641,
+        "update_scope": "this tile only"
+      },
+      "snapshot": {
+        "cohort_from": "2025-11-03T00:00:00Z",
+        "cohort_to": "2026-11-03T00:00:00Z",
+        "as_of": "2026-11-02T20:17:00Z",
+        "paid_orders": 0,
+        "complimentary_completed_sessions": 3,
+        "ordinary_unpaid_or_unfinished": 4,
+        "successful_refunds": 0,
+        "gross_paid_usd": 0,
+        "refunded_usd": 0,
+        "net_paid_usd": 0
+      }
     }
   ],
-  "recheck_instructions": "With an authenticated PostHog session, verify project and dashboard IDs, validate each query, inspect rendered results, then fill IDs/URLs and set last_checked. Do not infer IDs from local keys or create historical events to populate empty charts."
+  "recheck_instructions": "With an authenticated PostHog session, verify project and dashboard IDs, validate each query, inspect rendered results, then fill IDs/URLs and set last_checked. Do not infer IDs from local keys or create historical events to populate empty charts.",
+  "monitor": {
+    "id": "pixelwall-weekly-signals",
+    "status": "ACTIVE",
+    "schedule": "Mondays at 09:00 America/Denver",
+    "destination": "current Codex chat",
+    "created_at": "2026-11-02",
+    "requires": "Mac online and Codex app running; connected PostHog and Stripe access"
+  }
 }

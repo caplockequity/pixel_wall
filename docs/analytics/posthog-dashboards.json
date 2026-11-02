@@ -2274,7 +2274,7 @@
         {
           "key": "desktop-health-operations",
           "name": "Desktop health operations",
-          "description": "Launches and updater lifecycle operations by operation and outcome.",
+          "description": "Launches and updater lifecycle operations by operation. Outcomes are represented by the separate failure chart; counts are operations, not users or installations.",
           "query": { "kind": "InsightVizNode", "source": {
             "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
             "properties": [
@@ -2291,18 +2291,19 @@
         {
           "key": "desktop-health-outcomes",
           "name": "Desktop update failures by category",
-          "description": "Updater failure categories are download, verification, install, restart, or unknown. The chart filters outcome=failure and excludes cancelled operations. This is a failure report count, not a failure rate until divided by update attempts in the same complete UTC-day window.",
+          "description": "Updater failure categories are download, install, restart, or unknown. The chart filters outcome=failure and excludes cancelled operations. Do not derive a reliable failure rate from this chart alone because download and install attempts can be unmatched.",
           "query": { "kind": "InsightVizNode", "source": {
             "kind": "TrendsQuery", "dateRange": { "date_from": "-30d" }, "interval": "day",
             "properties": [
               { "type": "event", "key": "analytics_schema_version", "operator": "exact", "value": ["2"] },
               { "type": "event", "key": "environment", "operator": "exact", "value": ["production"] },
               { "type": "event", "key": "surface", "operator": "exact", "value": ["health"] },
-              { "type": "event", "key": "operation", "operator": "exact", "value": ["update_failure"] }
+              { "type": "event", "key": "operation", "operator": "exact", "value": ["update_failure"] },
+              { "type": "event", "key": "outcome", "operator": "exact", "value": ["failure"] }
             ],
             "series": [{ "kind": "EventsNode", "event": "desktop_app_health_counted", "custom_name": "Update failures", "math": "total" }],
             "trendsFilter": { "display": "ActionsLineGraph", "showLegend": true },
-            "breakdownFilter": { "breakdown": "failure_category", "breakdown_type": "event", "breakdown_limit": 5 }
+            "breakdownFilter": { "breakdown": "failure_category", "breakdown_type": "event", "breakdown_limit": 4 }
           }},
           "tags": ["pixelwall", "analytics-v2", "desktop-health"]
         },
@@ -2320,7 +2321,7 @@
             ],
             "series": [{ "kind": "EventsNode", "event": "desktop_app_health_counted", "custom_name": "Desktop launches", "math": "total" }],
             "trendsFilter": { "display": "ActionsLineGraph", "showLegend": true },
-            "breakdownFilter": { "breakdown": "launch_kind", "breakdown_type": "event", "breakdown_limit": 3 }
+            "breakdownFilter": { "breakdown": "launch_kind", "breakdown_type": "event", "breakdown_limit": 4 }
           }},
           "tags": ["pixelwall", "analytics-v2", "desktop-health"]
         }
